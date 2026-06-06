@@ -1,0 +1,48 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM/
+ARM64/
+bld/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.rsuser
+*.DotSettings.user
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+project.lock.json
+project.fragment.lock.json
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Publish output
+publish/
+
+# Local wslc SDK artifacts (built from source, not committed)
+artifacts/
+
+# Bluecurve theme staged into the build context from the submodule
+container/.bluecurve/
+
+# Logs and temp
+*.log
+[Ll]ogs/
+
+# Other
+writing_style.md
+*.lock

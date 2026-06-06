@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- System default GTK theme, icons, and fonts: Bluecurve, the classic
+     Red Hat look, recreated by neeeeow (github.com/neeeeow/Bluecurve). -->
+<channel name="xsettings" version="1.0">
+  <property name="Net" type="empty">
+    <property name="ThemeName" type="string" value="Bluecurve"/>
+    <property name="IconThemeName" type="string" value="Bluecurve"/>
+  </property>
+  <property name="Gtk" type="empty">
+    <property name="FontName" type="string" value="Luxi Sans 10"/>
+    <property name="MonospaceFontName" type="string" value="Luxi Mono 10"/>
+    <!-- GTK disables menu and button icons by default; the classic look
+         wants them everywhere. -->
+    <property name="MenuImages" type="bool" value="true"/>
+    <property name="ButtonImages" type="bool" value="true"/>
+  </property>
+</channel>

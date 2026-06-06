@@ -1,0 +1,10 @@
+# Files that end up inside the Linux container image must stay LF.
+# CRLF in a shebang line breaks exec ("no such file or directory").
+*.sh text eol=lf
+container/** text eol=lf
+container/*.repo text eol=lf
+Dockerfile text eol=lf
+
+# Images are binary wherever they live.
+*.png binary
+*.ico binary

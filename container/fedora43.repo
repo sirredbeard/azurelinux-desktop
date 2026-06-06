@@ -1,0 +1,69 @@
+[fedora43]
+name=Fedora 43 - $basearch
+baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/$basearch/os/
+enabled=1
+gpgcheck=1
+gpgkey=https://src.fedoraproject.org/rpms/fedora-repos/raw/rawhide/f/RPM-GPG-KEY-fedora-43-primary
+metadata_expire=7d
+priority=80
+# Exact dependency closure of the Dockerfile's dnf5 install line, resolved
+# with Azure Linux preferred for every package it provides. Regenerate with
+# the probe Dockerfile (same install, --assumeno, no includepkgs,
+# priority=999) and keep the fedora43 rows.
+includepkgs=adwaita-mono-fonts adwaita-sans-fonts desktop-backgrounds-compat elementary-xfce-icon-theme epiphany \
+            epiphany-runtime exo f43-backgrounds-base faad2-libs fdk-aac-free flite garcon \
+            bubblewrap gcr-libs gdk-pixbuf2 gdk-pixbuf2-modules-extra geoclue2 \
+            glycin-libs glycin-loaders gnome-icon-theme gtk-update-icon-cache \
+            librsvg2 librsvg2-tools \
+            gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-libs gstreamer1-plugins-good \
+            gtk-layer-shell gtk4 gtkmm4.0 gvfs gvfs-client iceauth imlib2 javascriptcoregtk6.0 \
+            keybinder3 libadwaita libaom libavcodec-free libavformat-free libavif libavutil-free \
+            libbluray libcamera libcamera-ipa libcanberra libcanberra-gtk3 libcdio-paranoia \
+            libchromaprint libcue libdav1d libdbusmenu libdbusmenu-gtk3 libheif libimobiledevice \
+            libimobiledevice-glue libopenmpt libplist libportal libportal-gtk4 libswresample-free \
+            libudfread libusbmuxd libv4l libwnck3 libxfce4ui libxfce4util libxfce4windowing \
+            libxklavier libXpresent localsearch low-memory-monitor nilfs-utils \
+            ntfs-3g-system-compression openal-soft opus pavucontrol pipewire pipewire-alsa \
+            pipewire-devel pipewire-utils pulseaudio-utils pipewire-jack-audio-connection-kit pipewire-jack-audio-connection-kit-libs \
+            pipewire-libs pipewire-plugin-libcamera pipewire-pulseaudio pulseaudio-libs \
+            pulseaudio-libs-glib2 qrencode-libs rav1e-libs redhat-menus rtkit selinux-policy \
+            selinux-policy-targeted setxkbmap soundtouch svt-av1-libs taglib Thunar \
+            tigervnc-license tigervnc-selinux tigervnc-server-common tigervnc-x11-server \
+            totem-pl-parser tumbler udftools upower upower-libs usbmuxd wavpack webkitgtk6.0 \
+            webrtc-audio-processing wireplumber wireplumber-libs xdg-desktop-portal \
+            xdg-desktop-portal-gtk xfce-polkit xfce4-appfinder xfce4-panel xfce4-pulseaudio-plugin xfce4-session \
+            xfce4-settings xfce4-terminal xfconf xfdesktop xfwm4 xhost xorg-x11-xauth \
+            xorg-x11-xinit xrdp xrdp-selinux xset
+
+[fedora43-updates]
+name=Fedora 43 Updates - $basearch
+baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/43/Everything/$basearch/
+enabled=1
+gpgcheck=1
+gpgkey=https://src.fedoraproject.org/rpms/fedora-repos/raw/rawhide/f/RPM-GPG-KEY-fedora-43-primary
+metadata_expire=7d
+priority=80
+includepkgs=adwaita-mono-fonts adwaita-sans-fonts desktop-backgrounds-compat elementary-xfce-icon-theme epiphany \
+            epiphany-runtime exo f43-backgrounds-base faad2-libs fdk-aac-free flite garcon \
+            bubblewrap gcr-libs gdk-pixbuf2 gdk-pixbuf2-modules-extra geoclue2 \
+            glycin-libs glycin-loaders gnome-icon-theme gtk-update-icon-cache \
+            librsvg2 librsvg2-tools \
+            gstreamer1-plugins-bad-free gstreamer1-plugins-bad-free-libs gstreamer1-plugins-good \
+            gtk-layer-shell gtk4 gtkmm4.0 gvfs gvfs-client iceauth imlib2 javascriptcoregtk6.0 \
+            keybinder3 libadwaita libaom libavcodec-free libavformat-free libavif libavutil-free \
+            libbluray libcamera libcamera-ipa libcanberra libcanberra-gtk3 libcdio-paranoia \
+            libchromaprint libcue libdav1d libdbusmenu libdbusmenu-gtk3 libheif libimobiledevice \
+            libimobiledevice-glue libopenmpt libplist libportal libportal-gtk4 libswresample-free \
+            libudfread libusbmuxd libv4l libwnck3 libxfce4ui libxfce4util libxfce4windowing \
+            libxklavier libXpresent localsearch low-memory-monitor nilfs-utils \
+            ntfs-3g-system-compression openal-soft opus pavucontrol pipewire pipewire-alsa \
+            pipewire-devel pipewire-utils pulseaudio-utils pipewire-jack-audio-connection-kit pipewire-jack-audio-connection-kit-libs \
+            pipewire-libs pipewire-plugin-libcamera pipewire-pulseaudio pulseaudio-libs \
+            pulseaudio-libs-glib2 qrencode-libs rav1e-libs redhat-menus rtkit selinux-policy \
+            selinux-policy-targeted setxkbmap soundtouch svt-av1-libs taglib Thunar \
+            tigervnc-license tigervnc-selinux tigervnc-server-common tigervnc-x11-server \
+            totem-pl-parser tumbler udftools upower upower-libs usbmuxd wavpack webkitgtk6.0 \
+            webrtc-audio-processing wireplumber wireplumber-libs xdg-desktop-portal \
+            xdg-desktop-portal-gtk xfce-polkit xfce4-appfinder xfce4-panel xfce4-pulseaudio-plugin xfce4-session \
+            xfce4-settings xfce4-terminal xfconf xfdesktop xfwm4 xhost xorg-x11-xauth \
+            xorg-x11-xinit xrdp xrdp-selinux xset

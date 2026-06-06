@@ -1,0 +1,11 @@
+[submodule "external/microsoft-ui-reactor"]
+	path = external/microsoft-ui-reactor
+	url = https://github.com/microsoft/microsoft-ui-reactor.git
+	branch = main
+[submodule "external/WSL"]
+	path = external/WSL
+	url = https://github.com/microsoft/WSL.git
+	branch = master
+[submodule "external/Bluecurve"]
+	path = external/Bluecurve
+	url = https://github.com/neeeeow/Bluecurve.git

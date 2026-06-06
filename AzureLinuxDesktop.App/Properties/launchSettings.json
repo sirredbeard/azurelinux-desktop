@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "AzureLinuxDesktop.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "AzureLinuxDesktop.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

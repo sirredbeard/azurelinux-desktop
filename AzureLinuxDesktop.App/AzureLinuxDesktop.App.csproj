@@ -1,0 +1,122 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <!-- Match the Microsoft.Windows.SDK.NET.Ref version the WSL build pins
+         (external\WSL\packages.config) — wslcsdkcs.dll is compiled against it
+         and an older targeting pack fails with NETSDK1148. -->
+    <WindowsSdkPackageVersion>10.0.26100.81</WindowsSdkPackageVersion>
+    <RootNamespace>AzureLinuxDesktop_App</RootNamespace>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+    <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <!-- WinForms is used only as the AxHost shim for the RDP ActiveX control
+         (mstscax.dll) hosted as a child HWND inside the Reactor RDP window. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Azure Linux logo as the exe/taskbar icon (Assets\AppIcon.ico is
+         generated from Assets\AzureLinuxLogo.png). -->
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <Nullable>enable</Nullable>
+    <!-- The wslc SDK artifacts come from scripts\Build-Wsl.ps1 and are not
+         committed, so the SDK lights up automatically when they exist. A
+         fresh clone builds without them (the app then explains how to get
+         wslc). Override with -p:EnableWslcSdk=true|false if needed. -->
+    <EnableWslcSdk Condition="'$(EnableWslcSdk)' == '' and Exists('..\artifacts\wslc\wslcsdkcs.dll')">true</EnableWslcSdk>
+    <EnableWslcSdk Condition="'$(EnableWslcSdk)' == ''">false</EnableWslcSdk>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\SplashScreen.scale-200.png" />
+    <Content Include="Assets\LockScreenLogo.scale-200.png" />
+    <Content Include="Assets\Square150x150Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-48_altform-lightunplated.png" />
+    <Content Include="Assets\StoreLogo.png" />
+    <!-- Loaded at runtime from AppContext.BaseDirectory: explicit copy
+         metadata so `dotnet publish` ships them too (build output gets
+         Content items copied by the WinUI tooling, publish does not). -->
+    <Content Include="Assets\AppIcon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Azure Linux logo (microsoft/azurelinux, base/comps/azurelinux-logos) for the boot page -->
+    <Content Include="Assets\AzureLinuxLogo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix" />
+  </ItemGroup>
+
+  <!--
+    Microsoft.Windows.SDK.BuildTools.WinApp adds first-class support for
+    `dotnet run` on packaged WinUI apps: it hooks the .NET CLI Run target to
+    register a debug identity via the winapp CLI and launch the app with
+    package identity (AUMID).
+    Set <EnableWinAppRunSupport>false</EnableWinAppRunSupport> in a
+    <PropertyGroup> above to opt out.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.3.2" />
+    <ProjectReference Include="..\external\microsoft-ui-reactor\src\Reactor\Reactor.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(EnableWslcSdk)' == 'true'">
+    <!-- wslcsdkcs.dll is the CsWinRT projection over Microsoft.WSL.Containers.winmd —
+         it is the compile-time reference. Referencing the .winmd directly is not
+         supported on .NET 5+ (NETSDK1130); it only needs to ship beside the exe
+         with the native wslcsdk.dll for runtime activation. -->
+    <Reference Include="wslcsdkcs">
+      <HintPath>..\artifacts\wslc\wslcsdkcs.dll</HintPath>
+    </Reference>
+    <Content Include="..\artifacts\wslc\Microsoft.WSL.Containers.winmd" Link="Microsoft.WSL.Containers.winmd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\artifacts\wslc\wslcsdk.dll" Link="wslcsdk.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(EnableWslcSdk)' == 'true'">
+    <DefineConstants>$(DefineConstants);WSLC_SDK</DefineConstants>
+  </PropertyGroup>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <!-- Publish Properties. ReadyToRun precompiles IL for fast startup. Native
+       AOT and IL trimming are off the table: the RDP surface is a WinForms
+       AxHost wrapping the mstscax ActiveX control, and WinForms plus classic
+       COM interop support neither. -->
+  <PropertyGroup>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+    <PublishTrimmed>False</PublishTrimmed>
+  </PropertyGroup>
+</Project>

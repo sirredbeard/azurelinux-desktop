@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Bluecurve window manager theme and the classic Luxi title bar font. -->
+<channel name="xfwm4" version="1.0">
+  <property name="general" type="empty">
+    <property name="theme" type="string" value="Bluecurve"/>
+    <property name="title_font" type="string" value="Luxi Sans Bold 10"/>
+    <!-- Four workspaces for the classic 2x2 pager. -->
+    <property name="workspace_count" type="int" value="4"/>
+  </property>
+</channel>
