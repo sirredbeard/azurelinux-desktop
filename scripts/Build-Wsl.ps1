@@ -119,8 +119,21 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "cmake configure failed with exit code $LASTEXITCODE." }
 
     Write-Host "Building WSL (this takes 20-45 minutes)..."
-    cmake --build . -- -m
-    if ($LASTEXITCODE -ne 0) { throw "cmake build failed with exit code $LASTEXITCODE." }
+    # WSL compiles with /WX, and MSVC versions disagree about warning C4297
+    # (a destructor assumed noexcept that can throw) in ExecutionContext.cpp:
+    # VS 2026 builds clean, VS 2022 errors out. cl.exe appends the _CL_
+    # environment variable after every command-line flag, so /WX- here always
+    # wins over the /WX baked into WSL's CMAKE_CXX_FLAGS, without patching
+    # the submodule. -nr:false keeps stale MSBuild nodes (spawned before this
+    # variable existed) from compiling without it.
+    $env:_CL_ = "/WX-"
+    try {
+        cmake --build . -- -m -nr:false
+        if ($LASTEXITCODE -ne 0) { throw "cmake build failed with exit code $LASTEXITCODE." }
+    }
+    finally {
+        Remove-Item Env:_CL_ -ErrorAction SilentlyContinue
+    }
 
     if (-not $SkipDeploy) {
         Write-Host "Installing WSL from built MSI..."
