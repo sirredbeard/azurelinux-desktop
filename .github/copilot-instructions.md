@@ -46,9 +46,13 @@ README for the full backstory.
 7. **README.md documents the system, not superlatives.** Focus on what's
    actually included and what packages/components come from Azure Linux
    directly, not package counts or percentages, and not marketing language.
-8. **Prove build fixes locally first.** Reproduce the affected GitHub Actions
-   path in the Fedora Podman build environment before pushing or dispatching
-   another run. Inspect the produced artifact, not just the command exit code.
+8. **Prove product fixes locally first, without turning local emulation into
+   the project.** Reproduce the affected GitHub Actions path in the Fedora
+   Podman build environment before pushing or dispatching another run, then
+   inspect the produced artifact, not just the command exit code. Stop when
+   local validation has demonstrated the product fix and an environment-only
+   mismatch remains: GitHub Actions is the authoritative build path. Do not
+   spend open-ended time making Podman behave exactly like an Actions runner.
 9. **Release artifacts are the final evidence.** Download every published ISO
    and disk image with the project downloader, verify its checksum, run the
    matching scripts in `/scripts/`, and compare mounted package/configuration
@@ -83,7 +87,12 @@ README for the full backstory.
   tracing bugs through unfamiliar source trees, architecture decisions with
   real tradeoffs, anything where a shallow pass has already failed once.
   Dispatch research agents liberally for "has someone already solved this"
-  questions before doing trial-and-error debugging.
+  questions before doing trial-and-error debugging. When a problem survives
+  multiple informed attempts, stop, dispatch research, and reconsider the
+  broader project goal before adding another workaround. This applies to any
+  repeated blocker, not only build containers or CI. Apply the research before
+  adding emulation workarounds. The priority is a working, well-tested
+  personal project, not a perfect local clone of GitHub Actions.
 - **CI hygiene**: only re-run the specific build (ISO vs disk images, and
   going forward the more granular qcow2/VHDX/VDI/VMDK split) that actually
   needs iterating on. Cancel a premature run immediately. Once a failure or

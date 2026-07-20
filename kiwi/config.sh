@@ -113,6 +113,11 @@ INSTALL_PKGS=(
     pipewire-pulseaudio
     wireplumber
     flatpak
+    # flatpak conditionally requires its matching policy module whenever
+    # the target includes selinux-policy-targeted. Listing it explicitly
+    # makes dnf download its Azure policy-utility closure into the offline
+    # repo instead of leaving Anaconda to discover a missing provider.
+    flatpak-selinux
     gnome-software
 
     loupe
@@ -423,10 +428,10 @@ DRYRUN_ERRORS=$(dnf5 install \
     "${INSTALL_PKGS[@]}" 2>&1) || true
 rm -rf "$DRYRUN_ROOT"
 
-if echo "$DRYRUN_ERRORS" | grep -qiE "No match for argument|nothing provides|cannot install"; then
-    echo "!!! FATAL: Offline repo is missing packages required by the kickstart!"
-    echo "$DRYRUN_ERRORS" | grep -iE "No match for argument|nothing provides|cannot install"
-    echo "Fix: add the missing packages to INSTALL_PKGS in kiwi/config.sh."
+if echo "$DRYRUN_ERRORS" | grep -qiE "Failed to resolve the transaction|No match for argument|nothing provides|cannot install|conflicting requests"; then
+    echo "!!! FATAL: Offline repo cannot resolve the installer package set!"
+    echo "$DRYRUN_ERRORS" | grep -iE "Failed to resolve the transaction|No match for argument|nothing provides|cannot install|conflicting requests"
+    echo "Fix the package policy or add its complete dependency closure to the offline repo."
     exit 1
 fi
 echo "=== Dry-run passed - all kickstart packages resolve from offline repo ==="

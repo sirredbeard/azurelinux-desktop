@@ -99,6 +99,22 @@ instead of burning CI runs):
 
 ## More CI failures after the package graph was clean
 
+## Flatpak SELinux offline-repository closure
+
+The first real headless standard installation reached Anaconda's software
+selection stage and failed because the offline repository contained Fedora
+Flatpak but omitted its exact matching `flatpak-selinux` dependency whenever
+the target includes the targeted SELinux policy. The trimmed Anaconda error
+is retained in
+[`logs/installer-flatpak-selinux-dependency.log`](logs/installer-flatpak-selinux-dependency.log).
+
+`flatpak-selinux` is now explicit in `INSTALL_PKGS`. A constrained local
+solver test showed that its policy utility requirements resolve from the
+Azure package set without replacing the base policy stack. The important
+validation detail is that `dnf5 --assumeno` exits nonzero after a successful
+solve because it declines the transaction; validation must instead reject
+explicit resolver errors such as missing providers and conflicting requests.
+
 **`libselinux`/`libseccomp` missing from bootstrap.** All 162 of 163
 bootstrap packages installed, then scriptlets failed with `error while
 loading shared libraries: libseccomp.so.2` / `libselinux.so.1` against

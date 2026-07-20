@@ -1,0 +1,3 @@
+package flatpak-1.16.6-1.fc43.x86_64 from azl-offline requires
+(flatpak-selinux = 1.16.6-1.fc43 if selinux-policy-targeted),
+but none of the providers can be installed

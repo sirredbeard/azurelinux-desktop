@@ -52,6 +52,13 @@ boot path but never persisted into the disk image.
 
 ## Flatpak SELinux compatibility across image formats
 
+**Current installer fix:** a real standard installation attempt exposed that
+the offline repository was missing Flatpak's matching SELinux module. The
+installer package list now explicitly includes it, and the constrained
+offline transaction resolves with Azure's policy utility closure. The fix
+still requires a published ISO build and a complete QEMU installation before
+it can be called runtime-verified.
+
 The installer failure exposed a package-boundary problem that is broader than
 the installer. Azure Linux supplies the SELinux base and targeted policy,
 while the desktop layer currently obtains Flatpak from Fedora.
