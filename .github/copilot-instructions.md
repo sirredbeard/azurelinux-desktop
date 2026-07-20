@@ -63,6 +63,30 @@ README for the full backstory.
    updates and installation from both intended package sources, plus a Flatpak
    install, on the actual image before release.
 
+## Problem-solving approach
+
+1. **Start with the product outcome.** Reproduce the failure enough to know
+   whether it affects an image, installer, release artifact, or only the
+   development harness. Do not mistake a local-tool failure for a product
+   failure.
+2. **Use the smallest meaningful proof.** Validate dependency resolution,
+   configuration rendering, artifact construction, and runtime behavior in
+   that order. Stop a line of investigation once it no longer increases
+   confidence in the intended product behavior.
+3. **Escalate repeated blockers early.** After multiple informed attempts,
+   dispatch a research agent to find upstream reports, established fixes, and
+   environmental constraints. Then step back and compare the cost of another
+   workaround with the project's actual goal.
+4. **Choose the authoritative path deliberately.** Local Podman testing is
+   valuable preflight coverage. GitHub Actions is authoritative for its
+   published artifacts. When a host-only difference remains after local
+   product proof, build in Actions and test the resulting artifact locally
+   instead of trying to reproduce every runner detail.
+5. **Preserve the decision.** Record the failure, evidence, scope of any
+   workaround, and the remaining validation in `findings/`. Keep referenced
+   excerpts in `findings/logs/`. Update these instructions when the lesson is
+   general enough to prevent the next avoidable rabbit hole.
+
 ## Repository conventions
 
 - **Commits**: squash aggressively, keep the commit count small and each
