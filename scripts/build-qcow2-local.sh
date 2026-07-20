@@ -57,7 +57,7 @@ sudo podman run --rm \
             --image-name azurelinux-desktop-live.img \
             --ks /workspace/kickstart/azurelinux-desktop-live-disk.ks \
             --project "Azure Linux Desktop" \
-            --releasever 44 \
+            --releasever 43 \
             --logfile /workspace/local-qcow2-anaconda/livemedia-disk-build.log
         qemu-img convert -O qcow2 -c -o compression_type=zstd \
             /workspace/local-qcow2-result/azurelinux-desktop-live.img \

@@ -122,7 +122,7 @@ jobs:
                 --image-name azurelinux-desktop-live-test.img \
                 --ks /workspace/kickstart/azurelinux-desktop-live-test.ks \
                 --project "Azure Linux Desktop" \
-                --releasever 44 \
+                --releasever 43 \
                 --logfile /workspace/livemedia-test-disk-build.log
 
               qemu-img convert -O qcow2 -c \
