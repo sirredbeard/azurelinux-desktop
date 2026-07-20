@@ -2,11 +2,23 @@
 
 ## Status
 
-The findings below are from direct inspection of the known-good live ISO and
-the earlier qcow2 artifact. The fixes were committed in `633cab7`, but a
-fresh local qcow2 has not yet completed the full mounted-filesystem and boot
-verification. Treat the fixes as implemented, not yet fully validated in a
-new artifact.
+The first pass of this audit was from a known-good live ISO and an earlier
+qcow2 artifact. The fixes were committed in `633cab7`.
+
+The released `2026.07.20` qcow2 was then downloaded through
+`scripts/Get-AzureLinuxDesktop.ps1`, reassembled, and verified against the
+published SHA-256. Its mounted root, boot initramfs, package state, update
+solver, and UEFI boot path are now verified below.
+
+The released installer ISO was downloaded and verified the same way. Its
+nested runtime root contains both rendered kickstarts, which have been
+checked directly. An actual installed target from that ISO has not yet been
+booted, so the installer result is configuration-verified rather than
+runtime-verified.
+
+The live ISO used for the initial comparison predates `633cab7`. A fresh
+live ISO build is pending and will replace it for the final like-for-like
+live-to-qcow comparison.
 
 The live ISO is not the same kind of system as the qcow2 or an installed
 system. It boots with `rd.live.image` and runs `livesys` setup services.
@@ -47,8 +59,10 @@ did not.
 post-install configuration. This puts the selected theme and renderer into
 the image that actually boots.
 
-**Fresh-image verification pending:** inspect the new qcow2 initramfs and
-boot it in QEMU.
+**Verified in the released qcow2:** the boot initramfs contains
+`usr/lib64/plymouth/script.so`, the Azure Linux `.plymouth` and `.script`
+files, logo, and dots. The root has the same five Azure Linux Plymouth
+assets as the live ISO.
 
 ## GDM autologin
 
@@ -62,8 +76,10 @@ automatically.
 configuration with one clean `[daemon]` section containing the automatic
 login settings.
 
-**Fresh-image verification pending:** inspect the rendered file, then verify
-the graphical login path in QEMU.
+**Verified in the released qcow2:** `/etc/gdm/custom.conf` has one
+`[daemon]` section and the expected `AutomaticLogin=liveuser`. The UEFI
+smoke test reached and started `gdm.service`. Graphical autologin still needs
+an interactive desktop session.
 
 ## Dock, welcome tour, and first-run behavior
 
@@ -88,8 +104,13 @@ GNOME Control Center. Removing it broke the local dependency solver. The
 unwanted parental-controls UI is `malcontent-control`, which remains
 excluded.
 
-**Fresh-image verification pending:** inspect dconf and package manifests,
-then verify the first GNOME session.
+**Verified in the released qcow2:** the persistent dconf database contains
+the five custom favorites and welcome suppression. The first-run marker
+exists for `liveuser`. The unwanted Tour, Help, Yelp, and parental-controls
+UI packages are absent.
+
+**Still runtime-only:** start a GNOME session and confirm the dock and
+welcome behavior render as expected.
 
 ## GNOME Software authentication and updates
 
@@ -122,9 +143,15 @@ where Azure Linux cannot satisfy their ABI requirements. See
 [package-sourcing-clawback.md](package-sourcing-clawback.md) for the
 documented boundary decisions.
 
-**Fresh-image verification pending:** run `dnf5 check-upgrade` or an
-equivalent solver query in the new qcow2 root and confirm no Azure-owned
-package has a Fedora replacement candidate.
+**Verified in the released qcow2:** a disposable, read-only
+`dnf5 repoquery --upgrades` query was run against the mounted image with
+`releasever=4.0`. It found only `cockpit-ws` and `cockpit-ws-selinux` from
+Fedora updates. There were no Azure-owned base-package replacement
+candidates.
+
+The first solver attempt used `releasever=4` and received Azure repository
+404 responses. That was a bad test invocation, not a broken image. The
+image's repository template correctly expands to `4.0`.
 
 ## Cockpit
 
@@ -158,19 +185,75 @@ The disk-image path now disables `os-prober`, regenerates `grub.cfg`, and
 brands current and future BLS entries as Azure Linux Desktop. This was fixed
 and committed separately in `29f8ab0`.
 
-## Validation still required
+## Released qcow2 validation
 
-1. Finish the fresh local Podman qcow2 build.
-2. Mount the qcow2 read-only and compare its root and initramfs with the
-   live ISO.
-3. Verify GDM, dconf, initial-setup, GNOME Software, polkit, persistent
-   Fedora exclusions, GRUB, and Plymouth from the mounted image.
-4. Run the existing UEFI qcow2 QEMU smoke test.
-5. Render both installer kickstarts and compare all non-storage content.
-6. Verify the qcow2-only GitHub Actions release artifact independently
-   after it finishes.
+The `2026.07.20` qcow2 validates the persistent disk-image path:
 
-This audit is deliberately explicit about what has been observed and what
-is still pending. The previous qcow2 showed the defects. The code now
-contains targeted fixes for each one. A fresh artifact still has to prove
-them.
+| Customization | Source and lifecycle | Released qcow2 result |
+| --- | --- | --- |
+| Plymouth | Lorax/dracut handles the live ISO; disk post-install rebuilds the initramfs | Azure theme and script renderer are in the boot initramfs |
+| GDM | Live user is created at live boot; disk user is created in disk post-install | One valid autologin section for persistent `liveuser`; GDM started in QEMU |
+| Dark mode, dock, welcome | `livesys-gnome` applies them at live boot; disk writes persistent dconf | Dark-mode database and favorites/welcome database are present |
+| GNOME Software | Live setup changes session behavior; disk compiles the matching schema override and removes background entry points | Both update settings resolve to `false`; autostart is absent and the search provider is disabled |
+| First-run behavior | Live account is ephemeral; disk account needs an explicit marker | `gnome-initial-setup-done` is present for `liveuser` |
+| Keyring | Shared keyring unlock helper and autostart entry | Both files are present; session prompt behavior remains runtime-only |
+| Flatpak and Flathub | Shared system configuration | Both roots contain the Flathub remote |
+| Launchers and MIME | Shared system configuration | Edge, Code Insiders, PowerShell, Edit, and Copilot launchers exist; Edge Canary remains the HTTP/HTML default |
+| Package boundary | Fedora excludes are persisted into the installed repo files | No Azure-owned replacement candidates in the released-image solver |
+| Polkit | Shared DNF5 and PackageKit authorization rule | `49-azl-desktop-packagekit.rules` permits active local wheel users for both namespaces |
+| Tour, Help, parental controls | Explicit package exclusions | Tour, user docs, Yelp, and `malcontent-control` are absent; required `malcontent` backend remains |
+| GRUB and growroot | Disk-only configuration | No runner Ubuntu menu entries, BLS title is Azure Linux Desktop, and the growroot enablement symlink exists |
+
+The headless UEFI test booted through shim, GRUB, kernel, systemd,
+NetworkManager, and GDM. It timed out at the expected serial login prompt
+without modifying the downloaded qcow2.
+
+## Released installer validation
+
+The installer ISO has three nested layers:
+
+```text
+LiveOS/squashfs.img -> LiveOS/rootfs.img -> /root/azl-install{,-encrypted}.ks
+```
+
+Both rendered kickstarts are present in the final runtime root. Outside the
+storage stanza, their functional configuration is identical. Standard uses
+explicit EFI, `/boot`, LVM, swap, and root partitions. Encrypted uses
+`autopart --type=lvm --encrypted`.
+
+Both rendered kickstarts contain the same GDM, dconf, GNOME Software,
+initial-setup, DNF5/PackageKit polkit, Fedora ownership, and package
+exclusion configuration described above.
+
+The installer launcher now matches its staged files exactly:
+
+- `/usr/local/bin/install-azl` points to `anaconda-launcher.sh`.
+- The launcher copies `/root/azl-install.ks` or
+  `/root/azl-install-encrypted.ks` to `/run/install/ks.cfg`.
+- Both released files exist and contain no unresolved `@@PACKAGES@@` marker.
+
+This addresses the prior launcher failure, where the rendered filename did
+not match the filename the launcher copied, leaving Anaconda without
+`/run/install/ks.cfg`.
+
+## Build-container cleanup error
+
+The new live ISO build completed Anaconda installation successfully but
+logged a nonfatal exit-handler exception for missing `/usr/sbin/load_policy`.
+That binary belongs to `policycoreutils`, which was absent from the minimal
+Fedora build containers.
+
+`policycoreutils` is now installed in the live ISO, disk-image, local qcow2,
+and test qcow2 build environments. This removes the error at its source
+without changing the image payload.
+
+## Remaining runtime checks
+
+1. Replace the pre-fix live ISO with the fresh release ISO and repeat the
+   static live-to-qcow comparison.
+2. Start a graphical qcow2 session to verify autologin, dock rendering,
+   welcome suppression, keyring behavior, GNOME Software behavior, Flatpak,
+   and DNF5 polkit in a real user session.
+3. Run both installer selections to a target disk, then verify the resulting
+   installed systems have the same persistent configuration and package
+   boundary as the qcow2.

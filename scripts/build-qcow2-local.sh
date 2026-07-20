@@ -6,7 +6,6 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="$REPO_ROOT/local-qcow2-result"
 LOG_DIR="$REPO_ROOT/local-qcow2-anaconda"
-KICKSTART="$REPO_ROOT/kickstart/azurelinux-desktop-live-disk.ks"
 
 command -v podman >/dev/null || {
     echo "podman is required to build the qcow2 locally" >&2
@@ -44,7 +43,7 @@ sudo podman run --rm \
             lorax lorax-templates-generic lorax-lmc-novirt \
             anaconda-core anaconda-install-env-deps \
             qemu-img systemd-udev libguestfs-tools-c \
-            shim-x64 grub2-efi-x64-cdboot
+            shim-x64 grub2-efi-x64-cdboot policycoreutils
         python3 /workspace/scripts/patch-anaconda-efi-skip-bug.py
         /usr/lib/systemd/systemd-udevd --daemon
         udevadm trigger

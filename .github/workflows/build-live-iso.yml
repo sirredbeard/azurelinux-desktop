@@ -164,7 +164,7 @@ jobs:
                 lorax lorax-templates-generic lorax-lmc-novirt \
                 anaconda-core anaconda-install-env-deps anaconda-live \
                 squashfs-tools xorriso dosfstools shim-x64 \
-                grub2-efi-x64-cdboot
+                grub2-efi-x64-cdboot policycoreutils
 
               # Default: boot straight into the real desktop, not the
               # verify-media path, and do not sit on the menu for a full
@@ -562,7 +562,7 @@ jobs:
                 lorax lorax-templates-generic lorax-lmc-novirt \
                 anaconda-core anaconda-install-env-deps \
                 qemu-img systemd-udev libguestfs-tools-c \
-                shim-x64 grub2-efi-x64-cdboot
+                shim-x64 grub2-efi-x64-cdboot policycoreutils
 
               # Fedora 44'"'"'s packaged anaconda-core still carries a real
               # bug upstream already fixed - see

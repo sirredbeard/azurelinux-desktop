@@ -107,7 +107,7 @@ jobs:
                 lorax lorax-templates-generic lorax-lmc-novirt \
                 anaconda-core anaconda-install-env-deps \
                 qemu-img systemd-udev \
-                shim-x64 grub2-efi-x64-cdboot
+                shim-x64 grub2-efi-x64-cdboot policycoreutils
 
               python3 /workspace/scripts/patch-anaconda-efi-skip-bug.py
 
