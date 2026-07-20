@@ -170,7 +170,7 @@ Real hardware should work the same way once you have burned or flashed the live 
 
 ### Default accounts
 
-The live ISO autologins as `liveuser` (created at boot by `livesys-scripts`, no password, passwordless `sudo`) - there's nothing to type in, it's a throwaway live-test image.
+The live ISO and pre-built disk images autologin as `liveuser` (no password, passwordless `sudo`) - there's nothing to type in, they are throwaway test images.
 
 The installer ISO creates a real, persistent account named `cinnamon` on the installed system (`wheel`/`sudo`, GDM autologin after the first boot). Its password is a known, deliberately public placeholder - **`cinnamon`** - not a real security boundary for a personal proof of concept; change it (`passwd cinnamon`) on any install you actually care about securing.
 

@@ -427,6 +427,23 @@ jobs:
             -e 's/^part \/ --size=16384/part \/ --fstype=xfs --size=16384 --grow/' \
             -e 's/^# AZL_GROWROOT_ENABLE_MARKER$/systemctl enable azl-growroot.service/' \
             kickstart/azurelinux-desktop-live.ks > kickstart/azurelinux-desktop-live-disk.ks
+          cat >> kickstart/azurelinux-desktop-live-disk.ks <<'KSPOST'
+
+          # --make-disk produces a normal installed system, not a live-media
+          # environment. livesys-scripts therefore never creates the live ISO's
+          # liveuser account at boot, even though the shared kickstart's GDM
+          # configuration still autologins that account. Create it in the
+          # disk-image variant after the shared kickstart's %post sections run.
+          %post --log=/var/log/azl-disk-image-user-post.log
+          if ! id liveuser >/dev/null 2>&1; then
+              useradd --create-home --groups wheel liveuser
+              passwd -d liveuser
+          fi
+          if [ -x /usr/bin/pwsh ]; then
+              usermod --shell /usr/bin/pwsh liveuser
+          fi
+          %end
+          KSPOST
 
       - name: Build live disk image (qcow2)
         if: success()
