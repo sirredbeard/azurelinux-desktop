@@ -136,7 +136,7 @@ README for the full backstory.
   `base/images/container-base/container-base.kiwi` and `images.toml`).
   Not a containerized desktop (GNOME needs systemd/D-Bus/a display, none
   of which belong in a plain OCI container) - it's a fast, always-fresh
-  proof that the Azure-Linux-base + Fedora44-GNOME-layer repo priority
+  proof that the Azure-Linux-base + Fedora-GNOME-layer repo priority
   split still resolves packages from the intended repo, publishable so
   it can be pulled and inspected without a full ISO/disk-image build.
 - **Download script**: `scripts/Get-AzureLinuxDesktop.ps1` mirrors

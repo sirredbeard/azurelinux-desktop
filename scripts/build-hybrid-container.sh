@@ -7,7 +7,7 @@
 # to demonstrate. Their `core` container is base-only (filesystem,
 # bash, azurelinux-release-container, azurelinux-repos); ours adds the
 # one thing this project actually exists to prove - that the
-# Azure-Linux-base + Fedora44-GNOME-layer repo priority split in
+# Azure-Linux-base + Fedora/GNOME-layer repo priority split in
 # kickstart/azurelinux-desktop-live.ks resolves cleanly and keeps
 # picking packages from the intended repo, not just at ISO-build time.
 #
@@ -73,7 +73,7 @@ echo "=== ${#REPO_NAMES[@]} repos parsed: ${REPO_NAMES[*]} ==="
 
 # The proof-of-priority package set: azurelinux-release plus a couple
 # of base packages from azl-base (cost=1, wins ties), and a handful of
-# small Fedora44 GNOME-stack libraries that only exist in fedora43
+# small Fedora GNOME-stack libraries that only exist in the Fedora repo
 # (cost=50) - enough to force real cross-repo dependency resolution
 # without pulling in the whole desktop (no X server, no compositor, no
 # systemd - none of that runs meaningfully in a plain OCI container

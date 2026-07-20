@@ -33,7 +33,7 @@ The research proposed `dnf repoquery --installed --qf '%{name}
 %{repoid}'`, but installed packages report `repoid` as `@System`. The
 implemented check uses two signals:
 
-- **Release tag** (`rpm -q --qf '%{release}'`): `*.azl4*` vs `*.fc44*`.
+- **Release tag** (`rpm -q --qf '%{release}'`): `*.azl4*` vs Fedora.
 - **Current winning repo** (`dnf repoquery --available`): confirms
   configured repos still resolve from the expected side today.
 
@@ -97,4 +97,3 @@ suspecting the script's own logic - `systemctl status
 disk image directly via `qemu-nbd` and checking the files landed where
 the kickstart expected) settles it in seconds, versus much longer spent
 re-reading application code that never got a chance to run.
-

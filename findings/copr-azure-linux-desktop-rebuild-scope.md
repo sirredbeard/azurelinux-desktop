@@ -101,7 +101,7 @@ Fedora provider for a package the COPR desktop repository owns.
 4. Build in COPR batches against a development repository, then publish
    only complete, tested sets.
 5. Give rebuilt RPMs Azure Linux-specific release identity, rather than
-   presenting unchanged `.fc44` packages as native builds.
+   presenting unchanged Fedora packages as native builds.
 6. Treat glibc as a first-class maintained fork with CVE, ABI, regression,
    and upgrade policy.
 

@@ -87,7 +87,7 @@ azl_release_matches_family() {
             [[ "$release" == *azl4* ]]
             ;;
         fedora)
-            [[ "$release" == *fc44* ]]
+            [[ "$release" == *fc43* ]]
             ;;
         *)
             return 1

@@ -18,7 +18,7 @@
 #
 # This is the same "resolve the whole real package list through the whole
 # real repo scheme" approach the older podman-test-azl4-fedora43.sh
-# already used (manually, eyeballing azl4/fc44 counts, live packages
+# already used (manually, eyeballing Azure/Fedora counts, live packages
 # only) - wired up here as a real pass/fail CI check, covering both
 # images' package sets, not just live's.
 

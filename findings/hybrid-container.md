@@ -3,7 +3,7 @@
 `scripts/build-hybrid-container.sh` + `.github/workflows/build-container.yml`
 publish a small OCI image to GHCR (`ghcr.io/sirredbeard/azurelinux-desktop/hybrid`)
 straight from the kickstart's own repo/priority setup. A fast proof that
-the Azure-Linux-base + Fedora44-GNOME-layer repo priority split still
+the Azure-Linux-base + Fedora-GNOME-layer repo priority split still
 resolves packages from the intended repo, pullable without running a
 build.
 

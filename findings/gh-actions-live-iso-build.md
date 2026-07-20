@@ -338,7 +338,7 @@ After switching to UEFI/GPT, everything worked (grub config generated,
 target. This is most likely a kernel or firmware bug.`
 
 Root cause: **a Fedora packaging bug, not our environment.** The
-installed `anaconda-core-0:44.30-2.fc44` has older, pre-fix code where
+the installed Anaconda package has older, pre-fix code where
 `efibootmgr()`'s skip path always returns `""` (a string), not `0`
 (an int). `_add_single_efi_boot_target()` does `if rc != 0: raise` -
 and in Python, `"" != 0` is always `True` (cross-type comparison), so

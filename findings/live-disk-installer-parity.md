@@ -48,8 +48,8 @@ The installer failure exposed a package-boundary problem that is broader than
 the installer. Azure Linux supplies the SELinux base and targeted policy,
 while the desktop layer currently obtains Flatpak from Fedora.
 
-Fedora's `flatpak-1.18.0-1.fc44` has an exact conditional dependency on
-`flatpak-selinux-1.18.0-1.fc44` whenever `selinux-policy-targeted` is
+Fedora's selected Flatpak build has an exact conditional dependency on its
+matching `flatpak-selinux` package whenever `selinux-policy-targeted` is
 installed. Its policy module is format 24. Azure Linux 4's policy tooling
 accepts module formats 4 through 23, so the Fedora policy package cannot
 be used safely with the Azure Linux policy base:

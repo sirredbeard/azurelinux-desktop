@@ -5,7 +5,7 @@ name: Publish hybrid AZL+Fedora container
 # idea as Azure Linux's own upstream container-base image
 # (microsoft/azurelinux base/images/container-base/container-base.kiwi,
 # published as mcr.microsoft.com/azurelinux/base/core), except ours also
-# proves the Azure-Linux-base + Fedora44-GNOME-layer repo priority split
+# proves the Azure-Linux-base + Fedora/GNOME-layer repo priority split
 # from kickstart/azurelinux-desktop-live.ks resolves correctly, which is
 # the thing this whole project actually depends on.
 #

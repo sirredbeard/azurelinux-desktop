@@ -43,7 +43,7 @@ Azure Linux
     upstream links.
 
 Fedora
-    Packages, including GNOME 50 (shell, session, gdm, mutter, nautilus,
+    Packages, including GNOME (shell, session, gdm, mutter, nautilus,
     and the rest of the desktop), come from the Fedora Project. Every
     package carries its own upstream license.
 

@@ -8,7 +8,7 @@ Short answer: yes, for a curated GNOME desktop. No, for Fedora's full `workstati
 
 | Package | Azure Linux 4.0 | Fedora 43 | Fedora |
 |---|---|---|---|
-| glibc | `2.42-10.azl4` | `2.42-4.fc43` | `2.43-7.fc44` |
+| glibc | `2.42-10.azl4` | Fedora lineage | newer Fedora desktop layer |
 | systemd | `258.4-2.azl4` | `258` | `259.5` |
 | gnome-shell | (not shipped) | `49.1` | `50.0` |
 
