@@ -115,6 +115,20 @@ validation detail is that `dnf5 --assumeno` exits nonzero after a successful
 solve because it declines the transaction; validation must instead reject
 explicit resolver errors such as missing providers and conflicting requests.
 
+**Anaconda bootloader support packages.** The next published-ISO installation
+passed the Flatpak transaction and reached software installation, where
+Anaconda added `grub2-tools-extra` for the UEFI bootloader. It is not listed in
+the kickstart package block, so the old dry-run missed it; the offline
+repository did too. The actual Anaconda evidence is retained in
+[`logs/installer-grub-support-package.log`](logs/installer-grub-support-package.log).
+
+`grub2-tools-extra` now belongs to `EXTRA_REPO_PKGS`, alongside the other
+Anaconda-only support packages. Its matching GRUB dependencies, `grubby`,
+`mtools`, and `os-prober` were already present in the generated offline repo.
+The completeness dry-run now validates both `INSTALL_PKGS` and
+`EXTRA_REPO_PKGS`, so a missing Anaconda support RPM fails the image build
+instead of a real installation.
+
 **`libselinux`/`libseccomp` missing from bootstrap.** All 162 of 163
 bootstrap packages installed, then scriptlets failed with `error while
 loading shared libraries: libseccomp.so.2` / `libselinux.so.1` against

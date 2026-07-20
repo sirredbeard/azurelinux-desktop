@@ -25,16 +25,9 @@ echo "=== Architecture: x86_64 (this project only ever builds x86_64) ==="
 # (livesys-scripts, anaconda-live, dracut-config-generic,
 # glibc-all-langpacks) are left out; this is a real disk install.
 #
-# Deliberately does NOT include grub2-tools-extra even though the build
-# container installs it (see build-installer-iso.yml) - that's a
-# build-time tool need for kiwi-ng itself, not a target-install package.
-# grub2-tools-extra hard-requires an exact-version grub2-tools-minimal
-# from the same azl-base build, which conflicts with excluding
-# grub2-tools-minimal from azl-base below (Fedora's copy is what's
-# supposed to win) - a local `dnf5 download` dry run against these
-# excludes confirmed the unresolvable "filtered out by exclude
-# filtering" conflict. The live ISO's own %packages never asked for
-# grub2-tools-extra either; parity is preserved by just not adding it.
+# Anaconda adds grub2-tools-extra to every UEFI bootloader transaction even
+# though it is not a kickstart package. Keep it in the offline support set
+# with its matching Fedora GRUB dependency family.
 #----------------------------------------------------------------------
 INSTALL_PKGS=(
     azurelinux-release
@@ -215,6 +208,7 @@ INSTALL_PKGS=(
 # %packages (upstream's own EXTRA_REPO_PKGS pattern).
 EXTRA_REPO_PKGS=(
     grub2-efi-x64-cdboot
+    grub2-tools-extra
     lvm2
     e2fsprogs
     dosfstools
@@ -425,7 +419,7 @@ DRYRUN_ERRORS=$(dnf5 install \
     --setopt=reposdir=/dev/null \
     --repofrompath=offline,"file://$OFFLINE_REPO" \
     --repo=offline \
-    "${INSTALL_PKGS[@]}" 2>&1) || true
+    "${INSTALL_PKGS[@]}" "${EXTRA_REPO_PKGS[@]}" 2>&1) || true
 rm -rf "$DRYRUN_ROOT"
 
 if echo "$DRYRUN_ERRORS" | grep -qiE "Failed to resolve the transaction|No match for argument|nothing provides|cannot install|conflicting requests"; then
