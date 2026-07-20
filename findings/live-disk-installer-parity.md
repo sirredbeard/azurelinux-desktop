@@ -16,9 +16,17 @@ checked directly. An actual installed target from that ISO has not yet been
 booted, so the installer result is configuration-verified rather than
 runtime-verified.
 
-The live ISO used for the initial comparison predates `633cab7`. A fresh
-live ISO build is pending and will replace it for the final like-for-like
-live-to-qcow comparison.
+The current released live ISO, qcow2, and installer ISO were downloaded
+through `scripts/Get-AzureLinuxDesktop.ps1` and each passed its published
+SHA-256 verification. The mounted live ISO and qcow2 have the same base
+identity. Their canonical RPM inventories differ only by
+`grub2-tools-extra` and `mtools`, both disk-image boot tooling.
+
+The shared repository, Flatpak, polkit, GDM, and dark-mode configuration
+trees match. The live ISO retains its `livesys` setup, while the qcow2
+contains the disk-only EFI and one-shot grow-root setup plus the persisted
+GNOME favorites override. Those are expected lifecycle differences, not
+configuration drift.
 
 The live ISO is not the same kind of system as the qcow2 or an installed
 system. It boots with `rd.live.image` and runs `livesys` setup services.
@@ -254,6 +262,12 @@ The `2026.07.20` qcow2 validates the persistent disk-image path:
 The headless UEFI test booted through shim, GRUB, kernel, systemd,
 NetworkManager, and GDM. It timed out at the expected serial login prompt
 without modifying the downloaded qcow2.
+
+The current released qcow2 reached the serial login marker in 80 seconds
+under KVM through `scripts/test-boot-smoke.sh`. The script is intentionally
+qcow2-only: the live ISO's normal graphical boot entry does not enable a
+serial console, so its graphical QEMU test is the appropriate validation
+path rather than a serial-marker test.
 
 ## Released installer validation
 
