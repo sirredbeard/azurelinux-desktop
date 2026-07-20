@@ -117,15 +117,23 @@ set -x
 # gap" setup that was used to build it, not just the file:///opt/
 # azl-offline-repo/ path that only existed for this one install.
 # azurelinux-repos (in %packages above) already wrote the real AZL repo
-# files - this only adds Fedora 44 alongside them and re-applies the
-# same excludes on the AZL repo file so the two don't fight later.
-cat > /etc/yum.repos.d/azl-desktop-fedora.repo << 'EOF'
+# files - this only adds Fedora 44 alongside them. Build the Fedora
+# exclusion list from the installed Azure-owned RPMs, so no Fedora update
+# can replace part of the Azure Linux base after installation.
+FEDORA_EXCLUDES=$(rpm -qa --qf '%{NAME}\t%{VENDOR}\n' \
+    | awk -F '\t' '$2 == "Microsoft Corporation" { printf "%s%s", separator, $1; separator="," }')
+[ -n "$FEDORA_EXCLUDES" ] || {
+    echo "Unable to determine Azure Linux package boundary" >&2
+    exit 1
+}
+cat > /etc/yum.repos.d/azl-desktop-fedora.repo << EOF
 [fedora44]
 name=Fedora 44 (GNOME 50 desktop stack)
 baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/os/
 enabled=1
 gpgcheck=0
 priority=50
+excludepkgs=$FEDORA_EXCLUDES
 
 [fedora44-updates]
 name=Fedora 44 Updates
@@ -133,6 +141,7 @@ baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/44/Everything/x86_
 enabled=1
 gpgcheck=0
 priority=50
+excludepkgs=$FEDORA_EXCLUDES
 EOF
 
 # The single azl-offline repo above only existed for this one install (it
@@ -241,12 +250,32 @@ gtk-theme='Adwaita-dark'
 
 [org/gnome/shell]
 favorite-apps=['microsoft-edge-canary.desktop', 'code-insiders.desktop', 'powershell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
+welcome-dialog-last-shown-version='4294967295'
 EOF
 cat > /etc/dconf/profile/user << 'EOF'
 user-db:user
 system-db:local
 EOF
 dconf update || true
+
+# Match the live session: Software remains available on demand, but it
+# does not launch or download updates in the background.
+cat >> /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override << 'EOF'
+[org.gnome.software]
+allow-updates=false
+download-updates=false
+EOF
+rm -f /etc/xdg/autostart/org.gnome.Software.desktop
+cat >> /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini << 'EOF'
+DefaultDisabled=true
+EOF
+glib-compile-schemas /usr/share/glib-2.0/schemas
+
+# Anaconda creates a persistent account, unlike the ISO's runtime user.
+# Mark it initialized once so GNOME does not show first-run onboarding.
+install -d -o cinnamon -g cinnamon /home/cinnamon/.config
+touch /home/cinnamon/.config/gnome-initial-setup-done
+chown cinnamon:cinnamon /home/cinnamon/.config/gnome-initial-setup-done
 
 if [ -f /root/thirdparty/github-copilot.rpm ]; then
     rpm -i /root/thirdparty/github-copilot.rpm || true
@@ -292,11 +321,24 @@ EOF
 echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-wheel-nopasswd
 chmod 0440 /etc/sudoers.d/90-wheel-nopasswd
 mkdir -p /etc/gdm
-cat >> /etc/gdm/custom.conf << 'EOF'
-
+cat > /etc/gdm/custom.conf << 'EOF'
 [daemon]
 AutomaticLoginEnable=True
 AutomaticLogin=cinnamon
+EOF
+
+# GNOME Software uses DNF5 in this image. The default account is an
+# active local wheel user with passwordless sudo, so let it authorize
+# DNF5 and PackageKit actions without an unusable password prompt.
+mkdir -p /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/49-azl-desktop-packagekit.rules << 'EOF'
+polkit.addRule(function(action, subject) {
+    if ((action.id.indexOf("org.freedesktop.packagekit.") == 0 ||
+         action.id.indexOf("org.rpm.dnf.v0.") == 0) &&
+        subject.isInGroup("wheel") && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
 EOF
 
 # GNOME Keyring auto-unlock fix - identical mechanism to the live ISO,

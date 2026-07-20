@@ -304,7 +304,7 @@ MS_PROD_EXCLUDES="aznfs,mdatp"
 # vs-.so.4 case, which is a genuine soname fork and is deliberately left
 # off this list so both builds can coexist for their respective
 # consumers.
-FEDORA_EXCLUDES="audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-libs,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,gawk,grep,gzip,hwdata,iproute,iputils,kbd,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,libaio,libblkid,libcom_err,libfdisk,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,sed,selinux-policy,selinux-policy-targeted,setup,shadow-utils,sudo,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-udev,tar,util-linux,util-linux-core,vim-minimal,xz,xz-libs"
+FEDORA_EXCLUDES="audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,less-color,libaio,libblkid,libcom_err,libfdisk,liblastlog2,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,selinux-policy,selinux-policy-targeted,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware"
 
 # RPMFusion is where the real (patent-encumbered) ffmpeg/h264/aac
 # gstreamer plugins come from - Fedora's own gstreamer1-plugins-* builds
@@ -567,16 +567,16 @@ generate_packages_section() {
         echo "$pkg"
     done
     # Same exclusions as kickstart/azurelinux-desktop-live.ks's
-    # %packages - gnome-tour and malcontent-control ride along as weak
-    # deps of the base GNOME session/shell packages even with --nocore,
-    # and neither belongs on this build: no welcome-tour first-login
-    # popup, no parental-controls UI. mdatp is excluded at the repo
+    # %packages - GNOME Tour, Help, and Malcontent can ride along as weak
+    # deps of the base GNOME session/shell packages even with --nocore.
+    # None belongs on this build: no welcome tour, Help application, or
+    # parental-controls stack. mdatp is excluded at the repo
     # level already (ms-prod's --exclude in the dnf5 download call
     # above), listed here too for the same belt-and-suspenders reason
     # the live ISO's %packages does it. fedora-logos is excluded so
     # generic-logos (added to INSTALL_PKGS above) is the only logo
     # package left standing, matching the live ISO's GDM branding fix.
-    for pkg in gnome-tour malcontent-control mdatp fedora-logos; do
+    for pkg in gnome-tour gnome-user-docs yelp yelp-libs malcontent-control mdatp fedora-logos; do
         echo "-$pkg"
     done
     echo "%end"

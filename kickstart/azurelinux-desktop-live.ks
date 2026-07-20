@@ -112,8 +112,8 @@ repo --name=azl-microsoft --baseurl=https://packages.microsoft.com/azurelinux/4.
 # fwupd/fwupd-efi, and fuse3-libs are deliberately NOT on this list despite
 # looking like obvious candidates (real ABI/version floors, or a silent-
 # drop risk with no AZL fallback at all).
-repo --name=fedora44 --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/os/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-libs,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,gawk,grep,gzip,hwdata,iproute,iputils,kbd,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,libaio,libblkid,libcom_err,libfdisk,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,sed,selinux-policy,selinux-policy-targeted,setup,shadow-utils,sudo,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-udev,tar,util-linux,util-linux-core,vim-minimal,xz,xz-libs
-repo --name=fedora44-updates --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/44/Everything/x86_64/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-libs,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,gawk,grep,gzip,hwdata,iproute,iputils,kbd,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,libaio,libblkid,libcom_err,libfdisk,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,sed,selinux-policy,selinux-policy-targeted,setup,shadow-utils,sudo,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-udev,tar,util-linux,util-linux-core,vim-minimal,xz,xz-libs
+repo --name=fedora44 --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/os/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,less-color,libaio,libblkid,libcom_err,libfdisk,liblastlog2,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,selinux-policy,selinux-policy-targeted,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware
+repo --name=fedora44-updates --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/44/Everything/x86_64/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,less-color,libaio,libblkid,libcom_err,libfdisk,liblastlog2,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,selinux-policy,selinux-policy-targeted,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware
 # aznfs (Azure Files NFS mount helper) rides along in ms-prod's dependency
 # graph even though nothing we actually want (powershell) needs it for real -
 # it's a pure Azure-cloud tool with a %pre scriptlet that hard-fails without
@@ -275,6 +275,9 @@ evolution-ews
 # `-pkgname` syntax excludes a package even if something else pulls it in
 # as a Recommends/weak dep.
 -gnome-tour
+-gnome-user-docs
+-yelp
+-yelp-libs
 -malcontent-control
 
 # mdatp (Microsoft Defender for Endpoint) - started getting pulled in as
@@ -514,13 +517,15 @@ set -x
 # <whatever>` next year still prefers Azure Linux first and only falls back
 # to Fedora 44 when AZL has no package. Known soname landmines get an
 # exclude here as they're discovered - add to this list, don't fight it.
-cat > /etc/yum.repos.d/azl-desktop-fedora.repo << 'EOF'
+FEDORA_EXCLUDES="audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,less-color,libaio,libblkid,libcom_err,libfdisk,liblastlog2,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,selinux-policy,selinux-policy-targeted,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware"
+cat > /etc/yum.repos.d/azl-desktop-fedora.repo << EOF
 [fedora44]
 name=Fedora 44 (GNOME 50 desktop stack)
 baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/os/
 enabled=1
 gpgcheck=0
 priority=50
+excludepkgs=$FEDORA_EXCLUDES
 
 [fedora44-updates]
 name=Fedora 44 Updates
@@ -528,6 +533,7 @@ baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/44/Everything/x86_
 enabled=1
 gpgcheck=0
 priority=50
+excludepkgs=$FEDORA_EXCLUDES
 EOF
 
 # The kickstart `repo --name=...` lines above (ms-prod, vscode, edge-canary,
@@ -849,8 +855,7 @@ rm -f /etc/xdg/autostart/liveinst-setup.desktop
 echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-wheel-nopasswd
 chmod 0440 /etc/sudoers.d/90-wheel-nopasswd
 mkdir -p /etc/gdm
-cat >> /etc/gdm/custom.conf << 'EOF'
-
+cat > /etc/gdm/custom.conf << 'EOF'
 [daemon]
 AutomaticLoginEnable=True
 AutomaticLogin=liveuser
@@ -978,26 +983,14 @@ EOF
 # in that same live session.
 rm -f /home/liveuser/.local/share/keyrings/login.keyring 2>/dev/null || true
 
-# gnome-software/PackageKit periodically checks for updates and pops an
-# "Authentication Required - Authentication is required to update
-# information about software" polkit dialog (org.freedesktop.packagekit.
-# system-sources-refresh, by default auth_admin) - on a live session this
-# is worse than just annoying, it's unpassable: liveuser has no password
-# set at all (passwd -d, see livesys-scripts' own useradd), so there is
-# no credential that could ever satisfy an auth_admin challenge, and
-# clicking "Authenticate" just fails. wheel membership alone doesn't
-# bypass this - polkit's stock 50-default.rules only grants wheel members
-# auth_admin_keep (still needs a password), not a free pass. The standard
-# live-respin fix (Fedora's own live spins do the same for exactly this
-# reason) is a polkit JS rule granting PackageKit's actions outright to
-# any active, local session in the wheel group - liveuser is always
-# exactly that combination on this ISO, so this only widens what an
-# already-autologin'd, already-physically-present live user can do, not
-# what a remote/inactive session could.
+# GNOME Software uses the DNF5 backend in this image; it may also use
+# PackageKit on other dependency resolutions. Allow either backend only
+# for the active local wheel user, who already has passwordless sudo.
 mkdir -p /etc/polkit-1/rules.d
 cat > /etc/polkit-1/rules.d/49-azl-desktop-packagekit.rules << 'EOF'
 polkit.addRule(function(action, subject) {
-    if (action.id.indexOf("org.freedesktop.packagekit.") == 0 &&
+    if ((action.id.indexOf("org.freedesktop.packagekit.") == 0 ||
+         action.id.indexOf("org.rpm.dnf.v0.") == 0) &&
         subject.isInGroup("wheel") && subject.local && subject.active) {
         return polkit.Result.YES;
     }
@@ -1123,4 +1116,3 @@ EOF
 rpm -qa --qf '%{name}-%{version}-%{release}.%{arch}\n' | sort > /var/log/azl-desktop-package-list.txt
 
 %end
-

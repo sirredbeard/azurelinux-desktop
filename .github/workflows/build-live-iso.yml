@@ -443,6 +443,43 @@ jobs:
               usermod --shell /usr/bin/pwsh liveuser
           fi
 
+          # livesys-gnome writes this list at live-media boot. A normal
+          # installed disk does not run that service, so provide the same
+          # defaults through the persistent system dconf database.
+          cat > /etc/dconf/db/local.d/01-azl-desktop-favorites << 'DCONF'
+          [org/gnome/shell]
+          favorite-apps=['microsoft-edge-canary.desktop', 'code-insiders.desktop', 'powershell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
+          welcome-dialog-last-shown-version='4294967295'
+          DCONF
+          dconf update
+
+          # Apply the live session's GNOME Software behavior persistently.
+          # Software remains available on demand, but it does not launch or
+          # download updates in the background for the passwordless account.
+          cat >> /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override << 'GSETTINGS'
+          [org.gnome.software]
+          allow-updates=false
+          download-updates=false
+          GSETTINGS
+          rm -f /etc/xdg/autostart/org.gnome.Software.desktop
+          cat >> /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini << 'SEARCH'
+          DefaultDisabled=true
+          SEARCH
+          glib-compile-schemas /usr/share/glib-2.0/schemas
+
+          # livesys-gnome marks its ephemeral live account as initialized.
+          # The disk account is persistent, so create the same marker once.
+          install -d -o liveuser -g liveuser /home/liveuser/.config
+          touch /home/liveuser/.config/gnome-initial-setup-done
+          chown liveuser:liveuser /home/liveuser/.config/gnome-initial-setup-done
+
+          # --make-disk creates the initramfs before the shared kickstart
+          # finishes installing the custom theme. Rebuild it after all
+          # post-install configuration so the disk boots through Plymouth.
+          if [ -x /usr/sbin/plymouth-set-default-theme ]; then
+              plymouth-set-default-theme azurelinux --rebuild-initrd
+          fi
+
           # The privileged build container exposes the GitHub runner's
           # block devices to Anaconda. Disable GRUB's OS probe before
           # regenerating its config so the runner's Ubuntu installation
