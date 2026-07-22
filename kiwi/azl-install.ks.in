@@ -64,7 +64,7 @@ rm -f /mnt/sysroot/tmp/post-install.sh
 %post --nochroot --log=/mnt/sysroot/var/log/azl-desktop-post-nochroot.log
 set -x
 mkdir -p /mnt/sysroot/root/thirdparty
-mkdir -p /mnt/sysroot/usr/share/pixmaps /mnt/sysroot/usr/share/applications
+mkdir -p /mnt/sysroot/usr/share/pixmaps /mnt/sysroot/usr/share/applications /mnt/sysroot/usr/share/dbus-1/services
 mkdir -p /mnt/sysroot/usr/share/plymouth/themes/azurelinux
 
 ASSETS=/opt/azl-desktop-assets
@@ -75,7 +75,10 @@ if [ -d "$ASSETS" ]; then
     cp -v "$ASSETS/desktop/edit.desktop" /mnt/sysroot/usr/share/applications/edit.desktop
     cp -v "$ASSETS/bin/azl-powershell-terminal" /mnt/sysroot/usr/local/bin/azl-powershell-terminal
     chmod 0755 /mnt/sysroot/usr/local/bin/azl-powershell-terminal
+    cp -v "$ASSETS/bin/azl-dotnet-terminal" /mnt/sysroot/usr/local/bin/azl-dotnet-terminal
+    chmod 0755 /mnt/sysroot/usr/local/bin/azl-dotnet-terminal
     cp -v "$ASSETS/desktop/org.azurelinux.PowerShell.desktop" /mnt/sysroot/usr/share/applications/org.azurelinux.PowerShell.desktop
+    cp -v "$ASSETS/dbus/org.azurelinux.PowerShell.service" /mnt/sysroot/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
     cp -v "$ASSETS/desktop/dotnet.desktop" /mnt/sysroot/usr/share/applications/dotnet.desktop
     cp -v "$ASSETS/plymouth/azurelinux/azurelinux.plymouth" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinux.plymouth
     cp -v "$ASSETS/plymouth/azurelinux/azurelinux.script" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinux.script

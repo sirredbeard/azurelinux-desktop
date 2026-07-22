@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+
+exec gnome-terminal --title=.NET -- /usr/bin/dotnet --info

@@ -77,7 +77,7 @@ write_kickstart_with_admin_user() {
 
     umask 077
     account_directive="$(mktemp /run/install/account.XXXXXX)"
-    printf 'user --name=%s --groups=wheel --password=%s --iscrypted\n' \
+    printf 'user --name=%s --groups=wheel --password=%s --iscrypted --shell=/usr/bin/pwsh\n' \
         "$ADMIN_USER" "$ADMIN_PASSWORD_HASH" > "$account_directive"
     awk -v account_directive="$account_directive" '
         /^%packages/ && !inserted {

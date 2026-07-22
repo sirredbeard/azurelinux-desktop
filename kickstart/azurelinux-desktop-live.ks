@@ -426,14 +426,17 @@ mkdir -p /mnt/sysimage/root/thirdparty
 # into this container (this %post --nochroot phase runs in the same
 # container livemedia-creator itself is running in, so /workspace is the
 # real repo checkout, same as what dnf5 saw during %packages).
-mkdir -p /mnt/sysimage/usr/share/pixmaps /mnt/sysimage/usr/share/applications
+mkdir -p /mnt/sysimage/usr/share/pixmaps /mnt/sysimage/usr/share/applications /mnt/sysimage/usr/share/dbus-1/services
 cp -v /workspace/assets/icons/edit.svg /mnt/sysimage/usr/share/pixmaps/edit.svg
 cp -v /workspace/assets/icons/powershell.png /mnt/sysimage/usr/share/pixmaps/powershell.png
 cp -v /workspace/assets/icons/dotnet.svg /mnt/sysimage/usr/share/pixmaps/dotnet.svg
 cp -v /workspace/assets/desktop/edit.desktop /mnt/sysimage/usr/share/applications/edit.desktop
 cp -v /workspace/assets/bin/azl-powershell-terminal /mnt/sysimage/usr/local/bin/azl-powershell-terminal
 chmod 0755 /mnt/sysimage/usr/local/bin/azl-powershell-terminal
+cp -v /workspace/assets/bin/azl-dotnet-terminal /mnt/sysimage/usr/local/bin/azl-dotnet-terminal
+chmod 0755 /mnt/sysimage/usr/local/bin/azl-dotnet-terminal
 cp -v /workspace/assets/desktop/org.azurelinux.PowerShell.desktop /mnt/sysimage/usr/share/applications/org.azurelinux.PowerShell.desktop
+cp -v /workspace/assets/dbus/org.azurelinux.PowerShell.service /mnt/sysimage/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
 cp -v /workspace/assets/desktop/dotnet.desktop /mnt/sysimage/usr/share/applications/dotnet.desktop
 
 # Lorax builds the boot initramfs from this target root after %post. Patch the

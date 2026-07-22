@@ -1,33 +1,4 @@
 #!/bin/sh
 set -eu
 
-APP_ID=org.azurelinux.PowerShell
-SERVER=/usr/libexec/gnome-terminal-server
-
-if [ ! -x "$SERVER" ]; then
-    echo "PowerShell launcher could not find gnome-terminal-server" >&2
-    exit 1
-fi
-
-has_server() {
-    gdbus call --session \
-        --dest org.freedesktop.DBus \
-        --object-path /org/freedesktop/DBus \
-        --method org.freedesktop.DBus.NameHasOwner "$APP_ID" 2>/dev/null |
-        grep -Fq true
-}
-
-if ! has_server; then
-    "$SERVER" --app-id "$APP_ID" >/dev/null 2>&1 &
-    for _ in 1 2 3 4 5 6 7 8 9 10; do
-        has_server && break
-        sleep 0.1
-    done
-fi
-
-has_server || {
-    echo "PowerShell launcher could not start its GNOME Terminal server" >&2
-    exit 1
-}
-
-exec gnome-terminal --app-id "$APP_ID" --title=PowerShell -- /usr/bin/pwsh
+exec gnome-terminal --app-id org.azurelinux.PowerShell --title=PowerShell -- /usr/bin/pwsh

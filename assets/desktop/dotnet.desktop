@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=.NET
-Comment=Check the installed .NET SDK/runtime versions, then drop into a shell
-Exec=gnome-terminal --title=".NET" -- /bin/sh -c 'dotnet --info; exec $SHELL'
+Comment=Check the installed .NET SDK/runtime versions
+Exec=/usr/local/bin/azl-dotnet-terminal
 Icon=/usr/share/pixmaps/dotnet.svg
 Terminal=false
 Categories=Development;
