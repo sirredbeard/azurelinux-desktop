@@ -34,7 +34,22 @@ These need rebuilt artifacts and GUI/runtime boot validation, not just static/co
 - `./scripts/test-hybrid-container-local.sh` → pass
 - `./scripts/test-installer-kiwi-build.sh /home/fedora/azl-work/installer-kiwi-local-20260722-1718` → failed locally at KIWI bind-mount `/dev` step under this host/container combination (`KiwiMountKernelFileSystemsError` mounting `/workspace/.../image-root/dev`), so authoritative verification moved to GitHub Actions build path.
 
-**GitHub Actions dispatch status:** pending in this tracker section until run IDs/results are recorded below.
+**GitHub Actions dispatch status (full-rebuild category):**
+
+- `release-live-iso.yml` (ISO-only requested): https://github.com/sirredbeard/azurelinux-desktop/actions/runs/29960854444  
+  Status at dispatch check: `pending` (head SHA `2c71482355922e6d34937a7b3736ed3aa9fbbb22`)
+- `release-installer-iso.yml`: https://github.com/sirredbeard/azurelinux-desktop/actions/runs/29960854403  
+  Status at dispatch check: `in_progress` (head SHA `2c71482355922e6d34937a7b3736ed3aa9fbbb22`)
+
+Result capture plan for this same tracker section after completion:
+
+1. Record workflow conclusion, failed/blocked step (if any), and retained log excerpt location.
+2. Record artifact verification steps executed with project scripts.
+3. Record per-fix runtime outcome (`passed`, `regressed`, or `needs follow-up`) for:
+   - PowerShell dock identity
+   - `.NET` launcher/icon visibility
+   - installer-created admin default shell
+   - any Plymouth/Flatpak checks included in the produced artifacts
 
 This is the user-facing QA record for the `2026.07.22` live ISO. The live
 session booted in GUI QEMU with UEFI, 8 GiB RAM, and a USB tablet. Dark mode,
