@@ -129,6 +129,14 @@ README for the full backstory.
   needs iterating on. Cancel a premature run immediately. Once a failure or
   cancellation is diagnosed and its relevant excerpt is retained in
   `findings/logs/`, delete the run so the Actions list stays useful.
+- **Selective release testing**: during active ISO/qcow2 debugging, build
+  only the requested live ISO, installer ISO, and qcow2. VHDX, VDI, and VMDK
+  are derivative conversions of qcow2 and stay disabled unless explicitly
+  needed. When validation needs released artifacts, dispatch the matching
+  release workflows rather than build-only workflows so
+  `Get-AzureLinuxDesktop.ps1` is tested against the actual published assets.
+  Same-day release runs intentionally overwrite the dated release assets;
+  use that behavior for iteration instead of creating extra releases.
 
 ## Build architecture (as of this writing)
 
