@@ -184,6 +184,44 @@ README for the full backstory.
   for wallpaper or desktop background changes while closing final-polish
   issues. Resolve background behavior within existing image assets,
   configuration, and package sets.
+- **Asset staging in kickstarts**: always use `install -m 0644` (data
+  files) and `install -m 0755` (executables) instead of `cp -v` when
+  copying assets in kickstart `%post` sections. `cp -v` preserves the
+  source's permissions verbatim; the Fedora 43 build container that
+  processes `assets.tar.gz` for the installer ISO runs with umask 077,
+  so extracted files land at mode 600. GNOME Shell (running as the user)
+  can't read a mode-600 `.desktop` file and silently drops it from the
+  dash/favorites — confirmed root cause of PowerShell missing from the
+  installed GNOME dash. `install -m 0644` forces the correct mode
+  regardless of umask. Apply to all three kickstarts whenever adding or
+  changing an asset staging block.
+- **Installer disk partitioning**: disk partitioning is delegated to
+  Anaconda's interactive TUI. Do not re-add `clearpart`/`autopart`
+  directives to the installer kickstart; Anaconda enforces minimum layout
+  requirements (/, /boot/efi on UEFI). Use bare `bootloader` (not
+  `--location=mbr`) so the directive is firmware-agnostic.
+- **Plymouth on installed systems**: do not include `console=ttyS0,...`
+  in the installed system's kernel cmdline for desktop use. Azure Linux
+  upstream inherits serial console parameters from its cloud/datacenter
+  origin; on a desktop boot, `/sys/class/tty/console/active` then
+  contains `ttyS0`, Plymouth detects a serial console, and the graphical
+  splash is suppressed. `kiwi/post-bootloader.sh` must not inject serial
+  console params into the normal boot BLS entry (rescue entry is fine to
+  omit them too). `serial`/`terminal_output` in GRUB itself is acceptable
+  for GRUB debug — it does not affect the kernel or Plymouth.
+- **EFI vendor path**: our kickstart excludes AZL's `shim-x64` and
+  `grub2-efi-x64`; Fedora's Secure Boot-signed shim/grub RPMs install
+  their binaries to `EFI/fedora/`, but Anaconda's NVRAM entry points to
+  `EFI/azurelinux/shimx64.efi`. `kiwi/post-bootloader.sh` copies the
+  Fedora EFI binaries to `EFI/azurelinux/` when absent. Don't reintroduce
+  AZL's unsigned shim/grub just to avoid this copy step.
+- **Interactive QEMU/GNOME testing**: quirks, caveats, and the SSH
+  port-forwarding pattern for GNOME Wayland testing inside QEMU are
+  documented in `findings/qemu-gnome-interactive-testing.md`. Read that
+  file before attempting any QEMU guest interaction. Key: Wayland mouse
+  clicks via QEMU monitor are unreliable; SSH into the guest with
+  `hostfwd=tcp::2222-:22`; the default user shell is `pwsh`, so use
+  `bash -c '...'` explicitly in SSH commands.
 
 ## Build architecture (as of this writing)
 
