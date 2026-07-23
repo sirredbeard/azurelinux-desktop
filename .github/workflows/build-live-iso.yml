@@ -216,8 +216,7 @@ jobs:
                 --project "Azure Linux Desktop" \
                 --releasever 43 \
                 --volid AZLDESKTOP \
-                --live-rootfs-size 8 \
-                --extra-boot-args "rd.live.overlay.overlayfs=1" \
+                --rootfs-type squashfs-ext4 \
                 --logfile /workspace/livemedia-build.log
             '
 

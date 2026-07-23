@@ -663,11 +663,5 @@ render_kickstart() {
 render_kickstart /root/azl-install.ks.in /root/azl-install.ks
 render_kickstart /root/azl-install-encrypted.ks.in /root/azl-install-encrypted.ks
 
-# Azure Linux's installer does not embed a default account. Keep the desktop
-# templates account-free; anaconda-launcher.sh collects the administrator
-# credentials and inserts a hashed account directive into its temporary copy.
-sed -i \
-    -e '/^user --name=cinnamon /d' \
-    /root/azl-install.ks /root/azl-install-encrypted.ks
 
 echo "=== kiwi/config.sh complete ==="

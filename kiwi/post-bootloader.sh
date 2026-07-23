@@ -96,13 +96,13 @@ terminal_input console serial
 
 menuentry "Azure Linux" {
     search --no-floppy --fs-uuid --set=root ${BOOT_UUID}
-    linux /${KERNEL_NAME} root=UUID=${ROOT_UUID} ${LUKS_PARAMS} console=ttyS0,115200 console=tty0 rhgb quiet ro
+    linux /${KERNEL_NAME} root=UUID=${ROOT_UUID} ${LUKS_PARAMS} rhgb quiet ro
     initrd /${INITRD_NAME}
 }
 
 menuentry "Azure Linux (rescue)" {
     search --no-floppy --fs-uuid --set=root ${BOOT_UUID}
-    linux /${KERNEL_NAME} root=UUID=${ROOT_UUID} ${LUKS_PARAMS} console=ttyS0,115200 console=tty0 ro systemd.unit=rescue.target
+    linux /${KERNEL_NAME} root=UUID=${ROOT_UUID} ${LUKS_PARAMS} ro systemd.unit=rescue.target
     initrd /${INITRD_NAME}
 }
 

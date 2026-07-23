@@ -40,9 +40,7 @@ firewall --enabled --ssh
 network --hostname=azurelinux-desktop
 services --enabled=sshd,systemd-networkd,systemd-resolved,gdm,NetworkManager
 
-# The renderer removes the remaining legacy user directive so account
-# creation stays interactive, matching Azure Linux's installer templates.
-user --name=cinnamon --groups=wheel --plaintext --password=cinnamon --gecos="Cinnamon"
+bootloader
 
 rootpw --lock
 

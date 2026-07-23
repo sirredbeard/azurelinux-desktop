@@ -427,17 +427,15 @@ mkdir -p /mnt/sysimage/root/thirdparty
 # container livemedia-creator itself is running in, so /workspace is the
 # real repo checkout, same as what dnf5 saw during %packages).
 mkdir -p /mnt/sysimage/usr/share/pixmaps /mnt/sysimage/usr/share/applications /mnt/sysimage/usr/share/dbus-1/services
-cp -v /workspace/assets/icons/edit.svg /mnt/sysimage/usr/share/pixmaps/edit.svg
-cp -v /workspace/assets/icons/powershell.png /mnt/sysimage/usr/share/pixmaps/powershell.png
-cp -v /workspace/assets/icons/dotnet.svg /mnt/sysimage/usr/share/pixmaps/dotnet.svg
-cp -v /workspace/assets/desktop/edit.desktop /mnt/sysimage/usr/share/applications/edit.desktop
-cp -v /workspace/assets/bin/azl-powershell-terminal /mnt/sysimage/usr/local/bin/azl-powershell-terminal
-chmod 0755 /mnt/sysimage/usr/local/bin/azl-powershell-terminal
-cp -v /workspace/assets/bin/azl-dotnet-terminal /mnt/sysimage/usr/local/bin/azl-dotnet-terminal
-chmod 0755 /mnt/sysimage/usr/local/bin/azl-dotnet-terminal
-cp -v /workspace/assets/desktop/org.azurelinux.PowerShell.desktop /mnt/sysimage/usr/share/applications/org.azurelinux.PowerShell.desktop
-cp -v /workspace/assets/dbus/org.azurelinux.PowerShell.service /mnt/sysimage/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
-cp -v /workspace/assets/desktop/dotnet.desktop /mnt/sysimage/usr/share/applications/dotnet.desktop
+install -m 0644 /workspace/assets/icons/edit.svg /mnt/sysimage/usr/share/pixmaps/edit.svg
+install -m 0644 /workspace/assets/icons/powershell.png /mnt/sysimage/usr/share/pixmaps/powershell.png
+install -m 0644 /workspace/assets/icons/dotnet.svg /mnt/sysimage/usr/share/pixmaps/dotnet.svg
+install -m 0644 /workspace/assets/desktop/edit.desktop /mnt/sysimage/usr/share/applications/edit.desktop
+install -m 0755 /workspace/assets/bin/azl-powershell-terminal /mnt/sysimage/usr/local/bin/azl-powershell-terminal
+install -m 0755 /workspace/assets/bin/azl-dotnet-terminal /mnt/sysimage/usr/local/bin/azl-dotnet-terminal
+install -m 0644 /workspace/assets/desktop/org.azurelinux.PowerShell.desktop /mnt/sysimage/usr/share/applications/org.azurelinux.PowerShell.desktop
+install -m 0644 /workspace/assets/dbus/org.azurelinux.PowerShell.service /mnt/sysimage/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
+install -m 0644 /workspace/assets/desktop/dotnet.desktop /mnt/sysimage/usr/share/applications/dotnet.desktop
 
 # Lorax builds the boot initramfs from this target root after %post. Patch the
 # target's older livenet hook, not the Fedora build container's dracut copy.
@@ -453,11 +451,11 @@ rm -f /mnt/sysimage/usr/local/libexec/patch-dracut-livenet-hook.sh
 # this only drops the theme content in place, chrooted %post below picks
 # the theme as default.
 mkdir -p /mnt/sysimage/usr/share/plymouth/themes/azurelinux
-cp -v /workspace/assets/plymouth/azurelinux/azurelinux.plymouth /mnt/sysimage/usr/share/plymouth/themes/azurelinux/azurelinux.plymouth
-cp -v /workspace/assets/plymouth/azurelinux/azurelinux.script /mnt/sysimage/usr/share/plymouth/themes/azurelinux/azurelinux.script
-cp -v /workspace/assets/plymouth/azurelinux/dot.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/dot.png
-cp -v /workspace/assets/plymouth/azurelinux/dot-glow.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/dot-glow.png
-cp -v /workspace/assets/branding/AzureLinuxLogo.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/azurelinuxlogo.png
+install -m 0644 /workspace/assets/plymouth/azurelinux/azurelinux.plymouth /mnt/sysimage/usr/share/plymouth/themes/azurelinux/azurelinux.plymouth
+install -m 0644 /workspace/assets/plymouth/azurelinux/azurelinux.script /mnt/sysimage/usr/share/plymouth/themes/azurelinux/azurelinux.script
+install -m 0644 /workspace/assets/plymouth/azurelinux/dot.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/dot.png
+install -m 0644 /workspace/assets/plymouth/azurelinux/dot-glow.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/dot-glow.png
+install -m 0644 /workspace/assets/branding/AzureLinuxLogo.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/azurelinuxlogo.png
 
 # GitHub Copilot's desktop app (the "github" Tauri app) has a real,
 # versioned release asset on GitHub but no public yum repo - side-load it
@@ -877,14 +875,9 @@ fi
 # needs to go.
 rm -f /etc/xdg/autostart/liveinst-setup.desktop
 
-# Live session user: dropped the earlier idea of a custom "cinnamon" account
-# baked in at build time - it fought with livesys-main's own runtime
-# useradd of "liveuser" (passwd -d, usermod -aG wheel) on every boot, and
-# there's no upside to renaming it for a throwaway live-test image. Just
-# let livesys-scripts do what it already does (create liveuser, no
-# password, in the wheel group) and add the one thing it doesn't: a
-# passwordless sudo rule for wheel, plus GDM autologin targeting the
-# account livesys actually creates.
+# Live session user: livesys-scripts creates "liveuser" at runtime (passwd -d,
+# usermod -aG wheel) - no static build-time account is embedded. Add the
+# one thing livesys does not: passwordless sudo for wheel and GDM autologin
 echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-wheel-nopasswd
 chmod 0440 /etc/sudoers.d/90-wheel-nopasswd
 mkdir -p /etc/gdm

@@ -79,7 +79,7 @@ echo "--- Launching QEMU ---"
 cp /usr/share/edk2/ovmf/OVMF_VARS.fd "$WORKDIR/OVMF_VARS.fd"
 
 qemu-system-x86_64 \
-    -enable-kvm -m 4G -smp 4 \
+    -enable-kvm -m 8G -smp 4 -cpu host \
     -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE.fd \
     -drive if=pflash,format=raw,file="$WORKDIR/OVMF_VARS.fd" \
     -drive file="$ISO",media=cdrom,readonly=on,if=ide \

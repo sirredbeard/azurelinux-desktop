@@ -37,9 +37,7 @@ firewall --enabled --ssh
 network --hostname=azurelinux-desktop
 services --enabled=sshd,systemd-networkd,systemd-resolved,gdm,NetworkManager
 
-# The renderer removes the remaining legacy user directive so account
-# creation stays interactive, matching Azure Linux's installer templates.
-user --name=cinnamon --groups=wheel --plaintext --password=cinnamon --gecos="Cinnamon"
+bootloader
 
 rootpw --lock
 
@@ -70,25 +68,23 @@ mkdir -p /mnt/sysroot/usr/share/plymouth/themes/azurelinux
 
 ASSETS=/opt/azl-desktop-assets
 if [ -d "$ASSETS" ]; then
-    cp -v "$ASSETS/icons/edit.svg" /mnt/sysroot/usr/share/pixmaps/edit.svg
-    cp -v "$ASSETS/icons/powershell.png" /mnt/sysroot/usr/share/pixmaps/powershell.png
-    cp -v "$ASSETS/icons/dotnet.svg" /mnt/sysroot/usr/share/pixmaps/dotnet.svg
-    cp -v "$ASSETS/desktop/edit.desktop" /mnt/sysroot/usr/share/applications/edit.desktop
-    cp -v "$ASSETS/bin/azl-powershell-terminal" /mnt/sysroot/usr/local/bin/azl-powershell-terminal
-    chmod 0755 /mnt/sysroot/usr/local/bin/azl-powershell-terminal
-    cp -v "$ASSETS/bin/azl-dotnet-terminal" /mnt/sysroot/usr/local/bin/azl-dotnet-terminal
-    chmod 0755 /mnt/sysroot/usr/local/bin/azl-dotnet-terminal
-    cp -v "$ASSETS/desktop/org.azurelinux.PowerShell.desktop" /mnt/sysroot/usr/share/applications/org.azurelinux.PowerShell.desktop
-    cp -v "$ASSETS/dbus/org.azurelinux.PowerShell.service" /mnt/sysroot/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
-    cp -v "$ASSETS/desktop/dotnet.desktop" /mnt/sysroot/usr/share/applications/dotnet.desktop
-    cp -v "$ASSETS/plymouth/azurelinux/azurelinux.plymouth" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinux.plymouth
-    cp -v "$ASSETS/plymouth/azurelinux/azurelinux.script" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinux.script
-    cp -v "$ASSETS/plymouth/azurelinux/dot.png" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/dot.png
-    cp -v "$ASSETS/plymouth/azurelinux/dot-glow.png" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/dot-glow.png
-    cp -v "$ASSETS/branding/AzureLinuxLogo.png" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinuxlogo.png
+    install -m 0644 "$ASSETS/icons/edit.svg" /mnt/sysroot/usr/share/pixmaps/edit.svg
+    install -m 0644 "$ASSETS/icons/powershell.png" /mnt/sysroot/usr/share/pixmaps/powershell.png
+    install -m 0644 "$ASSETS/icons/dotnet.svg" /mnt/sysroot/usr/share/pixmaps/dotnet.svg
+    install -m 0644 "$ASSETS/desktop/edit.desktop" /mnt/sysroot/usr/share/applications/edit.desktop
+    install -m 0755 "$ASSETS/bin/azl-powershell-terminal" /mnt/sysroot/usr/local/bin/azl-powershell-terminal
+    install -m 0755 "$ASSETS/bin/azl-dotnet-terminal" /mnt/sysroot/usr/local/bin/azl-dotnet-terminal
+    install -m 0644 "$ASSETS/desktop/org.azurelinux.PowerShell.desktop" /mnt/sysroot/usr/share/applications/org.azurelinux.PowerShell.desktop
+    install -m 0644 "$ASSETS/dbus/org.azurelinux.PowerShell.service" /mnt/sysroot/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
+    install -m 0644 "$ASSETS/desktop/dotnet.desktop" /mnt/sysroot/usr/share/applications/dotnet.desktop
+    install -m 0644 "$ASSETS/plymouth/azurelinux/azurelinux.plymouth" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinux.plymouth
+    install -m 0644 "$ASSETS/plymouth/azurelinux/azurelinux.script" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinux.script
+    install -m 0644 "$ASSETS/plymouth/azurelinux/dot.png" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/dot.png
+    install -m 0644 "$ASSETS/plymouth/azurelinux/dot-glow.png" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/dot-glow.png
+    install -m 0644 "$ASSETS/branding/AzureLinuxLogo.png" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinuxlogo.png
     mkdir -p /mnt/sysroot/usr/share/backgrounds/azurelinux
-    cp -v "$ASSETS/wallpapers/adwaita-l.jpg" /mnt/sysroot/usr/share/backgrounds/azurelinux/adwaita-l.jpg
-    cp -v "$ASSETS/wallpapers/adwaita-d.jpg" /mnt/sysroot/usr/share/backgrounds/azurelinux/adwaita-d.jpg
+    install -m 0644 "$ASSETS/wallpapers/adwaita-l.jpg" /mnt/sysroot/usr/share/backgrounds/azurelinux/adwaita-l.jpg
+    install -m 0644 "$ASSETS/wallpapers/adwaita-d.jpg" /mnt/sysroot/usr/share/backgrounds/azurelinux/adwaita-d.jpg
 else
     echo "WARNING: $ASSETS not found in install environment - branding/launcher assets skipped" >&2
 fi

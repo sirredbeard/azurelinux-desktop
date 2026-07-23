@@ -2709,3 +2709,42 @@ Anaconda, LiveOS, live dracut, Cockpit, storage-discovery, report, and
 installer GUI dependencies. It is not evidence that the installed desktop
 lost the core desktop/tool packages listed above. The one installed-only
 minimal language package reflects the installed target's language baseline.
+
+---
+
+## Installer interactive testing (2026-07-23)
+
+### Plymouth now graphical on installed boot
+
+**Root cause confirmed:** `console=ttyS0,115200 console=tty0` in kernel cmdline written by `post-bootloader.sh` blocked Plymouth graphical splash.
+
+**Fix:** Removed serial console params from normal kernel cmdline in `kiwi/post-bootloader.sh`. Azure Linux boot splash (penguin + animated dots) confirmed visible at ~6s in QEMU test.
+
+### PowerShell missing from installed GNOME dash — root cause found
+
+**Root cause:** `org.azurelinux.PowerShell.desktop` installed with mode 600 (root-only) in installer builds. GNOME Shell runs as the user and can't read the file → silently skips it in the dash. Same applies to icons and other asset files.
+
+**Why only installer, not live ISO:** The live ISO copies assets directly from the GitHub Actions workspace checkout (`/workspace/assets/`), which preserves git-checkout permissions (644). The installer ISO packages assets via `tar` into `assets.tar.gz` inside a Fedora 43 build container where umask is 077, so extracted files land at 600.
+
+**Fix:** Replaced all `cp -v` with `install -m 0644` (data files) and `install -m 0755` (executables) across all three kickstarts (`azl-install.ks.in`, `azurelinux-desktop-live.ks`, `azurelinux-desktop-live-disk.ks`) and `kiwi/azl-install.ks.in`. Belt-and-suspenders: live ISO was already correct, installer is now fixed.
+
+**Verified:** `dconf read /org/gnome/shell/favorite-apps` and `gsettings get org.gnome.shell favorite-apps` from SSH inside the running GNOME session both return all 5 correct entries.
+
+### Installer bootloader directive
+
+Changed `bootloader --location=mbr` → bare `bootloader` (firmware-agnostic). `--location=mbr` is legacy BIOS; UEFI systems ignore it or install an unnecessary MBR bootloader alongside EFI. Bare `bootloader` lets Anaconda detect firmware and do the right thing.
+
+### Disk partitioning delegated to Anaconda TUI
+
+Removed `clearpart --all --initlabel` and `autopart --type=lvm` from `azl-install.ks.in`. Anaconda's TUI handles disk selection and partitioning; Anaconda enforces minimum layout requirements (/, /boot/efi on UEFI). Encryption is now a TUI choice.
+
+### Cinnamon placeholder references removed
+
+Removed `user --name=cinnamon` from both installer kickstart templates and the `config.sh` sed block that stripped it. Rewrote live kickstart comments that referenced it.
+
+### EFI boot path mismatch fix
+
+`post-bootloader.sh` now copies `shimx64.efi`, `shim.efi`, `grubx64.efi`, `mmx64.efi` from `EFI/fedora/` → `EFI/azurelinux/` when the EFI vendor dir is `azurelinux` but binaries are absent (Fedora shim/grub RPMs install to `EFI/fedora/`, AZL anaconda creates NVRAM entry for `EFI/azurelinux/shimx64.efi`).
+
+**Status:** ✅ Plymouth graphical confirmed in QEMU | ✅ EFI boot fix applied | ✅ asset permissions fix in code | ⏳ requires fresh build to verify all 5 dock icons
+
