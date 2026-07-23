@@ -445,7 +445,9 @@ install -m 0644 /workspace/assets/plymouth/azurelinux/azurelinux.script /mnt/sys
 install -m 0644 /workspace/assets/plymouth/azurelinux/dot.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/dot.png
 install -m 0644 /workspace/assets/plymouth/azurelinux/dot-glow.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/dot-glow.png
 install -m 0644 /workspace/assets/branding/AzureLinuxLogo.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/azurelinuxlogo.png
-
+mkdir -p /mnt/sysimage/usr/share/backgrounds/azurelinux
+install -m 0644 /workspace/assets/wallpapers/adwaita-l.jpg /mnt/sysimage/usr/share/backgrounds/azurelinux/adwaita-l.jpg
+install -m 0644 /workspace/assets/wallpapers/adwaita-d.jpg /mnt/sysimage/usr/share/backgrounds/azurelinux/adwaita-d.jpg
 # GitHub Copilot's desktop app (the "github" Tauri app) has a real,
 # versioned release asset on GitHub but no public yum repo - side-load it
 # instead of pretending it belongs in a repo definition. Always grab
@@ -682,6 +684,11 @@ cat > /etc/dconf/db/local.d/00-dark-mode << 'EOF'
 [org/gnome/desktop/interface]
 color-scheme='prefer-dark'
 gtk-theme='Adwaita-dark'
+
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/azurelinux/adwaita-l.jpg'
+picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
+picture-options='zoom'
 EOF
 cat > /etc/dconf/profile/user << 'EOF'
 user-db:user
