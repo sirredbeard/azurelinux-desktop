@@ -813,3 +813,30 @@ installed system's `grub.cfg`. The installer ISO's own GRUB already used
 `gfxterm`. Fixed in commit `b49ee12` — installed system now gets graphical
 GRUB + `gfxpayload=keep`, matching the installer ISO's own menu. New installer
 build: run `29987725267`.
+
+### Final parity status (2026-07-24, nightly release 29993641061)
+
+**Squash commit `b085d15` landed on `main`.** Nightly release completed:
+- Installer ISO: published ✅ (2.9 GB, built from `b085d15`)
+- Live ISO: published ✅ (2.75 GB, built from `b085d15`)
+- Live QCOW2: published ✅ (3.1 GB, built from `b085d15`)
+
+**Static parity checks passed on new live ISO (run 29990996437):**
+- Wallpaper assets staged: `/usr/share/backgrounds/azurelinux/adwaita-{d,l}.jpg` ✅
+- dconf picture-uri/dark pointing to staged JPEGs ✅
+- early-kms: `virtio_gpu hyperv_drm bochs_drm` ✅
+- All desktop files mode 644 ✅
+- Plymouth azurelinux theme with ScaleLogoToFit ✅
+
+**Installer gfxterm parity (commit b49ee12):**
+- Installer ISO boot menu: `gfxterm` ✅
+- Installed system's grub.cfg via post-bootloader.sh: `gfxterm + gfxpayload=keep` ✅
+
+**Known parity items requiring GUI/interactive verification:**
+- Plymouth graphical animation during installer boot (static: azurelinux theme present)
+- Plymouth on first installed-target boot (static: gfxterm + no ttyS0 confirmed)
+- Dock PowerShell icon in installed target (static: mode 644 confirmed)
+- .NET launcher drop-to-shell behavior (static: azl-dotnet-terminal script correct)
+
+These items require a real display. Static verification provides high confidence
+all fixes are in place.

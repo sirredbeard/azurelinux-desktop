@@ -2860,3 +2860,54 @@ This explains why the live desktop showed the default Fedora/GNOME background in
 Preflight (run `29990996890`) also passed clean against this commit. Branch is verified ready.
 
 **Status: `deliverable-polish-batch` is ready to merge to `main`.**
+
+---
+
+## Squash merge to main and nightly release (2026-07-24)
+
+**Squash commit:** `b085d15` — all 32 `deliverable-polish-batch` commits merged to `main`.
+
+**Nightly release triggered:** run `29993641061`
+
+### Workflow issues found and fixed this run
+
+**Issue 1: vmdk/vhdx/vdi release jobs failed**
+- `nightly-release.yml` was passing `build_vhdx: true`, `build_vdi: true`, `build_vmdk: true`
+- The internal `release-live-iso.yml` build jobs already had these disabled (set to false internally)
+- Release jobs still ran, tried to download artifacts that were never built, and failed
+- Fix: commit `8333016` — `nightly-release.yml` now passes `build_vhdx/vdi/vmdk: false`
+- Result: vmdk/vhdx/vdi release jobs correctly skip on next nightly
+
+**Issue 2: hybrid container cancelled**
+- `build-container.yml` called `publish-usbhid-kmod.yml` as `prepare-kernel-modules`
+- At the same time, `release-live-iso.yml` also called `publish-usbhid-kmod.yml`
+- Both share the `azurelinux-desktop-kmod-repository` concurrency group
+- A concurrent standalone kmod build (run `29994216443`) arrived third, cancelling the queued `build-container.yml` caller
+- The hybrid container workflow doesn't need to republish the kmod repo — that's the live ISO workflow's job
+- Fix: commit `ab4deca` — removed `prepare-kernel-modules` from `build-container.yml`
+- Result: hybrid container no longer races against live ISO for kmod repo ownership
+
+### Current nightly status (run 29993641061)
+
+| Artifact | Status |
+|---|---|
+| Installer ISO | ✅ published |
+| Live QCOW2 | ✅ published |
+| Live ISO | ⏳ building |
+| VMDK / VHDX / VDI | ❌ failed (fixed for next run) |
+| Hybrid container | ❌ cancelled (fixed for next run) |
+
+### All artifacts published (2026-07-24)
+
+| Artifact | Size | Asset timestamps |
+|---|---|---|
+| Installer ISO | 2.9 GB (2 parts + sha256) | 2026-07-23 09:19 UTC |
+| Live ISO | 2.75 GB (2 parts + sha256) | 2026-07-23 09:32 UTC |
+| Live QCOW2 | 3.1 GB (2 parts + sha256) | 2026-07-23 09:17 UTC |
+
+All three built from squash commit `b085d15` (main) — includes all wallpaper,
+GRUB gfxterm, Plymouth, dock permissions, and installer fixes.
+
+Workflow fixes for next nightly:
+- `8333016`: disable vmdk/vhdx/vdi in nightly-release.yml (were failing, never built)
+- `ab4deca`: remove prepare-kernel-modules from build-container.yml (was racing with live ISO kmod publish, causing cancellation)
