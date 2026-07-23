@@ -54,9 +54,9 @@ jobs:
     with:
       build_iso: true
       build_qcow2: true
-      build_vhdx: true
-      build_vdi: true
-      build_vmdk: true
+      build_vhdx: false
+      build_vdi: false
+      build_vmdk: false
 
   publish-installer:
     needs: remove-previous-publication
