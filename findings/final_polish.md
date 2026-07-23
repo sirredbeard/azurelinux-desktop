@@ -15,6 +15,10 @@ This section tracks the current polish fixes split into:
 `final_polish_finished.md` in this pass because runtime closure criteria are
 not yet complete for the remaining items.
 
+**Preflight branch handoff:** `deliverable-polish-batch` was fast-forwarded
+to the current tracked commit (`ca5de75`) so the batch preflight workflow can
+run against the same deliverable set as `main`.
+
 **Iteration preflight closure (2026-07-22, split-step run):**
 
 - `scripts/test-container-repos.sh` → pass
@@ -43,6 +47,8 @@ not yet complete for the remaining items.
    app visibility from an interactive GNOME session.
 4. Measure live Flatpak writable-space behavior from running session
    (`findmnt`, `df`, `/proc/cmdline`) and map to dracut overlay configuration.
+5. Rebuild the live ISO with `--live-rootfs-size 8` and recheck the live
+   Flatpak install path against the published artifact.
 
 ### (a) Local container/overlay-verifiable fixes (completed locally)
 
