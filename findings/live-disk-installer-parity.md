@@ -741,3 +741,59 @@ not a bootable image.
 3. Run both installer selections to a target disk. Confirm each installed
    target retains the Pages repository and has the same paired kernel/module
    policy and relevant desktop package boundary as the qcow2.
+
+## Installer interactive testing batch (2026-07-23) — fixes applied
+
+### Asset permissions parity issue (installer only) — fixed
+
+**Root cause:** `assets.tar.gz` is extracted in a Fedora 43 build container
+with default umask 077. `cp -v` preserves source permissions verbatim, so
+all asset files landed at mode 600 in the installed target. GNOME Shell
+(running as the user, not root) silently drops any `.desktop` file it
+cannot read, so PowerShell was absent from the dash despite dconf having
+the correct `favorite-apps` value.
+
+**Fix:** All `cp -v` replaced with `install -m 0644` (data files) and
+`install -m 0755` (executables) in all three kickstarts. The live ISO was
+unaffected (direct workspace checkout preserves 644), but the fix is applied
+there too as belt-and-suspenders.
+
+**Confirmed:** `dconf read /org/gnome/shell/favorite-apps` and `gsettings get
+org.gnome.shell favorite-apps` from an SSH session inside the running installed
+GNOME session both returned all 5 entries correctly.
+
+### Plymouth serial console — fixed (installer)
+
+Azure Linux inherits `console=ttyS0,115200 console=tty0` in its cloud/datacenter
+origin kernel cmdline. `kiwi/post-bootloader.sh` was propagating this into the
+installed system's BLS entry. Plymouth detects a serial console via
+`/sys/class/tty/console/active` and switches to text/details mode regardless of
+other configuration. Removed the serial console params from the normal boot BLS
+entry. Azure Linux Plymouth boot splash (penguin + animated dots) confirmed at
+~6s in QEMU test.
+
+### EFI boot path mismatch — fixed
+
+Our kickstart excludes AZL's `shim-x64` and `grub2-efi-x64`; Fedora's RPMs
+install their EFI binaries to `EFI/fedora/`, but Anaconda creates the NVRAM entry
+pointing to `EFI/azurelinux/shimx64.efi`. `post-bootloader.sh` now copies the
+Fedora EFI binaries to `EFI/azurelinux/` when absent.
+
+### Disk partitioning delegated to Anaconda TUI
+
+Removed `clearpart --all --initlabel` and `autopart --type=lvm` from the installer
+kickstart. Anaconda TUI handles storage; enforces minimum layout requirements.
+Encryption is now a TUI choice.
+
+### early-kms parity fix (live-disk)
+
+`kickstart/azurelinux-desktop-live-disk.ks` `early-kms.conf` now loads
+`virtio_gpu hyperv_drm bochs_drm` (matching live ISO and installer).
+
+### Build status (2026-07-23)
+
+Fresh builds triggered from `deliverable-polish-batch` HEAD `8b02468`:
+- Live ISO + qcow2: run 29984033898 — qcow2 ✅ completed, live ISO ⏳ in progress
+- Installer ISO: run 29984008922 — ⏳ in progress
+
+Verification pending these builds completing.
