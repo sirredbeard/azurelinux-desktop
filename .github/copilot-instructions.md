@@ -91,11 +91,22 @@ README for the full backstory.
    configuration rendering, artifact construction, and runtime behavior in
    that order. Stop a line of investigation once it no longer increases
    confidence in the intended product behavior.
-3. **Run a documented issue loop.** For each issue: state the observed
+3. **Dispatch research agents before guessing.** When hitting any non-trivial
+   issue — a behavior that isn't understood, a component whose internals
+   aren't known, a config knob whose effect isn't certain — stop and dispatch
+   a research agent first. Check what upstream Azure Linux (`microsoft/azurelinux`)
+   does, what Fedora does, what the relevant man pages say, what public bug
+   reports exist, and what sample code or CI configs show. Record the findings
+   in `findings/`. Do not trial-and-error guess or rabbit-hole down on issues
+   when a 5-minute research dispatch can establish the right answer. This
+   applies to Plymouth config, dracut modules, dconf behavior, GNOME internals,
+   kickstart syntax, KIWI behavior, and anything else where guessing risks
+   wasted build cycles or wrong fixes landing in artifacts.
+4. **Run a documented issue loop.** For each issue: state the observed
    failure, capture concrete evidence, apply one scoped fix, verify both
    on-disk and runtime behavior, then record pass/fail in `findings/` before
    moving on.
-4. **Escalate repeated blockers early.** After multiple informed attempts,
+5. **Escalate repeated blockers early.** After multiple informed attempts,
    dispatch a research agent to find upstream reports, established fixes, and
    environmental constraints. Then step back and compare the cost of another
    workaround with the project's actual goal.
@@ -131,16 +142,11 @@ README for the full backstory.
 - **Model selection for agents/research**: match the model to the task.
   Use a lighter/faster model (e.g. Haiku-tier) for mechanical, well-defined
   work (log pruning, simple lookups, straightforward doc updates). Use a
-  deeper-reasoning model (e.g. Opus-tier) for genuinely hard problems -
+  deeper-reasoning model (e.g. Opus-tier) for genuinely hard problems —
   tracing bugs through unfamiliar source trees, architecture decisions with
-  real tradeoffs, anything where a shallow pass has already failed once.
-  Dispatch research agents liberally for "has someone already solved this"
-  questions before doing trial-and-error debugging. When a problem survives
-  multiple informed attempts, stop, dispatch research, and reconsider the
-  broader project goal before adding another workaround. This applies to any
-  repeated blocker, not only build containers or CI. Apply the research before
-  adding emulation workarounds. The priority is a working, well-tested
-  personal project, not a perfect local clone of GitHub Actions.
+  real tradeoffs, anything where a shallow pass has already failed once. The
+  priority is a working, well-tested personal project, not a perfect local
+  clone of GitHub Actions.
 - **AIC usage discipline for verification**: do as much screen-capture
   computation and behavioral analysis on-device as possible (image diffs,
   scripted interaction checks, local parsing) before sending visual data into

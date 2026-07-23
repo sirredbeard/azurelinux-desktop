@@ -71,6 +71,283 @@ run against the same deliverable set as `main`.
 | early-kms.conf VM coverage (Issue 3b) | Both kickstarts: added `hyperv_drm bochs_drm` alongside `virtio_gpu` in `add_drivers`; covers Hyper-V Gen2 and QEMU std VGA in addition to virtio-gpu; simpledrm fallback already active via AZL `UseSimpledrmNoLuks=1` | Static source review | **Pass** (source corrected; runtime KMS verification on rebuilt installer ISO) |
 | Plymouth logo proportional scale (Issue 4) | `assets/plymouth/azurelinux/azurelinux.script`: replaced raw centering with `ScaleLogoToFit()` bounding logo to 30% of screen; `Math.Int()` on all coordinates; logo re-centered in `refresh_callback` every frame | Static code review; dot-row Y positions already reference `logo.image.GetHeight()` (scaled) | **Pass** (source corrected; runtime visual verification on rebuilt artifacts) |
 
+---
+
+## Post-build artifact validation guide (2026-07-22 deliverable-polish-batch)
+
+This section is the working checklist for when the in-flight builds complete.
+For each issue: what to check on the filesystem, what to check at runtime,
+what counts as pass/fail, and what to try next if the primary fix doesn't
+hold. All research and alternative-cause analysis is in the sections below;
+this guide references those sections by name.
+
+### Download the artifacts
+
+```powershell
+# Live ISO + qcow2
+pwsh scripts/Get-AzureLinuxDesktop.ps1 -Live -OutputDirectory ~/azl-work/validate-2026.07.22-r3
+# Installer ISO
+pwsh scripts/Get-AzureLinuxDesktop.ps1 -Install -OutputDirectory ~/azl-work/validate-2026.07.22-r3
+```
+
+Record the reassembled checksums in this file for traceability.
+
+---
+
+### 1. Live ISO / live qcow2 — filesystem checks (mount-only, no boot)
+
+```bash
+LIVE_ISO=~/azl-work/validate-2026.07.22-r3/azurelinux-desktop-live.iso
+SQUASH_MNT=/mnt/squash
+IMG_MNT=/mnt/liveroot
+
+# Mount squashfs
+ISO_MNT=$(mktemp -d); sudo mount -o loop,ro "$LIVE_ISO" "$ISO_MNT"
+sudo unsquashfs -d "$IMG_MNT" "$ISO_MNT/LiveOS/squashfs.img"
+
+# --- Flatpak space fix ---
+# rootfs.img size must be ~8 GiB (was 4 GiB)
+ls -lh "$IMG_MNT/LiveOS/rootfs.img"
+# Expected: ~8.0G
+
+# --- Plymouth script fix (Issue 4 proportional scale) ---
+grep -c "ScaleLogoToFit" "$IMG_MNT/usr/share/plymouth/themes/azurelinux/azurelinux.script"
+# Expected: 1
+
+# --- dotnet launcher fix ---
+cat "$IMG_MNT/usr/local/bin/azl-dotnet-terminal"
+# Expected: exec gnome-terminal --title=".NET" -- sh -c 'dotnet --info; ...'
+grep -q 'exec.*SHELL' "$IMG_MNT/usr/local/bin/azl-dotnet-terminal" && echo PASS || echo FAIL
+
+# --- edit.desktop fix ---
+grep "^Icon=" "$IMG_MNT/usr/share/applications/edit.desktop"
+# Expected: Icon=/usr/share/pixmaps/edit.svg
+grep "^Comment=" "$IMG_MNT/usr/share/applications/edit.desktop"
+# Expected: Comment=Microsoft's small modeless terminal text editor
+desktop-file-validate "$IMG_MNT/usr/share/applications/edit.desktop" && echo PASS || echo FAIL
+
+# --- D-Bus PowerShell service ---
+cat "$IMG_MNT/usr/share/dbus-1/services/org.azurelinux.PowerShell.service"
+# Expected: Name=org.azurelinux.PowerShell
+#           Exec=/usr/libexec/gnome-terminal-server --app-id org.azurelinux.PowerShell
+
+# --- PowerShell launcher ---
+cat "$IMG_MNT/usr/local/bin/azl-powershell-terminal"
+# Expected: exec gnome-terminal --app-id org.azurelinux.PowerShell --title=PowerShell -- /usr/bin/pwsh
+
+# Cleanup
+sudo umount "$ISO_MNT"; sudo rm -rf "$ISO_MNT" "$IMG_MNT"
+```
+
+---
+
+### 2. Live ISO — behavioral checks (QEMU boot)
+
+```bash
+qemu-system-x86_64 -enable-kvm -m 8192 -smp 4 \
+  -bios /usr/share/edk2/x86_64/OVMF_CODE.4m.fd \
+  -cdrom "$LIVE_ISO" -vga std -display sdl \
+  -device usb-ehci -device usb-tablet -usb
+```
+
+| Check | Pass criterion | Fail → investigate |
+|---|---|---|
+| Plymouth logo proportional (Issue 4) | Azure logo centered, not cropped, sized ~30% of screen | Script bug; check `ScaleLogoToFit` syntax; see Issue 4 section |
+| No BdsDxe text on QEMU std VGA | Black screen or graphical GRUB only before kernel; no `BdsDxe: loading` lines | Firmware text from OVMF is unavoidable before kernel; acceptable on QEMU |
+| Live desktop loads | GNOME Shell visible, `liveuser` session active | Catastrophic — check live.ks |
+| Flatpak install works | `sudo flatpak install --system -y flathub org.gnome.Gedit` succeeds | Check `df /var/lib/flatpak` — if <1500M, rootfs.img not 8 GiB; see Flatpak alternatives |
+| dotnet launcher opens and stays open | Click .NET icon → terminal shows `dotnet --info` output, stays open with shell prompt | Check `azl-dotnet-terminal` script in image |
+| edit appears in GNOME overview | Super key → "Edit" icon visible in overview | See edit investigation below |
+| PowerShell dock icon is correct | PowerShell window shows under PowerShell icon, not generic Terminal | Check D-Bus service; see Issue PowerShell dock below |
+
+**Flatpak fail — alternative options (ranked):**
+
+1. `df -h /var/lib/flatpak` in live session — if <1500 MiB free, `--live-rootfs-size 8` did not land; verify rootfs.img size
+2. Check `/proc/cmdline` for `rd.live.overlay` vs DM snapshot mode (`liveimg`)
+3. If DM snapshot mode: `--live-rootfs-size 8` is correct fix; verify it's in build-live-iso.yml line ~219
+4. If OverlayFS mode (`rd.overlay`): tmpfs is the constraint; `mount -o remount,size=5G /run` as workaround
+5. Alternative architectural fix: switch to `--rootfs-type squashfs` (OverlayFS mode); documented in Flatpak section Option B
+
+**Edit not visible — alternative investigation:**
+
+1. `ls -la /usr/share/applications/edit.desktop` — confirm file present
+2. `desktop-file-validate /usr/share/applications/edit.desktop` — confirm valid
+3. `echo $XDG_DATA_DIRS | tr : '\n'` — confirm `/usr/share` is on the path
+4. `gio info /usr/share/applications/edit.desktop` — GIO should see it
+5. `update-desktop-database /usr/share/applications && gnome-shell --replace` — force rescan (last resort; kills session)
+6. If still absent: check for `NoDisplay=true` or `Hidden=true` (shouldn't be present)
+7. Note: `ConsoleOnly` in Categories does NOT hide apps in GNOME Shell (verified in research)
+
+**PowerShell dock fail — alternative investigation:**
+
+1. In live session: `gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus --method org.freedesktop.DBus.NameHasOwner org.azurelinux.PowerShell`
+   - Returns `true`: D-Bus service is active; dock should work
+   - Returns `false`: service not activating; check `/usr/share/dbus-1/services/org.azurelinux.PowerShell.service`
+2. `ls -la /usr/share/dbus-1/services/org.azurelinux.PowerShell.service` — must exist
+3. `ls -la /usr/libexec/gnome-terminal-server` — must exist and be executable
+4. Alternative: revert to the manual server-start-and-wait script from the original `azl-powershell-terminal` if D-Bus activation proves unreliable in the live session
+
+---
+
+### 3. Installer ISO — filesystem checks
+
+```bash
+INST_ISO=~/azl-work/validate-2026.07.22-r3/azurelinux-desktop-installer.iso
+INST_MNT=$(mktemp -d); sudo mount -o loop,ro "$INST_ISO" "$INST_MNT"
+
+# --- GRUB config (Issue 1 graphical console) ---
+# Installer ISO GRUB may be in /EFI/BOOT/grub.cfg or /boot/grub2/grub.cfg
+find "$INST_MNT" -name "grub.cfg" -o -name "grub2.cfg" 2>/dev/null | head -5
+# Check the found file for: gfxterm, gfxpayload=keep, NOT "terminal_output console"
+grep -E "gfxterm|gfxpayload|terminal_output" <path-to-found-grub.cfg>
+
+# --- Installer kernel cmdline (Issue 2 Option B — no console=ttyS0) ---
+grep -r "kernelcmdline\|boot_options\|console=ttyS0" "$INST_MNT" 2>/dev/null | head -10
+# Must NOT contain console=ttyS0
+
+# --- Plymouth theme in installer runtime root ---
+# The installer squashfs is usually at LiveOS/squashfs.img or similar
+ls "$INST_MNT/LiveOS/" 2>/dev/null || find "$INST_MNT" -name "squashfs.img" 2>/dev/null
+
+sudo umount "$INST_MNT"; sudo rm -rf "$INST_MNT"
+```
+
+---
+
+### 4. Installer ISO — behavioral checks (QEMU boot)
+
+```bash
+qemu-system-x86_64 -enable-kvm -m 8192 -smp 4 \
+  -bios /usr/share/edk2/x86_64/OVMF_CODE.4m.fd \
+  -cdrom "$INST_ISO" -vga std -display sdl \
+  -device usb-ehci -device usb-tablet -usb
+```
+
+| Check | Pass criterion | Fail → investigate |
+|---|---|---|
+| GRUB displays graphically | Graphical GRUB menu (no text flash), BdsDxe text wiped by `clear` | GRUB template not landed; check `kiwi/grub_template.cfg` in built artifact |
+| Plymouth during installer boot | Azure splash (or at minimum graphical theme) visible during boot | See Plymouth Issue 2 alternatives below |
+| Anaconda installer launches | Graphical installer reaches admin account setup screen | |
+
+**Plymouth installer boot fail — alternative investigation:**
+
+1. Primary cause (serial console) was removed from `kiwi/azl-desktop-installer.kiwi` cmdline; if Plymouth still text, the initramfs may only have `text/details` theme
+2. Check `/proc/cmdline` in installer session: must NOT have `console=ttyS0`
+3. If serial console is absent but Plymouth still text: initramfs generic-mode issue
+   - Alternative fix: add `dracut --hostonly --force` to `kiwi/config.sh` after `plymouth-set-default-theme` call (see config.sh lines 458–474); risk: may fail in CI containers; test locally first
+   - Alternative fix: add `install_items` dracut conf that explicitly stages theme files into the initramfs even in generic mode
+4. If Plymouth fires but shows `details` theme: theme files not in initramfs; same dracut fix as above
+5. Research reference: "Cross-Cutting: How Fedora/livecd-tools/lorax Include Plymouth Themes in Initramfs" section
+
+---
+
+### 5. Installed image — filesystem and behavioral checks
+
+Perform a fresh install from the rebuilt installer ISO into a test qcow2:
+
+```bash
+DISK=~/azl-work/validate-2026.07.22-r3/installed-test.qcow2
+qemu-img create -f qcow2 "$DISK" 60G
+qemu-system-x86_64 -enable-kvm -m 8192 -smp 4 \
+  -bios /usr/share/edk2/x86_64/OVMF_CODE.4m.fd \
+  -cdrom "$INST_ISO" \
+  -drive file="$DISK",format=qcow2 \
+  -vga std -display sdl \
+  -device usb-ehci -device usb-tablet -usb
+```
+
+After install completes and system reboots, mount the qcow2 offline:
+
+```bash
+sudo modprobe nbd
+sudo qemu-nbd --connect=/dev/nbd0 "$DISK"
+sudo partprobe /dev/nbd0
+# Find root LV: lvscan / lvdisplay
+sudo mount /dev/anaconda_azurelinux-desktop/root /mnt/installed
+
+# --- Installed BLS entry (Issue 3 serial console removal) ---
+cat /mnt/installed/boot/loader/entries/*.conf
+# Must NOT contain console=ttyS0
+
+# --- early-kms.conf (Issue 3b driver expansion) ---
+cat /mnt/installed/etc/dracut.conf.d/early-kms.conf
+# Expected: add_drivers+=" virtio_gpu hyperv_drm bochs_drm "
+
+# --- Plymouth theme in installed initramfs ---
+lsinitrd /mnt/installed/boot/initramfs-*.img | grep -E "azurelinux|plymouth"
+# Expected: azurelinux.plymouth, azurelinux.script, azurelinuxlogo.png
+# If present: theme was bundled correctly by dracut --regenerate-all in %post
+
+# --- Admin default shell ---
+grep "^admin\|^$(whoami)" /mnt/installed/etc/passwd | head -5
+# Expected: /usr/bin/pwsh as shell for the created admin account
+
+# --- Desktop files ---
+ls -la /mnt/installed/usr/share/applications/{edit,dotnet,org.azurelinux.PowerShell}.desktop
+desktop-file-validate /mnt/installed/usr/share/applications/edit.desktop
+desktop-file-validate /mnt/installed/usr/share/applications/dotnet.desktop
+desktop-file-validate /mnt/installed/usr/share/applications/org.azurelinux.PowerShell.desktop
+
+# --- D-Bus PowerShell service ---
+cat /mnt/installed/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
+
+# --- dotnet launcher ---
+grep -q 'SHELL' /mnt/installed/usr/local/bin/azl-dotnet-terminal && echo PASS || echo FAIL
+
+# Cleanup
+sudo umount /mnt/installed
+sudo qemu-nbd --disconnect /dev/nbd0
+```
+
+**Installed-image behavioral checks (boot the installed qcow2):**
+
+```bash
+qemu-system-x86_64 -enable-kvm -m 8192 -smp 4 \
+  -bios /usr/share/edk2/x86_64/OVMF_CODE.4m.fd \
+  -drive file="$DISK",format=qcow2 \
+  -vga std -display sdl \
+  -device usb-ehci -device usb-tablet -usb
+```
+
+| Check | Pass criterion | Fail → investigate |
+|---|---|---|
+| Plymouth on first boot (SELinux relabel) | Azure splash visible during relabel; no text splat | Serial console fix; if still text, check BLS entry for ttyS0; if absent, check initramfs theme inclusion |
+| Plymouth on second boot | Azure splash on normal boot | Same; check dracut --regenerate-all ran in %post |
+| Admin shell is PowerShell | Log in → `echo $0` shows `/usr/bin/pwsh` | Check `anaconda-launcher.sh` user directive; check `/etc/passwd` |
+| edit visible in GNOME overview | Super → "Edit" visible | See edit investigation in live section; also check `update-desktop-database` was run |
+| dotnet launcher stays open | Click .NET icon → terminal shows info, stays open with shell | Check `azl-dotnet-terminal` script content |
+| PowerShell dock icon correct | PowerShell window → dock shows PowerShell icon, not generic Terminal | Check D-Bus service and WMClass; see PowerShell dock section |
+
+**Plymouth installed-system fail — additional causes to investigate:**
+
+1. BLS entry still has `console=ttyS0`: kickstart bootloader fix didn't land; check `bootloader` directive in rendered kickstart
+2. `console=ttyS0` absent but Plymouth still text: serial not the issue; check if `dracut --regenerate-all --force` ran in `%post` (kickstart line ~260)
+3. Plymouth fires but shows `details` theme: dracut ran but `plymouth-set-default-theme azurelinux` output error; check `/var/log/anaconda-post.log`
+4. Plymouth fires but logo is still cropped: `ScaleLogoToFit` fix not in initramfs; verify `azurelinux.script` content with `lsinitrd`
+5. KMS driver not loaded: Plymouth fires but goes black; check `journalctl -b | grep -i drm` and `early-kms.conf`
+
+---
+
+### 6. Per-issue status summary (update as artifacts arrive)
+
+| Issue | Source fix | Build | Filesystem verified | Runtime verified | Status |
+|---|---|---|---|---|---|
+| GRUB BdsDxe text (Issue 1) | `kiwi/grub_template.cfg` ✓ | `29973179297` | pending | pending | 🔄 awaiting artifact |
+| Plymouth installer boot (Issue 2) | `kiwi/azl-desktop-installer.kiwi` serial removed ✓ | `29973179297` | pending | pending | 🔄 awaiting artifact |
+| Plymouth installer initramfs theme | Not yet — dracut hostonly deferred | — | — | — | ⏸ deferred; see alternatives |
+| Plymouth installed serial console (Issue 3a) | Both kickstarts ✓ | `29973179297` | pending | pending | 🔄 awaiting artifact |
+| early-kms.conf VM coverage (Issue 3b) | Both kickstarts ✓ | `29973179297` | pending | pending | 🔄 awaiting artifact |
+| Plymouth logo scale (Issue 4) | `azurelinux.script` ✓ | `29973195111` | pending | pending | 🔄 awaiting artifact |
+| Flatpak live space | `--live-rootfs-size 8` ✓ | `29973195111` | pending | pending | 🔄 awaiting artifact |
+| dotnet launcher closes immediately | `azl-dotnet-terminal` drops to `$SHELL` ✓ | `29973195111` | pending | pending | 🔄 awaiting artifact |
+| edit.desktop icon/comment | Restored project SVG + comment ✓ | `29973195111` | pending | pending | 🔄 awaiting artifact |
+| edit visible in GNOME overview | File present, valid; GNOME GIO should scan | `29973195111` | pending | pending | ⚠ root cause unclear; monitor |
+| PowerShell dock identity | D-Bus service file ✓ | `29973195111` | pending | pending | 🔄 awaiting artifact |
+| Admin shell = pwsh | `anaconda-launcher.sh` ✓ | `29973179297` | pending | pending | 🔄 awaiting artifact |
+| Background wallpaper | Not started — needs artwork | — | — | — | ⏸ blocked on artwork |
+
+
+
 ### (b) Full rebuild/runtime-verification fixes (shipped to GitHub Actions)
 
 **Installer release workflow result (run 29960854403):** `success`  
