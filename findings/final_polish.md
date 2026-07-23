@@ -2802,3 +2802,23 @@ Full interactive boot testing of the installer ISO requires a display (GTK windo
 
 Static filesystem verification is the preferred approach for installer ISOs until a GUI environment is available. See `findings/qemu-gnome-interactive-testing.md` for context.
 
+
+---
+
+## Static filesystem verification — installer ISO (2026-07-24, run 29987725267)
+
+**Installer ISO built from:** `55845eb` (deliverable-polish-batch) — includes GRUB gfxterm fix for installed system.
+
+| Check | Result |
+|---|---|
+| Installer ISO GRUB: `terminal_output gfxterm`, `gfxpayload=keep` | ✅ verified in `boot/grub2/grub.cfg` |
+| Installer ISO GRUB: `timeout=5` | ✅ confirmed |
+| Installer ISO kernel cmdline: no `console=ttyS0` | ✅ confirmed (`console=tty0 rhgb quiet`) |
+| `install -m 0644/0755` for all assets in azl-install.ks | ✅ verified (all 10+ lines) |
+| Installed system `grub.cfg`: `terminal_output gfxterm`, `gfxpayload=keep` (post-bootloader.sh) | ✅ verified — new fix `b49ee12` confirmed in rootfs |
+| No `clearpart` or `autopart` | ✅ absent |
+| Bare `bootloader` directive | ✅ confirmed |
+| No `console=ttyS0` in post-bootloader.sh kernel cmdline | ✅ absent |
+| Plymouth theme = azurelinux | ✅ `/etc/plymouth/plymouthd.conf`: `Theme=azurelinux` |
+
+All installer fixes confirmed present in run `29987725267`. Full runtime verification (Anaconda TUI interaction, installed desktop boot, 5 dock icons) requires a GUI environment — see `findings/qemu-gnome-interactive-testing.md` installer section for limitations.
