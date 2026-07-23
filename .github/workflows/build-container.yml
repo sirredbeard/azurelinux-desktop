@@ -21,6 +21,10 @@ name: Publish hybrid Azure Linux and Fedora testing container
 # Runs on a plain ubuntu-24.04 runner with rootless podman (already
 # preinstalled on GitHub-hosted runners) - no privileged container, no
 # anaconda, nothing this project's ISO/disk-image builds need.
+#
+# Note: the kmod repo is published by release-live-iso.yml; this workflow
+# does not republish it to avoid concurrency conflicts when both run in the
+# same nightly release.
 on:
   workflow_dispatch: {}
   workflow_call: {}
@@ -28,15 +32,9 @@ on:
 permissions:
   contents: read
   packages: write
-  pages: write
-  id-token: write
 
 jobs:
-  prepare-kernel-modules:
-    uses: ./.github/workflows/publish-usbhid-kmod.yml
-
   build-and-publish:
-    needs: prepare-kernel-modules
     runs-on: ubuntu-24.04
     steps:
       - name: Check out repo
