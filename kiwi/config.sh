@@ -470,6 +470,11 @@ if [ -x /usr/sbin/plymouth-set-default-theme ] \
         /usr/share/plymouth/themes/azurelinux/azurelinuxlogo.png
     mkdir -p /etc/dracut.conf.d
     printf '%s\n' 'add_dracutmodules+=" plymouth "' > /etc/dracut.conf.d/50-azurelinux-plymouth.conf
+    # KMS drivers for graphical Plymouth during the installer boot itself —
+    # same set as the live ISO and installed target: virtio-gpu (QEMU virtio
+    # VGA), hyperv_drm (Hyper-V Gen2), bochs_drm (QEMU std VGA/BIOS).
+    printf '%s\n' 'add_drivers+=" virtio_gpu hyperv_drm bochs_drm "' \
+        > /etc/dracut.conf.d/early-kms.conf
     plymouth-set-default-theme azurelinux
 fi
 

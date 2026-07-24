@@ -169,10 +169,19 @@ README for the full backstory.
   dispatched when explicitly requested. It deletes all preceding GitHub
   releases, tags, and hybrid GHCR versions first, so the project has one
   current set of artifacts rather than a release archive. For debugging
-  outside the nightly run, build only the requested format. When validation
-  needs released artifacts, dispatch the matching release workflow rather
-  than a build-only workflow so `Get-AzureLinuxDesktop.ps1` is tested against
-  the actual published assets.
+  outside the nightly run, build only the requested format. **When validation
+  needs testable artifacts, always dispatch the matching release workflow
+  (`release-live-iso.yml` or `release-installer-iso.yml`) rather than a
+  build-only workflow.** Build-only workflows produce un-released Actions
+  artifacts that must be downloaded with auth headers and extracted from zips;
+  release workflows publish to GitHub Releases, which `Get-AzureLinuxDesktop.ps1`
+  downloads directly. When only specific artifacts need rebuilding (e.g., just
+  the installer ISO), dispatch only that release workflow. Download released
+  artifacts via `Get-AzureLinuxDesktop.ps1 -Live` or `-Install`; download
+  build-only artifacts via `aria2c -x 16` with
+  `--header="Authorization: Bearer $(gh auth token)"` against the
+  `https://api.github.com/repos/sirredbeard/azurelinux-desktop/actions/artifacts/<id>/zip`
+  URL.
 - **Parity, linting, and reusable scripts**: carry a package, repository,
   side-load, or priority change through every applicable live, installer, and
   hybrid path. Add build/test/download helpers under `/scripts/`, run them

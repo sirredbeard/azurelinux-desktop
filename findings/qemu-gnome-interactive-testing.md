@@ -425,3 +425,71 @@ stuck — Plymouth has started and the installation is proceeding. The GRUB menu
 auto-selects after 5 seconds; screendump won't show clear transition because
 Plymouth immediately fills the VGA framebuffer with the dark splash.
 
+
+---
+
+## VNC framebuffer capture vs `screendump` (2026-07-24)
+
+`screendump` via the QEMU monitor **does not reliably capture the GNOME Wayland
+session** once Mutter/Wayland takes over the virtio-gpu DRM device. The command
+writes a valid PPM file (correct dimensions) but the content is all-black after
+GNOME has initialized. Plymouth screendumps work because Plymouth runs before
+Wayland takes over.
+
+**Use a direct VNC client capture instead:**
+
+```python
+import socket, struct
+from PIL import Image
+
+def vnc_grab(port, outfile):
+    s = socket.create_connection(('localhost', port), timeout=15)
+    s.settimeout(20)
+    ver = s.recv(12); s.send(b'RFB 003.008\n')
+    n = struct.unpack('B', s.recv(1))[0]; types = s.recv(n) if n else b''
+    s.send(struct.pack('B', 1)); s.recv(4)  # security result
+    s.send(struct.pack('B', 1))             # ClientInit shared=1
+    w, h = struct.unpack('>HH', s.recv(4)); s.recv(16)
+    name_len = struct.unpack('>I', s.recv(4))[0]; s.recv(name_len)
+    # Request full framebuffer update
+    s.send(struct.pack('>BBHHHH', 3, 0, 0, 0, w, h))
+    msg_type = struct.unpack('B', s.recv(1))[0]; s.recv(1)
+    n_rects = struct.unpack('>H', s.recv(2))[0]
+    pixels = bytearray(w * h * 4)
+    for _ in range(n_rects):
+        x, y, rw, rh, enc = struct.unpack('>HHHHi', s.recv(12))
+        if enc == 0:  # Raw encoding
+            size = rw * rh * 4; data = b''
+            while len(data) < size:
+                data += s.recv(min(16384, size - len(data)))
+            for row in range(rh):
+                for col in range(rw):
+                    px = (y+row)*w + (x+col)
+                    pixels[px*4:(px+1)*4] = data[(row*rw+col)*4:(row*rw+col+1)*4]
+    s.close()
+    Image.frombytes('RGBA', (w,h), bytes(pixels)).convert('RGB').save(outfile)
+```
+
+This captures the actual VNC framebuffer stream, which reflects what the
+virtio-gpu DRM device is rendering. The image will be in BGR byte order for
+virtio-gpu; swap channels when saving if colors look wrong (swap `[i]` and
+`[i+2]` when writing the PPM).
+
+**qcow2 architecture note**: the live qcow2 (`azurelinux-desktop-live.qcow2`)
+is an *installed disk image*, not a live-ISO overlay. `livesys.service` has
+`ConditionKernelCommandLine=rd.live.image` and will not run from a disk image
+(no `rd.live.image` in the GRUB cmdline). `liveuser` is therefore pre-created
+at build time by the disk-image-specific `%post` block in the workflow. GDM
+autologin (`AutomaticLogin=liveuser`) in `/etc/gdm/custom.conf` then works as
+expected. The GNOME session loads with the system dconf dark mode and wallpaper
+settings from `/etc/dconf/db/local.d/`.
+
+**Expected colors for color analysis:**
+
+| State | avg (R,G,B) | Notes |
+|---|---|---|
+| All black (blank/screensaver) | (0,0,0) | Power-save or Plymouth off |
+| Plymouth active | ~(10,10,10) +dots | Dark background, bright spinner |
+| GNOME desktop (dark wallpaper `adwaita-d.jpg`) | ~(12,30,70) | Deep navy blue |
+| GNOME desktop (light wallpaper `adwaita-l.jpg`) | ~(3,63,222) | Bright blue |
+| GDM login greeter | dark + centered element | Check center vs bg variance |

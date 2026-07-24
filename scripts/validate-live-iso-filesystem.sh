@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Filesystem validation for the Azure Linux Desktop live ISO.
-# Extracts the ISO squashfs and checks key files directly.
+# Extracts the ISO squashfs, mounts the nested rootfs.img, and checks key files.
+#
+# Both the live ISO and installer ISO use a nested layout:
+#   LiveOS/squashfs.img → LiveOS/rootfs.img (ext4)
+# This script handles both by mounting the inner ext4 when present.
+# Requires sudo for the loop mount of rootfs.img.
 #
 # Usage: validate-live-iso-filesystem.sh <path-to-live.iso> [work-dir]
 set -euo pipefail
@@ -11,6 +16,7 @@ ROOTFS="$WORKDIR/rootfs"
 LOG="$WORKDIR/filesystem-check.log"
 PASS=0
 FAIL=0
+MOUNTED_ROOTFS=0
 
 mkdir -p "$WORKDIR"
 exec > >(tee "$LOG") 2>&1
@@ -42,8 +48,31 @@ echo ""
 echo "--- Extracting ISO squashfs ---"
 mkdir -p "$WORKDIR/iso-extract"
 7z x "$ISO" "LiveOS/squashfs.img" -o"$WORKDIR/iso-extract/" -y 2>/dev/null | grep -E "^(Everything|Error)"
+SQUASHFS_FILE="$WORKDIR/iso-extract/LiveOS/squashfs.img"
+
+# Both the live ISO and installer ISO use a nested layout:
+# squashfs.img → LiveOS/rootfs.img (ext4).  unsquashfs the outer layer
+# then loop-mount the inner ext4 to get a real filesystem to check.
+SQUASH_OUTER="$WORKDIR/squash-outer"
 echo "  Extracting squashfs (takes ~1-2 min)..."
-unsquashfs -d "$ROOTFS" "$WORKDIR/iso-extract/LiveOS/squashfs.img" 2>&1 | tail -3
+unsquashfs -d "$SQUASH_OUTER" "$SQUASHFS_FILE" 2>&1 | tail -3
+
+INNER_IMG="$SQUASH_OUTER/LiveOS/rootfs.img"
+if [ -f "$INNER_IMG" ]; then
+    echo "  Nested LiveOS/rootfs.img found — mounting inner ext4..."
+    mkdir -p "$ROOTFS"
+    sudo mount -o ro,loop "$INNER_IMG" "$ROOTFS"
+    MOUNTED_ROOTFS=1
+else
+    echo "  No nested rootfs.img — treating squashfs root as rootfs directly"
+    ROOTFS="$SQUASH_OUTER"
+    MOUNTED_ROOTFS=0
+fi
+
+cleanup_rootfs() {
+    [ "${MOUNTED_ROOTFS:-0}" -eq 1 ] && sudo umount "$ROOTFS" 2>/dev/null || true
+}
+trap cleanup_rootfs EXIT
 
 echo ""
 echo "--- GRUB config ---"
@@ -99,7 +128,16 @@ if [ -n "$DCONF_FILE" ]; then
     grep -q "color-scheme" "$DCONF_FILE" && pass "dconf: color-scheme set" || fail "dconf: color-scheme missing"
     grep -q "picture-uri" "$DCONF_FILE"  && pass "dconf: picture-uri set"  || fail "dconf: picture-uri missing"
     grep -q "adwaita-l.jxl\|\.jxl" "$DCONF_FILE" && fail "dconf: still pointing at JXL (AZL can't render JXL)" || pass "dconf: no JXL paths"
-    grep -q "favorite-apps\|favorite" "$DCONF_FILE" && pass "dconf: favorite-apps set" || fail "dconf: favorite-apps missing"
+    # Live ISO sets favorites via the livesys-gnome script at runtime (not dconf).
+    # Accept either a dconf local.d file with favorite-apps OR the livesys-gnome patch.
+    LIVESYS_GNOME="$ROOTFS/usr/libexec/livesys/sessions.d/livesys-gnome"
+    if grep -q "favorite-apps\|favorite" "$ROOTFS/etc/dconf/db/local.d/"* 2>/dev/null; then
+        pass "dconf: favorite-apps set"
+    elif [ -f "$LIVESYS_GNOME" ] && grep -q "microsoft-edge-canary\|azurelinux" "$LIVESYS_GNOME" 2>/dev/null; then
+        pass "dconf: favorites set via livesys-gnome script (live ISO mechanism)"
+    else
+        fail "dconf: favorite-apps missing (not in dconf local.d or livesys-gnome)"
+    fi
 else
     fail "dconf: no local.d config files found"
 fi

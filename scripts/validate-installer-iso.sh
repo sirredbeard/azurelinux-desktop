@@ -72,9 +72,26 @@ else
 
     if [ -f "$SQUASHFS_FILE" ]; then
         pass "Installer squashfs extracted ($(du -sh "$SQUASHFS_FILE" | cut -f1))"
-        SQUASH_DIR="$WORKDIR/squash-root"
+        SQUASH_OUTER="$WORKDIR/squash-outer"
         echo "  Running unsquashfs on installer environment..."
-        unsquashfs -d "$SQUASH_DIR" "$SQUASHFS_FILE" > /dev/null 2>&1
+        unsquashfs -d "$SQUASH_OUTER" "$SQUASHFS_FILE" > /dev/null 2>&1
+
+        # Both live ISO and installer ISO use a nested layout:
+        # squashfs.img → LiveOS/rootfs.img (ext4). Mount the inner image.
+        INNER_IMG="$SQUASH_OUTER/LiveOS/rootfs.img"
+        SQUASH_DIR="$WORKDIR/squash-root"
+        mkdir -p "$SQUASH_DIR"
+        if [ -f "$INNER_IMG" ]; then
+            echo "  Nested LiveOS/rootfs.img found — mounting inner ext4..."
+            sudo mount -o ro,loop "$INNER_IMG" "$SQUASH_DIR"
+            MOUNTED_SQUASH=1
+        else
+            echo "  No nested rootfs.img — treating squashfs root directly"
+            SQUASH_DIR="$SQUASH_OUTER"
+            MOUNTED_SQUASH=0
+        fi
+        cleanup_squash() { [ "${MOUNTED_SQUASH:-0}" -eq 1 ] && sudo umount "$SQUASH_DIR" 2>/dev/null || true; }
+        trap cleanup_squash EXIT
 
         echo ""
         echo "--- Step 3: Installer environment file checks ---"
@@ -87,20 +104,21 @@ else
             fail "Plymouth azurelinux theme not present in installer squashfs"
         fi
 
-        # Check early-kms.conf in installer environment
+        # Check early-kms.conf in installer environment (added to kiwi/config.sh
+        # alongside the plymouth dracut conf — needed for graphical Plymouth
+        # during the installer boot itself)
         KMS="$SQUASH_DIR/etc/dracut.conf.d/early-kms.conf"
         if [ -f "$KMS" ]; then
             grep -q "hyperv_drm" "$KMS" && pass "early-kms.conf: hyperv_drm present in installer env" || fail "early-kms.conf: hyperv_drm missing from installer env"
             grep -q "bochs_drm"  "$KMS" && pass "early-kms.conf: bochs_drm present in installer env"  || fail "early-kms.conf: bochs_drm missing from installer env"
         else
-            fail "early-kms.conf not found in installer squashfs"
+            fail "early-kms.conf not found in installer squashfs (add to kiwi/config.sh)"
         fi
 
-        # Assets present in installer environment
+        # Custom installer launcher (assets are staged to the installed target
+        # via %%post --nochroot, not baked into the Anaconda runtime)
         for ASSET in \
-            "usr/local/bin/azl-powershell-terminal" \
-            "usr/share/applications/edit.desktop" \
-            "usr/share/dbus-1/services/org.azurelinux.PowerShell.service"; do
+            "usr/local/bin/anaconda-launcher.sh"; do
             [ -f "$SQUASH_DIR/$ASSET" ] && pass "Installer env: $ASSET present" || fail "Installer env: $ASSET missing"
         done
 
