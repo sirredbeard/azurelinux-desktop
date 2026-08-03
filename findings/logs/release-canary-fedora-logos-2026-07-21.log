@@ -1,0 +1,6 @@
+Failed to resolve the transaction:
+Problem: package anaconda-webui-53.1^20251022g00cddf56-1.fc43.noarch from fedora43 requires fedora-logos, but none of the providers can be installed
+  - package azurelinux-logos-4.0.0-2.azl4.noarch from azl-base conflicts with fedora-logos provided by fedora-logos-42.0.1-2.fc43.noarch from fedora43
+  - package anaconda-live-43.44-3.fc43.noarch from fedora43 requires anaconda-webui, but none of the providers can be installed
+  - cannot install the best candidate for the job
+  - conflicting requests

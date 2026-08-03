@@ -1,0 +1,19 @@
+Validation run: live boot text cleanliness OCR pass (on-device)
+Date: 2026-07-22
+Method:
+- Boot live ISO under VNC (`scripts/qemu-vnc-live-iso.sh` on display :6)
+- Capture boot frames at ~8s, ~20s, ~40s, ~80s
+- OCR with tesseract per frame
+
+OCR summary:
+- t8:  0 chars detected
+- t20: 0 chars detected
+- t40: 0 chars detected
+- t80: 34 chars detected
+  sample: "Jul22 8:01PM Q Type to search mm O"
+
+Interpretation:
+- No readable early boot text was detected in the sampled pre-GNOME frames.
+- Detected text appears only once the desktop/search UI is present.
+- This supports progress toward a clean boot visual path on the live side for
+  this test setup.

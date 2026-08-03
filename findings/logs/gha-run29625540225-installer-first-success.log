@@ -1,0 +1,505 @@
+# Trimmed excerpt of first successful installer ISO CI log
+# Original was ~1MB full docker/kiwi transcript.
+
+--- snip @ line 0 ---
+build-iso	Set up job	﻿2026-07-18T01:37:10.3412930Z Current runner version: '2.335.1'
+build-iso	Set up job	2026-07-18T01:37:10.3449445Z ##[group]Runner Image Provisioner
+build-iso	Set up job	2026-07-18T01:37:10.3451126Z Hosted Compute Agent
+build-iso	Set up job	2026-07-18T01:37:10.3452073Z Version: 20260707.563
+build-iso	Set up job	2026-07-18T01:37:10.3453113Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+build-iso	Set up job	2026-07-18T01:37:10.3454399Z Build Date: 2026-07-07T19:33:50Z
+build-iso	Set up job	2026-07-18T01:37:10.3455487Z Worker ID: {2adc9b32-3b97-4e10-9010-a16e8e21dc1d}
+build-iso	Set up job	2026-07-18T01:37:10.3457300Z Azure Region: eastus
+build-iso	Set up job	2026-07-18T01:37:10.3458215Z ##[endgroup]
+build-iso	Set up job	2026-07-18T01:37:10.3461223Z ##[group]Operating System
+build-iso	Set up job	2026-07-18T01:37:10.3462424Z Ubuntu
+build-iso	Set up job	2026-07-18T01:37:10.3463275Z 24.04.4
+build-iso	Set up job	2026-07-18T01:37:10.3464239Z LTS
+build-iso	Set up job	2026-07-18T01:37:10.3465051Z ##[endgroup]
+build-iso	Set up job	2026-07-18T01:37:10.3465877Z ##[group]Runner Image
+build-iso	Set up job	2026-07-18T01:37:10.3467014Z Image: ubuntu-24.04
+build-iso	Set up job	2026-07-18T01:37:10.3467936Z Version: 20260714.240.1
+build-iso	Set up job	2026-07-18T01:37:10.3470098Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260714.240/images/ubuntu/Ubuntu2404-Readme.md
+build-iso	Set up job	2026-07-18T01:37:10.3473021Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260714.240
+build-iso	Set up job	2026-07-18T01:37:10.3474737Z ##[endgroup]
+build-iso	Set up job	2026-07-18T01:37:10.3476639Z ##[group]GITHUB_TOKEN Permissions
+build-iso	Set up job	2026-07-18T01:37:10.3479972Z Contents: read
+build-iso	Set up job	2026-07-18T01:37:10.3481080Z Metadata: read
+build-iso	Set up job	2026-07-18T01:37:10.3482135Z Packages: read
+build-iso	Set up job	2026-07-18T01:37:10.3483016Z ##[endgroup]
+build-iso	Set up job	2026-07-18T01:37:10.3486206Z Secret source: Actions
+build-iso	Set up job	2026-07-18T01:37:10.3487784Z Prepare workflow directory
+build-iso	Set up job	2026-07-18T01:37:10.3973655Z Prepare all required actions
+build-iso	Set up job	2026-07-18T01:37:10.4032352Z Getting action download info
+build-iso	Set up job	2026-07-18T01:37:10.5890321Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+build-iso	Set up job	2026-07-18T01:37:10.7205764Z Download action repository 'jlumbroso/free-disk-space@main' (SHA:54081f138730dfa15788a46383842cd2f914a1be)
+build-iso	Set up job	2026-07-18T01:37:10.8126450Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+build-iso	Set up job	2026-07-18T01:37:11.1720780Z Complete job name: build-iso
+build-iso	Check out repo	﻿2026-07-18T01:37:11.2565045Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build-iso	Check out repo	2026-07-18T01:37:11.2575256Z ##[group]Run actions/checkout@v4
+build-iso	Check out repo	2026-07-18T01:37:11.2576120Z with:
+build-iso	Check out repo	2026-07-18T01:37:11.2576703Z   repository: sirredbeard/azurelinux-desktop-iso
+build-iso	Check out repo	2026-07-18T01:37:11.2582210Z   token: ***
+build-iso	Check out repo	2026-07-18T01:37:11.2582690Z   ssh-strict: true
+build-iso	Check out repo	2026-07-18T01:37:11.2583169Z   ssh-user: git
+build-iso	Check out repo	2026-07-18T01:37:11.2583666Z   persist-credentials: true
+build-iso	Check out repo	2026-07-18T01:37:11.2584232Z   clean: true
+build-iso	Check out repo	2026-07-18T01:37:11.2584720Z   sparse-checkout-cone-mode: true
+build-iso	Check out repo	2026-07-18T01:37:11.2585311Z   fetch-depth: 1
+build-iso	Check out repo	2026-07-18T01:37:11.2585830Z   fetch-tags: false
+build-iso	Check out repo	2026-07-18T01:37:11.2586327Z   show-progress: true
+build-iso	Check out repo	2026-07-18T01:37:11.2586863Z   lfs: false
+build-iso	Check out repo	2026-07-18T01:37:11.2587350Z   submodules: false
+build-iso	Check out repo	2026-07-18T01:37:11.2587894Z   set-safe-directory: true
+build-iso	Check out repo	2026-07-18T01:37:11.2588745Z ##[endgroup]
+build-iso	Check out repo	2026-07-18T01:37:11.3743717Z Syncing repository: sirredbeard/azurelinux-desktop-iso
+build-iso	Check out repo	2026-07-18T01:37:11.3746742Z ##[group]Getting Git version info
+build-iso	Check out repo	2026-07-18T01:37:11.3747931Z Working directory is '/home/runner/work/azurelinux-desktop-iso/azurelinux-desktop-iso'
+build-iso	Check out repo	2026-07-18T01:37:11.3749425Z [command]/usr/bin/git version
+build-iso	Check out repo	2026-07-18T01:37:11.3832479Z git version 2.54.0
+build-iso	Check out repo	2026-07-18T01:37:11.3859173Z ##[endgroup]
+build-iso	Check out repo	2026-07-18T01:37:11.3876695Z Temporarily overriding HOME='/home/runner/work/_temp/ab5ecb1a-5ca8-498e-8074-ee9fadba8c18' before making global git config changes
+build-iso	Check out repo	2026-07-18T01:37:11.3882735Z Adding repository directory to the temporary git global config as a safe directory
+build-iso	Check out repo	2026-07-18T01:37:11.3885743Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/azurelinux-desktop-iso/azurelinux-desktop-iso
+build-iso	Check out repo	2026-07-18T01:37:11.3943931Z Deleting the contents of '/home/runner/work/azurelinux-desktop-iso/azurelinux-desktop-iso'
+build-iso	Check out repo	2026-07-18T01:37:11.3948681Z ##[group]Initializing the repository
+build-iso	Check out repo	2026-07-18T01:37:11.3955386Z [command]/usr/bin/git init /home/runner/work/azurelinux-desktop-iso/azurelinux-desktop-iso
+build-iso	Check out repo	2026-07-18T01:37:11.4084459Z hint: Using 'master' as the name for the initial branch. This default branch name
+build-iso	Check out repo	2026-07-18T01:37:11.4087946Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+build-iso	Check out repo	2026-07-18T01:37:11.4091814Z hint: to use in all of your new repositories, which will suppress this warning,
+build-iso	Check out repo	2026-07-18T01:37:11.4094969Z hint: call:
+build-iso	Check out repo	2026-07-18T01:37:11.4096707Z hint:
+build-iso	Check out repo	2026-07-18T01:37:11.4098644Z hint: 	git config --global init.defaultBranch <name>
+build-iso	Check out repo	2026-07-18T01:37:11.4101142Z hint:
+build-iso	Check out repo	2026-07-18T01:37:11.4102640Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build-iso	Check out repo	2026-07-18T01:37:11.4105068Z hint: 'development'. The just-created branch can be renamed via this command:
+build-iso	Check out repo	2026-07-18T01:37:11.4108382Z hint:
+build-iso	Check out repo	2026-07-18T01:37:11.4109465Z hint: 	git branch -m <name>
+build-iso	Check out repo	2026-07-18T01:37:11.4110802Z hint:
+build-iso	Check out repo	2026-07-18T01:37:11.4111979Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build-iso	Check out repo	2026-07-18T01:37:11.4114469Z Initialized empty Git repository in /home/runner/work/azurelinux-desktop-iso/azurelinux-desktop-iso/.git/
+build-iso	Check out repo	2026-07-18T01:37:11.4118398Z [command]/usr/bin/git remote add origin https://github.com/sirredbeard/azurelinux-desktop-iso
+build-iso	Check out repo	2026-07-18T01:37:11.4210959Z ##[endgroup]
+build-iso	Check out repo	2026-07-18T01:37:11.4211943Z ##[group]Disabling automatic garbage collection
+build-iso	Check out repo	2026-07-18T01:37:11.4215294Z [command]/usr/bin/git config --local gc.auto 0
+build-iso	Check out repo	2026-07-18T01:37:11.4247837Z ##[endgroup]
+build-iso	Check out repo	2026-07-18T01:37:11.4248761Z ##[group]Setting up auth
+build-iso	Check out repo	2026-07-18T01:37:11.4255055Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build-iso	Check out repo	2026-07-18T01:37:11.4291237Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build-iso	Check out repo	2026-07-18T01:37:11.4688948Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build-iso	Check out repo	2026-07-18T01:37:11.4725415Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build-iso	Check out repo	2026-07-18T01:37:11.4954849Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build-iso	Check out repo	2026-07-18T01:37:11.4988281Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build-iso	Check out repo	2026-07-18T01:37:11.5228981Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build-iso	Check out repo	2026-07-18T01:37:11.5267272Z ##[endgroup]
+build-iso	Check out repo	2026-07-18T01:37:11.5269876Z ##[group]Fetching the repository
+build-iso	Check out repo	2026-07-18T01:37:11.5278414Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +3b7c8a89e6b368f55c549bcc53b41cf54892d4f2:refs/remotes/origin/main
+build-iso	Check out repo	2026-07-18T01:37:11.7517939Z From https://github.com/sirredbeard/azurelinux-desktop-iso
+build-iso	Check out repo	2026-07-18T01:37:11.7522254Z  * [new ref]         3b7c8a89e6b368f55c549bcc53b41cf54892d4f2 -> origin/main
+build-iso	Check out repo	2026-07-18T01:37:11.7562459Z ##[endgroup]
+build-iso	Check out repo	2026-07-18T01:37:11.7563689Z ##[group]Determining the checkout info
+build-iso	Check out repo	2026-07-18T01:37:11.7564975Z ##[endgroup]
+build-iso	Check out repo	2026-07-18T01:37:11.7570884Z [command]/usr/bin/git sparse-checkout disable
+build-iso	Check out repo	2026-07-18T01:37:11.7615644Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+build-iso	Check out repo	2026-07-18T01:37:11.7643476Z ##[group]Checking out the ref
+build-iso	Check out repo	2026-07-18T01:37:11.7646264Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+build-iso	Check out repo	2026-07-18T01:37:11.7776286Z Switched to a new branch 'main'
+build-iso	Check out repo	2026-07-18T01:37:11.7779058Z branch 'main' set up to track 'origin/main'.
+build-iso	Check out repo	2026-07-18T01:37:11.7786652Z ##[endgroup]
+build-iso	Check out repo	2026-07-18T01:37:11.7836657Z [command]/usr/bin/git log -1 --format=%H
+build-iso	Check out repo	2026-07-18T01:37:11.7861061Z 3b7c8a89e6b368f55c549bcc53b41cf54892d4f2
+build-iso	Free disk space	﻿2026-07-18T01:37:11.8410313Z ##[group]Run jlumbroso/free-disk-space@main
+build-iso	Free disk space	2026-07-18T01:37:11.8411594Z with:
+build-iso	Free disk space	2026-07-18T01:37:11.8412376Z   android: true
+build-iso	Free disk space	2026-07-18T01:37:11.8413218Z   dotnet: true
+build-iso	Free disk space	2026-07-18T01:37:11.8414036Z   haskell: true
+build-iso	Free disk space	2026-07-18T01:37:11.8414890Z   large-packages: true
+build-iso	Free disk space	2026-07-18T01:37:11.8415805Z   docker-images: true
+build-iso	Free disk space	2026-07-18T01:37:11.8416704Z   swap-storage: true
+build-iso	Free disk space	2026-07-18T01:37:11.8417596Z   tool-cache: false
+build-iso	Free disk space	2026-07-18T01:37:11.8418456Z ##[endgroup]
+build-iso	Free disk space	2026-07-18T01:37:11.8555554Z ##[group]Run # ======
+build-iso	Free disk space	2026-07-18T01:37:11.8557246Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8558036Z ^[[36;1m# ======^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8558866Z ^[[36;1m# MACROS^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8559897Z ^[[36;1m# ======^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8560714Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8561570Z ^[[36;1m# macro to print a line of equals^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8562733Z ^[[36;1m# (silly but works)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8563792Z ^[[36;1mprintSeparationLine() {^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8564831Z ^[[36;1m  str=${1:=}^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8565716Z ^[[36;1m  num=${2:-80}^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8566677Z ^[[36;1m  counter=1^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8567554Z ^[[36;1m  output=""^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8568478Z ^[[36;1m  while [ $counter -le $num ]^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8569516Z ^[[36;1m  do^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8570548Z ^[[36;1m     output="${output}${str}"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8571635Z ^[[36;1m     counter=$((counter+1))^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8572633Z ^[[36;1m  done^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8573436Z ^[[36;1m  echo "${output}"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8574350Z ^[[36;1m}^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8575072Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8575895Z ^[[36;1m# macro to compute available space^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8577254Z ^[[36;1m# REF: https://unix.stackexchange.com/a/42049/60849^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8578729Z ^[[36;1m# REF: https://stackoverflow.com/a/450821/408734^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8580671Z ^[[36;1mgetAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8582318Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8583357Z ^[[36;1m# macro to make Kb human readable (assume the input is Kb)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8584940Z ^[[36;1m# REF: https://unix.stackexchange.com/a/44087/60849^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8586774Z ^[[36;1mformatByteCount() { echo $(numfmt --to=iec-i --suffix=B --padding=7 $1'000'); }^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8588375Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8589164Z ^[[36;1m# macro to output saved space^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8590367Z ^[[36;1mprintSavedSpace() {^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8591306Z ^[[36;1m  saved=${1}^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8592151Z ^[[36;1m  title=${2:-}^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8592996Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8593715Z ^[[36;1m  echo ""^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8594584Z ^[[36;1m  printSeparationLine '*' 80^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8595656Z ^[[36;1m  if [ ! -z "${title}" ]; then^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8596920Z ^[[36;1m    echo "=> ${title}: Saved $(formatByteCount $saved)"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8598172Z ^[[36;1m  else^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8599111Z ^[[36;1m    echo "=> Saved $(formatByteCount $saved)"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8600386Z ^[[36;1m  fi^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8601217Z ^[[36;1m  printSeparationLine '*' 80^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8602241Z ^[[36;1m  echo ""^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8603023Z ^[[36;1m}^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8603743Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8604669Z ^[[36;1m# macro to print output of dh with caption^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8605854Z ^[[36;1mprintDH() {^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8606712Z ^[[36;1m  caption=${1:-}^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8607606Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8608390Z ^[[36;1m  printSeparationLine '=' 80^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8609456Z ^[[36;1m  echo "${caption}"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8610532Z ^[[36;1m  echo ""^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8611378Z ^[[36;1m  echo "$ dh -h /"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8612287Z ^[[36;1m  echo ""^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8613148Z ^[[36;1m  df -h /^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8613967Z ^[[36;1m  echo "$ dh -a /"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8615091Z ^[[36;1m  echo ""^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8615889Z ^[[36;1m  df -a /^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8616699Z ^[[36;1m  echo "$ dh -a"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8617744Z ^[[36;1m  echo ""^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8618540Z ^[[36;1m  df -a^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8619382Z ^[[36;1m  printSeparationLine '=' 80^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8620561Z ^[[36;1m}^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8621277Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8621986Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8622700Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8623412Z ^[[36;1m# ======^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8624187Z ^[[36;1m# SCRIPT^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8624974Z ^[[36;1m# ======^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8625734Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8626556Z ^[[36;1m# Display initial disk space stats^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8627628Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8628498Z ^[[36;1mAVAILABLE_INITIAL=$(getAvailableSpace)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8630169Z ^[[36;1mAVAILABLE_ROOT_INITIAL=$(getAvailableSpace '/')^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8631449Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8632274Z ^[[36;1mprintDH "BEFORE CLEAN-UP:"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8633320Z ^[[36;1mecho ""^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8634123Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8634875Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8635704Z ^[[36;1m# Option: Remove Android library^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8636791Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8637589Z ^[[36;1mif [[ true == 'true' ]]; then^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8638699Z ^[[36;1m  BEFORE=$(getAvailableSpace)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8639885Z ^[[36;1m  ^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8640817Z ^[[36;1m  sudo rm -rf /usr/local/lib/android || true^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8642003Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8642817Z ^[[36;1m  AFTER=$(getAvailableSpace)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8643910Z ^[[36;1m  SAVED=$((AFTER-BEFORE))^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8645085Z ^[[36;1m  printSavedSpace $SAVED "Android library"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8646270Z ^[[36;1mfi^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8647023Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8647837Z ^[[36;1m# Option: Remove .NET runtime^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8648889Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8649858Z ^[[36;1mif [[ true == 'true' ]]; then^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8650987Z ^[[36;1m  BEFORE=$(getAvailableSpace)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8652051Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8653453Z ^[[36;1m  # https://github.community/t/bigger-github-hosted-runners-disk-space/17267/11^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8655312Z ^[[36;1m  sudo rm -rf /usr/share/dotnet || true^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8656457Z ^[[36;1m  ^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8657286Z ^[[36;1m  AFTER=$(getAvailableSpace)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8658372Z ^[[36;1m  SAVED=$((AFTER-BEFORE))^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8659682Z ^[[36;1m  printSavedSpace $SAVED ".NET runtime"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8660881Z ^[[36;1mfi^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8661662Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8662508Z ^[[36;1m# Option: Remove Haskell runtime^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8663624Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8664436Z ^[[36;1mif [[ true == 'true' ]]; then^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8665579Z ^[[36;1m  BEFORE=$(getAvailableSpace)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8666664Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8667506Z ^[[36;1m  sudo rm -rf /opt/ghc || true^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8668742Z ^[[36;1m  sudo rm -rf /usr/local/.ghcup || true^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8670036Z ^[[36;1m  ^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8670858Z ^[[36;1m  AFTER=$(getAvailableSpace)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8671936Z ^[[36;1m  SAVED=$((AFTER-BEFORE))^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8673112Z ^[[36;1m  printSavedSpace $SAVED "Haskell runtime"^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8674305Z ^[[36;1mfi^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8675053Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8675866Z ^[[36;1m# Option: Remove large packages^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8677692Z ^[[36;1m# REF: https://github.com/apache/flink/blob/master/tools/azure-pipelines/free_disk_space.sh^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8679669Z ^[[36;1m^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8680494Z ^[[36;1mif [[ true == 'true' ]]; then^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8681634Z ^[[36;1m  BEFORE=$(getAvailableSpace)^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8682727Z ^[[36;1m  ^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8685090Z ^[[36;1m  sudo apt-get remove -y '^aspnetcore-.*' || echo "::warning::The command [sudo apt-get remove -y '^aspnetcore-.*'] failed to complete successfully. Proceeding..."^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8689930Z ^[[36;1m  sudo apt-get remove -y '^dotnet-.*' --fix-missing || echo "::warning::The command [sudo apt-get remove -y '^dotnet-.*' --fix-missing] failed to complete successfully. Proceeding..."^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8694825Z ^[[36;1m  sudo apt-get remove -y '^llvm-.*' --fix-missing || echo "::warning::The command [sudo apt-get remove -y '^llvm-.*' --fix-missing] failed to complete successfully. Proceeding..."^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8699379Z ^[[36;1m  sudo apt-get remove -y 'php.*' --fix-missing || echo "::warning::The command [sudo apt-get remove -y 'php.*' --fix-missing] failed to complete successfully. Proceeding..."^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8704209Z ^[[36;1m  sudo apt-get remove -y '^mongodb-.*' --fix-missing || echo "::warning::The command [sudo apt-get remove -y '^mongodb-.*' --fix-missing] failed to complete successfully. Proceeding..."^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8708994Z ^[[36;1m  sudo apt-get remove -y '^mysql-.*' --fix-missing || echo "::warning::The command [sudo apt-get remove -y '^mysql-.*' --fix-missing] failed to complete successfully. Proceeding..."^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8715739Z ^[[36;1m  sudo apt-get remove -y azure-cli google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri --fix-missing || echo "::warning::The command [sudo apt-get remove -y azure-cli google-chrome-stable firefox powershell mono-devel libgl1-mesa-dri --fix-missing] failed to complete successfully. Proceeding..."^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8722505Z ^[[36;1m  sudo apt-get remove -y google-cloud-sdk --fix-missing || echo "::debug::The command [sudo apt-get remove -y google-cloud-sdk --fix-missing] failed to complete successfully. Proceeding..."^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8727305Z ^[[36;1m  sudo apt-get remove -y google-cloud-cli --fix-missing || echo "::debug::The command [sudo apt-get remove -y google-cloud-cli --fix-missing] failed to complete successfully. Proceeding..."^[[0m
+build-iso	Free disk space	2026-07-18T01:37:11.8731538Z ^[[36;1m  sudo apt-get autoremove -y || echo "::warning::The command [sudo apt-get autoremove -y] failed to complete successfully. Proceeding..."^[[0m
+--- snip @ line 6607 ---
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.0152215Z Uploaded bytes 1493172224
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.0771457Z Uploaded bytes 1501560832
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.1306611Z Uploaded bytes 1509949440
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.1348314Z Uploaded bytes 1518338048
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.1823396Z Uploaded bytes 1526726656
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.1825892Z Uploaded bytes 1535115264
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.2341805Z Uploaded bytes 1543503872
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.2407115Z Uploaded bytes 1551892480
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.3155243Z Uploaded bytes 1560281088
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.3181328Z Uploaded bytes 1568669696
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.3555503Z Uploaded bytes 1577058304
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.4152543Z Uploaded bytes 1585446912
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.4315553Z Uploaded bytes 1593835520
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.4717192Z Uploaded bytes 1602224128
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.4750647Z Uploaded bytes 1610612736
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.5758025Z Uploaded bytes 1619001344
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.5861454Z Uploaded bytes 1627389952
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.5967739Z Uploaded bytes 1635778560
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.6492034Z Uploaded bytes 1644167168
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.6829160Z Uploaded bytes 1652555776
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.6974447Z Uploaded bytes 1660944384
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.7265763Z Uploaded bytes 1669332992
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.7652458Z Uploaded bytes 1677721600
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.8371955Z Uploaded bytes 1686110208
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.8864435Z Uploaded bytes 1694498816
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.9011308Z Uploaded bytes 1702887424
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.9266125Z Uploaded bytes 1711276032
+build-iso	Upload ISO artifact	2026-07-18T01:55:01.9817935Z Uploaded bytes 1719664640
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.0578679Z Uploaded bytes 1728053248
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.0618909Z Uploaded bytes 1736441856
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.0844082Z Uploaded bytes 1744830464
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.1133860Z Uploaded bytes 1753219072
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.1560782Z Uploaded bytes 1761607680
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.1858020Z Uploaded bytes 1769996288
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.2057232Z Uploaded bytes 1778384896
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.2796658Z Uploaded bytes 1786773504
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.2847232Z Uploaded bytes 1795162112
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.3617863Z Uploaded bytes 1803550720
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.3842132Z Uploaded bytes 1811939328
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.3963924Z Uploaded bytes 1820327936
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.4114118Z Uploaded bytes 1828716544
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.4908651Z Uploaded bytes 1837105152
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.4982295Z Uploaded bytes 1845493760
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.5226730Z Uploaded bytes 1853882368
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.5803613Z Uploaded bytes 1862270976
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.6166604Z Uploaded bytes 1870659584
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.6260676Z Uploaded bytes 1879048192
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.6580366Z Uploaded bytes 1887436800
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.7440920Z Uploaded bytes 1895825408
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.7495672Z Uploaded bytes 1904214016
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.8121291Z Uploaded bytes 1912602624
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.8320615Z Uploaded bytes 1920991232
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.8569415Z Uploaded bytes 1929379840
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.9134378Z Uploaded bytes 1937768448
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.9263434Z Uploaded bytes 1946157056
+build-iso	Upload ISO artifact	2026-07-18T01:55:02.9764294Z Uploaded bytes 1954545664
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.0136328Z Uploaded bytes 1962934272
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.0162181Z Uploaded bytes 1971322880
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.0940831Z Uploaded bytes 1979711488
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.1521331Z Uploaded bytes 1988100096
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.1883916Z Uploaded bytes 1996488704
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.2164997Z Uploaded bytes 2004877312
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.2367655Z Uploaded bytes 2013265920
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.2488573Z Uploaded bytes 2021654528
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.3016170Z Uploaded bytes 2030043136
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.3766002Z Uploaded bytes 2038431744
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.3933308Z Uploaded bytes 2046820352
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.4085291Z Uploaded bytes 2055208960
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.4270879Z Uploaded bytes 2063597568
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.5021469Z Uploaded bytes 2071986176
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.5185587Z Uploaded bytes 2080374784
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.5523001Z Uploaded bytes 2088763392
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.6076272Z Uploaded bytes 2097152000
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.6221425Z Uploaded bytes 2105540608
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.6576942Z Uploaded bytes 2113929216
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.7131435Z Uploaded bytes 2122317824
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.7391034Z Uploaded bytes 2130706432
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.7620427Z Uploaded bytes 2139095040
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.7899249Z Uploaded bytes 2147483648
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.8085150Z Uploaded bytes 2155872256
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.9163731Z Uploaded bytes 2164260864
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.9210613Z Uploaded bytes 2172649472
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.9370434Z Uploaded bytes 2181038080
+build-iso	Upload ISO artifact	2026-07-18T01:55:03.9973741Z Uploaded bytes 2189426688
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.0212025Z Uploaded bytes 2197815296
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.0468626Z Uploaded bytes 2206203904
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.1420848Z Uploaded bytes 2214592512
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.1513920Z Uploaded bytes 2222981120
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.1960650Z Uploaded bytes 2231369728
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.1965422Z Uploaded bytes 2239758336
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.2597910Z Uploaded bytes 2248146944
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.3106584Z Uploaded bytes 2256535552
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.3675308Z Uploaded bytes 2264924160
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.3942842Z Uploaded bytes 2273312768
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.3978060Z Uploaded bytes 2281701376
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.4256876Z Uploaded bytes 2290089984
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.4819865Z Uploaded bytes 2298478592
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.5819076Z Uploaded bytes 2306867200
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.6005624Z Uploaded bytes 2315255808
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.6199831Z Uploaded bytes 2323644416
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.7290614Z Uploaded bytes 2332033024
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.7330520Z Uploaded bytes 2340421632
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.7461481Z Uploaded bytes 2348810240
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.7877195Z Uploaded bytes 2357198848
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.8329351Z Uploaded bytes 2365587456
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.8863735Z Uploaded bytes 2373976064
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.9359094Z Uploaded bytes 2382364672
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.9532285Z Uploaded bytes 2390753280
+build-iso	Upload ISO artifact	2026-07-18T01:55:04.9691446Z Uploaded bytes 2399141888
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.0250080Z Uploaded bytes 2407530496
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.0436007Z Uploaded bytes 2415919104
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.0997327Z Uploaded bytes 2424307712
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.1120335Z Uploaded bytes 2432696320
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.1502677Z Uploaded bytes 2441084928
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.1870933Z Uploaded bytes 2449473536
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.2203317Z Uploaded bytes 2457862144
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.2728595Z Uploaded bytes 2466250752
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.2968060Z Uploaded bytes 2474639360
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.3413002Z Uploaded bytes 2483027968
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.4119157Z Uploaded bytes 2491416576
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.4713481Z Uploaded bytes 2499805184
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.4871169Z Uploaded bytes 2508193792
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.5469971Z Uploaded bytes 2516582400
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.5581800Z Uploaded bytes 2524971008
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.6231018Z Uploaded bytes 2533359616
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.6570874Z Uploaded bytes 2541748224
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.7018821Z Uploaded bytes 2550136832
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.7310732Z Uploaded bytes 2558525440
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.7357428Z Uploaded bytes 2566914048
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.7815057Z Uploaded bytes 2575302656
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.8060586Z Uploaded bytes 2583691264
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.8677461Z Uploaded bytes 2592079872
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.9374627Z Uploaded bytes 2600468480
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.9703993Z Uploaded bytes 2608857088
+build-iso	Upload ISO artifact	2026-07-18T01:55:05.9979211Z Uploaded bytes 2617245696
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.0464086Z Uploaded bytes 2625634304
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.0567119Z Uploaded bytes 2634022912
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.0923720Z Uploaded bytes 2642411520
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.1561066Z Uploaded bytes 2650800128
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.1992255Z Uploaded bytes 2659188736
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.1997781Z Uploaded bytes 2667577344
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.2717603Z Uploaded bytes 2675965952
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.2837225Z Uploaded bytes 2684354560
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.3373663Z Uploaded bytes 2692743168
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.3735020Z Uploaded bytes 2701131776
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.4271766Z Uploaded bytes 2709520384
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.5110530Z Uploaded bytes 2717908992
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.5275472Z Uploaded bytes 2726297600
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.5471950Z Uploaded bytes 2734686208
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.5881689Z Uploaded bytes 2743074816
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.6319325Z Uploaded bytes 2751463424
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.6390203Z Uploaded bytes 2759852032
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.6689457Z Uploaded bytes 2768240640
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.7386060Z Uploaded bytes 2776629248
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.7740473Z Uploaded bytes 2785017856
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.7809091Z Uploaded bytes 2793406464
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.8374895Z Uploaded bytes 2801795072
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.8671134Z Uploaded bytes 2810183680
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.9130680Z Uploaded bytes 2818572288
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.9265752Z Uploaded bytes 2826960896
+build-iso	Upload ISO artifact	2026-07-18T01:55:06.9363876Z Uploaded bytes 2835349504
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.0171828Z Uploaded bytes 2843738112
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.0458873Z Uploaded bytes 2852126720
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.0655076Z Uploaded bytes 2860515328
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.1398028Z Uploaded bytes 2868903936
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.1500186Z Uploaded bytes 2877292544
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.1669137Z Uploaded bytes 2885681152
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.2407842Z Uploaded bytes 2894069760
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.2882785Z Uploaded bytes 2902458368
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.2915093Z Uploaded bytes 2910846976
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.2993764Z Uploaded bytes 2919235584
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.3856183Z Uploaded bytes 2927624192
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.4038548Z Uploaded bytes 2936012800
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.4399195Z Uploaded bytes 2944401408
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.4875360Z Uploaded bytes 2952790016
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.5000686Z Uploaded bytes 2961178624
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.5660132Z Uploaded bytes 2969567232
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.5782578Z Uploaded bytes 2977955840
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.6079754Z Uploaded bytes 2986344448
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.6404316Z Uploaded bytes 2994733056
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.7032728Z Uploaded bytes 3003121664
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.7231461Z Uploaded bytes 3011510272
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.7752929Z Uploaded bytes 3019898880
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.8139900Z Uploaded bytes 3028287488
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.8283118Z Uploaded bytes 3036676096
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.8860103Z Uploaded bytes 3045064704
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.9450523Z Uploaded bytes 3053453312
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.9694096Z Uploaded bytes 3061841920
+build-iso	Upload ISO artifact	2026-07-18T01:55:07.9772169Z Uploaded bytes 3070230528
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.0094722Z Uploaded bytes 3078619136
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.0866284Z Uploaded bytes 3087007744
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.1028347Z Uploaded bytes 3095396352
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.1511818Z Uploaded bytes 3103784960
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.1777226Z Uploaded bytes 3112173568
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.2409707Z Uploaded bytes 3120562176
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.2490885Z Uploaded bytes 3128950784
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.2600686Z Uploaded bytes 3137339392
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.3399875Z Uploaded bytes 3145728000
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.3686879Z Uploaded bytes 3154116608
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.3981561Z Uploaded bytes 3162505216
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.4249093Z Uploaded bytes 3170893824
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.4861593Z Uploaded bytes 3179282432
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.4980676Z Uploaded bytes 3187671040
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.5276672Z Uploaded bytes 3196059648
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.5448761Z Uploaded bytes 3204448256
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.6226101Z Uploaded bytes 3212836864
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.6306601Z Uploaded bytes 3221225472
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.6337249Z Uploaded bytes 3229614080
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.6837456Z Uploaded bytes 3238002688
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.7454914Z Uploaded bytes 3246391296
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.7512241Z Uploaded bytes 3254779904
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.8040337Z Uploaded bytes 3263168512
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.8498916Z Uploaded bytes 3266011310
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.8776011Z Finished uploading artifact content to blob storage!
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.8780306Z SHA256 digest of uploaded artifact zip is 470f083f21305ebf612fa3a4066a0ac54bc062b0e422a905c417f5f4994e1e5a
+build-iso	Upload ISO artifact	2026-07-18T01:55:08.8782557Z Finalizing artifact upload
+build-iso	Upload ISO artifact	2026-07-18T01:55:09.0475633Z Artifact azurelinux-desktop-install-iso.zip successfully finalized. Artifact ID 8423907313
+build-iso	Upload ISO artifact	2026-07-18T01:55:09.0477505Z Artifact azurelinux-desktop-install-iso has been successfully uploaded! Final size is 3266011310 bytes. Artifact ID is 8423907313
+build-iso	Upload ISO artifact	2026-07-18T01:55:09.0487824Z Artifact download URL: https://github.com/sirredbeard/azurelinux-desktop-iso/actions/runs/29625540225/artifacts/8423907313
+build-iso	Upload final kickstart artifact	﻿2026-07-18T01:55:09.0725789Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0727387Z ##[group]Run actions/upload-artifact@v4
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0727716Z with:
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0727987Z   name: azurelinux-desktop-install-kickstart
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0728382Z   path: installer-result/final-kickstart.ks
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0728725Z   retention-days: 7
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0728985Z   if-no-files-found: warn
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0729277Z   compression-level: 6
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0729536Z   overwrite: false
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0730225Z   include-hidden-files: false
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.0730522Z ##[endgroup]
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.2558626Z (node:36826) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.2561284Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build-iso	Upload final kickstart artifact	2026-07-18T01:55:09.2605630Z ##[warning]No files were found with the provided path: installer-result/final-kickstart.ks. No artifacts will be uploaded.
+build-iso	Post Check out repo	﻿2026-07-18T01:55:09.2842248Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build-iso	Post Check out repo	2026-07-18T01:55:09.2843633Z Post job cleanup.
+build-iso	Post Check out repo	2026-07-18T01:55:09.3757735Z [command]/usr/bin/git version
+build-iso	Post Check out repo	2026-07-18T01:55:09.3797888Z git version 2.54.0
+build-iso	Post Check out repo	2026-07-18T01:55:09.3838483Z Temporarily overriding HOME='/home/runner/work/_temp/56fec6a4-71aa-4c84-94ef-65b3e67eb651' before making global git config changes
+build-iso	Post Check out repo	2026-07-18T01:55:09.3840686Z Adding repository directory to the temporary git global config as a safe directory
+build-iso	Post Check out repo	2026-07-18T01:55:09.3845346Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/azurelinux-desktop-iso/azurelinux-desktop-iso
+build-iso	Post Check out repo	2026-07-18T01:55:09.3886132Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build-iso	Post Check out repo	2026-07-18T01:55:09.3945651Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build-iso	Post Check out repo	2026-07-18T01:55:09.4206827Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build-iso	Post Check out repo	2026-07-18T01:55:09.4234837Z http.https://github.com/.extraheader
+build-iso	Post Check out repo	2026-07-18T01:55:09.4246670Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+build-iso	Post Check out repo	2026-07-18T01:55:09.4288929Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build-iso	Post Check out repo	2026-07-18T01:55:09.4532132Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build-iso	Post Check out repo	2026-07-18T01:55:09.4567829Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build-iso	Complete job	﻿2026-07-18T01:55:09.5024462Z Cleaning up orphan processes
+build-iso	Complete job	2026-07-18T01:55:09.5543793Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

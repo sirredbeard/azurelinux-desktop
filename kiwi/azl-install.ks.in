@@ -1,0 +1,483 @@
+# Azure Linux Desktop - Anaconda Kickstart (Offline installer)
+#
+# Structure is a direct adaptation of Microsoft's own azl-install.ks.in
+# (microsoft/azurelinux, base/images/vm-iso-installer/azl-install.ks.in,
+# pinned commit noted in reference/azl-installer/README.md): same
+# offline-repo install source, same LVM partitioning, same
+# post-install.sh/post-bootloader.sh %post --nochroot blocks, generated
+# the same way (kiwi/config.sh expands the packages placeholder below at
+# ISO-build time - deliberately not spelled out literally in this
+# sentence, since kiwi/config.sh's sed split matches on the FIRST
+# occurrence of that exact string, and a second one here would silently
+# move %packages to the top of the file and leave a literal, unresolved
+# placeholder line orphaned further down - see
+# findings/gh-actions-installer-iso-build.md for the real incident this
+# comment is guarding against).
+# Differences from upstream, all deliberate:
+#   - storage directives removed entirely; Anaconda's interactive TUI
+#     handles disk selection, partitioning, and optional LUKS encryption.
+#     Anaconda enforces the minimum layout (/, /boot/efi on UEFI, swap
+#     with automatic partitioning). This avoids silently wiping the wrong
+#     disk on multi-disk desktop hardware.
+#   - a third %post --nochroot block staging this project's own
+#     branding/tooling extras (Copilot, microsoft/edit, Flathub,
+#     Plymouth theme, dock favorites, dark mode) into the installed
+#     system - see kickstart/azurelinux-desktop-live.ks for the full
+#     history behind each of these, not repeated here
+
+# Installation source - local repo bundled on the ISO by kiwi/config.sh,
+# exactly like upstream. Nothing here needs the network at install time.
+repo --name=azl-offline --baseurl=file:///opt/azl-offline-repo/
+
+lang en_US.UTF-8
+keyboard us
+timezone America/New_York --utc
+selinux --enforcing
+firewall --enabled --ssh
+network --hostname=azurelinux-desktop
+services --enabled=sshd,systemd-networkd,systemd-resolved,gdm,NetworkManager
+
+bootloader
+
+rootpw --lock
+
+reboot --eject
+
+@@PACKAGES@@
+
+%post --nochroot --log=/mnt/sysroot/var/log/anaconda-post.log
+cp /root/post-install.sh /mnt/sysroot/tmp/
+chroot /mnt/sysroot bash /tmp/post-install.sh
+rm -f /mnt/sysroot/tmp/post-install.sh
+%end
+
+%post --nochroot --log=/mnt/sysroot/var/log/anaconda-bootloader.log
+/root/post-bootloader.sh
+%end
+
+# Azure Linux Desktop's own additions: stage branding/tooling extras
+# from the offline areas kiwi/config.sh built (/opt/azl-offline-extras,
+# /opt/azl-desktop-assets), which are only reachable from the install
+# environment's own filesystem - hence --nochroot - not from inside
+# %post's chroot into /mnt/sysroot.
+%post --nochroot --log=/mnt/sysroot/var/log/azl-desktop-post-nochroot.log
+set -x
+# The Fedora 43 build container runs with umask 077; override so that
+# mkdir -p creates directories at 755 and heredoc/cat writes land at 644.
+umask 022
+install -d -m 0755 /mnt/sysroot/root/thirdparty
+install -d -m 0755 /mnt/sysroot/usr/share/pixmaps /mnt/sysroot/usr/share/applications /mnt/sysroot/usr/share/dbus-1/services
+install -d -m 0755 /mnt/sysroot/usr/share/plymouth/themes/azurelinux
+
+ASSETS=/opt/azl-desktop-assets
+if [ -d "$ASSETS" ]; then
+    install -m 0644 "$ASSETS/icons/edit.svg" /mnt/sysroot/usr/share/pixmaps/edit.svg
+    install -m 0644 "$ASSETS/icons/powershell.png" /mnt/sysroot/usr/share/pixmaps/powershell.png
+    install -m 0644 "$ASSETS/icons/dotnet.svg" /mnt/sysroot/usr/share/pixmaps/dotnet.svg
+    install -m 0644 "$ASSETS/desktop/edit.desktop" /mnt/sysroot/usr/share/applications/edit.desktop
+    install -m 0755 "$ASSETS/bin/azl-powershell-terminal" /mnt/sysroot/usr/local/bin/azl-powershell-terminal
+    install -m 0755 "$ASSETS/bin/azl-dotnet-terminal" /mnt/sysroot/usr/local/bin/azl-dotnet-terminal
+    install -m 0644 "$ASSETS/desktop/org.azurelinux.PowerShell.desktop" /mnt/sysroot/usr/share/applications/org.azurelinux.PowerShell.desktop
+    install -m 0644 "$ASSETS/dbus/org.azurelinux.PowerShell.service" /mnt/sysroot/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
+    install -m 0644 "$ASSETS/desktop/dotnet.desktop" /mnt/sysroot/usr/share/applications/dotnet.desktop
+    install -m 0644 "$ASSETS/plymouth/azurelinux/azurelinux.plymouth" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinux.plymouth
+    install -m 0644 "$ASSETS/plymouth/azurelinux/azurelinux.script" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinux.script
+    install -m 0644 "$ASSETS/plymouth/azurelinux/dot.png" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/dot.png
+    install -m 0644 "$ASSETS/plymouth/azurelinux/dot-glow.png" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/dot-glow.png
+    install -m 0644 "$ASSETS/branding/AzureLinuxLogo.png" /mnt/sysroot/usr/share/plymouth/themes/azurelinux/azurelinuxlogo.png
+    # 43x43 logo sized to match fedora-gdm-logo.png (149x43) height - used by
+    # the GDM dconf override below to replace the Fedora login-screen badge.
+    install -m 0644 "$ASSETS/branding/azurelinux-gdm-logo.png" /mnt/sysroot/usr/share/pixmaps/azurelinux-logo.png
+    install -d -m 0755 /mnt/sysroot/usr/share/backgrounds/azurelinux
+    install -m 0644 "$ASSETS/wallpapers/adwaita-l.jpg" /mnt/sysroot/usr/share/backgrounds/azurelinux/adwaita-l.jpg
+    install -m 0644 "$ASSETS/wallpapers/adwaita-d.jpg" /mnt/sysroot/usr/share/backgrounds/azurelinux/adwaita-d.jpg
+else
+    echo "WARNING: $ASSETS not found in install environment - branding/launcher assets skipped" >&2
+fi
+
+EXTRAS=/opt/azl-offline-extras
+test -d "$EXTRAS"
+install -m 0644 "$EXTRAS"/github-copilot.rpm /mnt/sysroot/root/thirdparty/github-copilot.rpm
+install -m 0644 "$EXTRAS"/copilot-linux-x64.tar.gz /mnt/sysroot/root/thirdparty/copilot-linux-x64.tar.gz
+install -m 0644 "$EXTRAS"/edit.tar.gz /mnt/sysroot/root/thirdparty/edit.tar.gz
+install -m 0644 "$EXTRAS"/dotnet-sdk-linux-x64.tar.gz /mnt/sysroot/root/thirdparty/dotnet-sdk-linux-x64.tar.gz
+install -m 0755 "$EXTRAS"/install-dotnet-sdk-tarball.sh /mnt/sysroot/root/thirdparty/install-dotnet-sdk-tarball.sh
+if [ -s "$EXTRAS"/flathub.flatpakrepo ]; then
+    install -m 0644 "$EXTRAS"/flathub.flatpakrepo /mnt/sysroot/root/thirdparty/flathub.flatpakrepo
+fi
+if [ -s "$EXTRAS"/thirdparty-versions.txt ]; then
+    install -m 0644 "$EXTRAS"/thirdparty-versions.txt /mnt/sysroot/root/thirdparty/thirdparty-versions.txt
+fi
+%end
+
+%post --log=/var/log/azl-desktop-post.log
+set -x
+# The Fedora 43 build container runs with umask 077; override so that
+# mkdir -p creates directories at 755 and heredoc/cat writes land at 644.
+umask 022
+
+# Persist the same runtime repo priority policy the live ISO ships (see
+# kickstart/azurelinux-desktop-live.ks) - this machine is a real,
+# persistent install, not a throwaway live session, so `dnf install
+# <whatever>` next year needs the same "AZL first, Fedora 43 fills the
+# gap" setup that was used to build it, not just the file:///opt/
+# azl-offline-repo/ path that only existed for this one install.
+# azurelinux-repos (in %packages above) already wrote the real AZL repo
+# files - this only adds Fedora 43 alongside them. Build the Fedora
+# exclusion list from the installed Azure-owned RPMs, so no Fedora update
+# can replace part of the Azure Linux base after installation.
+FEDORA_EXCLUDES=$(rpm -qa --qf '%{NAME}\t%{VENDOR}\n' \
+    | awk -F '\t' '$2 == "Microsoft Corporation" { printf "%s%s", separator, $1; separator="," }')
+[ -n "$FEDORA_EXCLUDES" ] || {
+    echo "Unable to determine Azure Linux package boundary" >&2
+    exit 1
+}
+cat > /etc/yum.repos.d/azl-desktop-fedora.repo << EOF
+[fedora43]
+name=Fedora 43 (GNOME 49 desktop stack)
+baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/
+enabled=1
+gpgcheck=0
+priority=50
+excludepkgs=$FEDORA_EXCLUDES
+
+[fedora43-updates]
+name=Fedora 43 Updates
+baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/43/Everything/x86_64/
+enabled=1
+gpgcheck=0
+priority=50
+excludepkgs=$FEDORA_EXCLUDES
+EOF
+
+# The single azl-offline repo above only existed for this one install (it
+# points at a directory that came from the boot media, not the installed
+# system) - kiwi/config.sh built it by merging every real upstream repo
+# (AZL, Fedora, ms-prod, vscode, edge-canary, gh-cli, github-desktop,
+# rpmfusion-free/nonfree) into one offline blob. Persisting fedora43 above
+# was already done; without also persisting the rest, PowerShell, .NET,
+# VS Code Insiders, Edge Canary, GitHub CLI, GitHub Desktop, and the
+# RPMFusion ffmpeg/gstreamer1-plugin-libav codec packages would be frozen at
+# whatever version was current on the day this ISO was built, with no
+# `dnf upgrade` path afterward. Persist their real upstream repos too.
+cat > /etc/yum.repos.d/azl-desktop-microsoft-github.repo << 'EOF'
+[ms-prod]
+name=Microsoft RHEL 9 prod (PowerShell, .NET)
+baseurl=https://packages.microsoft.com/rhel/9/prod/
+enabled=1
+gpgcheck=0
+priority=1
+
+[vscode]
+name=Visual Studio Code Insiders
+baseurl=https://packages.microsoft.com/yumrepos/vscode
+enabled=1
+gpgcheck=0
+priority=1
+
+[edge-canary]
+name=Microsoft Edge Canary
+baseurl=https://packages.microsoft.com/yumrepos/edge-canary
+enabled=1
+gpgcheck=0
+priority=1
+
+[gh-cli]
+name=GitHub CLI
+baseurl=https://cli.github.com/packages/rpm
+enabled=1
+gpgcheck=0
+priority=1
+
+[github-desktop]
+name=GitHub Desktop (shiftkey/desktop Linux fork)
+baseurl=https://mirror.mwt.me/shiftkey-desktop/rpm
+enabled=1
+gpgcheck=0
+priority=1
+EOF
+
+cat > /etc/yum.repos.d/azl-desktop-rpmfusion.repo << 'EOF'
+[rpmfusion-free]
+name=RPM Fusion for Fedora 43 - Free
+baseurl=https://download1.rpmfusion.org/free/fedora/releases/43/Everything/x86_64/os/
+enabled=1
+gpgcheck=0
+priority=50
+
+[rpmfusion-nonfree]
+name=RPM Fusion for Fedora 43 - Nonfree
+baseurl=https://download1.rpmfusion.org/nonfree/fedora/releases/43/Everything/x86_64/os/
+enabled=1
+gpgcheck=0
+priority=50
+EOF
+
+sed -i '/^\[azl-base\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-minimal,grub2-common,shim,shim-x64,grub2 grub2-pc grub2-pc-modules grub2-efi-x64 grub2-efi-x64-modules grub2-tools grub2-tools-minimal grub2-common shim shim-x64 gsettings-desktop-schemas dnf5 dnf5daemon-server dnf5daemon-server-polkit libdnf5 libdnf5-cli libdnf5-plugin-actions libdnf5-plugin-appstream libdnf5-plugin-expired-pgp-keys libdnf5-plugin-local/' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
+sed -i '/^\[azl-microsoft\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-minimal,grub2-common,shim,shim-x64,grub2 grub2-pc grub2-pc-modules grub2-efi-x64 grub2-efi-x64-modules grub2-tools grub2-tools-minimal grub2-common shim shim-x64 gsettings-desktop-schemas/' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
+# Keep the version-locked Fedora GRUB family together during later updates.
+sed -i '/^\[azl-base\]/,/^\[/ s/^exclude=/&grub2-tools-extra /' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
+sed -i '/^\[azl-microsoft\]/,/^\[/ s/^exclude=/&grub2-tools-extra /' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
+
+systemctl set-default graphical.target
+systemctl enable gdm.service
+# Prevent gnome-initial-setup from running for users created by Anaconda's
+# interactive TUI. Without this, any new user's first GDM session triggers
+# the initial setup wizard, which resets system-db dconf keys (dark mode,
+# wallpaper) to GNOME's own upstream defaults before the user ever touches
+# Settings. InitialSetupEnable=False is GDM's own documented knob for
+# exactly this scenario - it tells gnome-initial-setup not to launch at
+# all, leaving the system-db defaults intact.
+mkdir -p /etc/gdm
+cat > /etc/gdm/custom.conf << 'EOF'
+[daemon]
+InitialSetupEnable=False
+EOF
+
+if [ -x /usr/sbin/plymouth-set-default-theme ]; then
+    plymouth-set-default-theme azurelinux || true
+fi
+mkdir -p /etc/dracut.conf.d
+cat > /etc/dracut.conf.d/no-multipath.conf << 'EOF'
+omit_dracutmodules+=" multipath "
+EOF
+cat > /etc/dracut.conf.d/early-kms.conf << 'EOF'
+add_drivers+=" virtio_gpu hyperv_drm bochs_drm "
+EOF
+
+# Keep Plymouth animated for the full boot duration on the installed system.
+mkdir -p /etc/systemd/system/plymouth-quit-wait.service.d
+cat > /etc/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf << 'EOF'
+[Unit]
+After=multi-user.target
+EOF
+
+# Regenerate the initrd for every installed kernel now that the theme
+# is selected and both dracut.conf.d overrides are in place. This step
+# doesn't exist on the live ISO's kickstart because lorax runs its own
+# fresh dracut pass against the whole install tree AFTER %post finishes
+# (see kickstart/azurelinux-desktop-live.ks) - a real anaconda install
+# has no such later pass, dracut only ran once already, at kernel
+# %posttrans time, before any of this %post section ever touched
+# plymouth or /etc/dracut.conf.d. Without this, the installed system
+# would boot with the stock Fedora/AZL plymouth theme and the
+# multipath/virtio_gpu tuning silently missing, even though every file
+# above is in place.
+dracut --regenerate-all --force
+
+# System-wide dark mode, background, and dock favorites defaults - a persistent-install
+# system has no livesys-scripts (that's live-media-only tooling, see
+# kickstart/azurelinux-desktop-live.ks), so both defaults go through the
+# standard, still user-overridable /etc/dconf/db/local.d/ mechanism
+# instead of livesys-gnome's runtime favorite-apps patch.
+mkdir -p /etc/dconf/db/local.d /etc/dconf/profile
+cat > /etc/dconf/db/local.d/00-azl-desktop-defaults << 'EOF'
+[org/gnome/desktop/interface]
+color-scheme='prefer-dark'
+gtk-theme='Adwaita-dark'
+
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/azurelinux/adwaita-l.jpg'
+picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
+picture-options='zoom'
+
+[org/gnome/shell]
+favorite-apps=['microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
+welcome-dialog-last-shown-version='4294967295'
+EOF
+cat > /etc/dconf/profile/user << 'EOF'
+user-db:user
+system-db:local
+EOF
+dconf update
+# Verify the compiled binary database was actually written - if dconf update
+# failed (e.g., the dconf binary missing or the keyfile unparseable), GNOME
+# silently ignores /etc/dconf/db/local.d/ at runtime and falls back to its
+# own upstream defaults (solid blue background instead of our wallpaper).
+test -s /etc/dconf/db/local
+
+# GDM login-screen logo: fedora-logos ships a gschema override that sets
+# org.gnome.login-screen logo='/usr/share/pixmaps/fedora-gdm-logo.png'.
+# A dconf GDM profile + system-db keyfile overrides that at runtime without
+# touching the schema file (which would drift on fedora-logos updates).
+mkdir -p /etc/dconf/db/gdm.d
+cat > /etc/dconf/profile/gdm << 'EOF'
+user-db:user
+system-db:gdm
+EOF
+cat > /etc/dconf/db/gdm.d/00-azl-login-screen << 'EOF'
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/azurelinux-logo.png'
+EOF
+dconf update
+
+# Override Fedora's gnome-software defaults: prefer Flathub, do not
+# require fedora/updates repos that this image does not ship.
+cat > /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override << 'EOF'
+[org.gnome.software]
+allow-updates=false
+download-updates=false
+packaging-format-preference=['flatpak:flathub', 'flatpak', 'rpm']
+required-repos=[]
+official-repos=['azl-base', 'azl-microsoft', 'azl-desktop-kmods']
+EOF
+rm -f /etc/xdg/autostart/org.gnome.Software.desktop
+cat >> /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini << 'EOF'
+DefaultDisabled=true
+EOF
+glib-compile-schemas /usr/share/glib-2.0/schemas
+
+test -s /root/thirdparty/github-copilot.rpm
+test -s /root/thirdparty/copilot-linux-x64.tar.gz
+test -s /root/thirdparty/edit.tar.gz
+rpm -i /root/thirdparty/github-copilot.rpm
+tar -xzf /root/thirdparty/copilot-linux-x64.tar.gz -C /usr/local/bin copilot
+chmod 0755 /usr/local/bin/copilot
+test -x /usr/local/bin/copilot
+tar -xOzf /root/thirdparty/edit.tar.gz edit > /usr/local/bin/edit
+chmod 0755 /usr/local/bin/edit
+test -x /usr/local/bin/edit
+# .NET 11 SDK (Microsoft linux-x64 tarball; always latest 11.x)
+test -s /root/thirdparty/dotnet-sdk-linux-x64.tar.gz
+test -x /root/thirdparty/install-dotnet-sdk-tarball.sh
+/root/thirdparty/install-dotnet-sdk-tarball.sh / /root/thirdparty/dotnet-sdk-linux-x64.tar.gz
+test -x /usr/share/dotnet/dotnet
+if [ -s /root/thirdparty/thirdparty-versions.txt ]; then
+    install -m 0644 /root/thirdparty/thirdparty-versions.txt         /var/log/azl-desktop-thirdparty-versions.txt
+fi
+if [ -s /root/thirdparty/flathub.flatpakrepo ]; then
+    flatpak remote-add --if-not-exists flathub /root/thirdparty/flathub.flatpakrepo 2>&1 || true
+    # Installer %post usually has network; seed appstream so Software is
+    # not empty on first launch. First-boot unit covers the offline case.
+    flatpak update --appstream 2>&1 || true
+else
+    echo "WARNING: flathub.flatpakrepo wasn't staged - flathub remote not added" >&2
+fi
+rm -rf /root/thirdparty
+
+cat > /usr/lib/systemd/system/azl-flatpak-appstream.service << 'EOF'
+[Unit]
+Description=Refresh Flathub appstream on first boot
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/bin/flatpak
+ConditionPathExists=!/var/lib/flatpak/appstream/flathub/x86_64/active
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flatpak update --appstream
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable azl-flatpak-appstream.service
+
+# Bluetooth: never force-load btusb before platform rfkill (ThinkPad).
+# USB device often enumerates before thinkpad_acpi unblocks radio; recover
+# with a USB authorize cycle before bluetooth.service (see findings).
+# See findings/bluetooth-hci-timeout-thinkpad.md.
+cat > /etc/modules-load.d/azurelinux-desktop-bluetooth.conf << 'EOF'
+# btusb is loaded by udev when a Bluetooth controller appears.
+EOF
+cat > /etc/modprobe.d/azurelinux-desktop-bluetooth.conf << 'EOF'
+softdep btusb pre: thinkpad_acpi
+options btusb reset=1
+options btusb enable_autosuspend=0
+EOF
+# Assets staged by KIWI config.sh into the install tree when present.
+if [ -x /usr/libexec/azurelinux-desktop-bt-usb-reset ]; then
+    systemctl enable azurelinux-desktop-bt-recover.service 2>/dev/null || true
+    systemctl enable azurelinux-desktop-bt-recover-late.service 2>/dev/null || true
+fi
+mkdir -p /etc/systemd/user/sockets.target.wants /etc/systemd/user/pipewire.service.wants
+ln -sfn /usr/lib/systemd/user/pipewire.socket /etc/systemd/user/sockets.target.wants/pipewire.socket
+ln -sfn /usr/lib/systemd/user/pipewire-pulse.socket /etc/systemd/user/sockets.target.wants/pipewire-pulse.socket
+ln -sfn /usr/lib/systemd/user/wireplumber.service /etc/systemd/user/pipewire.service.wants/wireplumber.service
+ln -sfn /usr/lib/systemd/user/wireplumber.service /etc/systemd/user/pipewire-session-manager.service
+
+# Anaconda/localed can leave /etc/locale.conf mode 600. Fedora lang.sh
+# (sourced on every interactive bash) runs sed against it, so pwsh->bash
+# prints: /usr/bin/sed: can't read /etc/locale.conf: Permission denied
+if [ -f /etc/locale.conf ]; then
+    chmod 644 /etc/locale.conf || true
+fi
+
+cat > /etc/profile.d/default-editor.sh << 'EOF'
+export EDITOR=/usr/local/bin/edit
+export VISUAL=/usr/local/bin/edit
+EOF
+
+if [ -x /usr/bin/pwsh ]; then
+    if ! grep -q '^/usr/bin/pwsh$' /etc/shells; then
+        echo /usr/bin/pwsh >> /etc/shells
+    fi
+    usermod --shell /usr/bin/pwsh root 2>/dev/null || true
+fi
+
+mkdir -p /etc/xdg
+cat > /etc/xdg/mimeapps.list << 'EOF'
+[Default Applications]
+text/html=microsoft-edge-canary.desktop
+x-scheme-handler/http=microsoft-edge-canary.desktop
+x-scheme-handler/https=microsoft-edge-canary.desktop
+x-scheme-handler/about=microsoft-edge-canary.desktop
+x-scheme-handler/unknown=microsoft-edge-canary.desktop
+EOF
+
+# GNOME Software uses DNF5 in this image. Let the locally authenticated,
+# active administrator authorize its DNF5 and PackageKit actions.
+mkdir -p /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/49-azl-desktop-packagekit.rules << 'EOF'
+polkit.addRule(function(action, subject) {
+    if ((action.id.indexOf("org.freedesktop.packagekit.") == 0 ||
+         action.id.indexOf("org.rpm.dnf.v0.") == 0) &&
+        subject.isInGroup("wheel") && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
+EOF
+
+# GNOME Keyring auto-unlock fix - identical mechanism to the live ISO,
+# see kickstart/azurelinux-desktop-live.ks for the full root-cause
+# writeup (autologin never provides a real password, so PAM never seeds
+# or unlocks a login keyring on its own - this races gnome-keyring-
+# daemon's own autostart entries and unlocks with a real empty string).
+AUTOLOGIN_PAM="/etc/pam.d/gdm-autologin"
+if [ -f "$AUTOLOGIN_PAM" ]; then
+    if ! grep -qP '^auth\s+optional\s+pam_gnome_keyring' "$AUTOLOGIN_PAM"; then
+        sed -i '/^auth.*pam_permit/i auth       optional    pam_gnome_keyring.so' "$AUTOLOGIN_PAM"
+    fi
+    if ! grep -q 'pam_gnome_keyring.*auto_start' "$AUTOLOGIN_PAM"; then
+        sed -i '/^session.*postlogin/i session    optional    pam_gnome_keyring.so auto_start' "$AUTOLOGIN_PAM"
+    fi
+fi
+
+cat > /usr/libexec/azl-keyring-empty-unlock << 'EOF'
+#!/bin/sh
+i=0
+control="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring/control"
+while [ ! -S "$control" ] && [ "$i" -lt 100 ]; do
+    sleep 0.1
+    i=$((i + 1))
+done
+[ -S "$control" ] || exit 0
+printf '\0' | /usr/bin/gnome-keyring-daemon --unlock \
+    --control-directory="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring" \
+    >/dev/null 2>&1 || true
+EOF
+chmod 0755 /usr/libexec/azl-keyring-empty-unlock
+
+mkdir -p /etc/xdg/autostart
+cat > /etc/xdg/autostart/azl-keyring-empty-unlock.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Azure Linux Desktop keyring auto-unlock
+Comment=Silently creates/unlocks the login keyring with an empty password so autologin sessions never see the "Choose password for new keyring" prompt
+Exec=/usr/libexec/azl-keyring-empty-unlock
+OnlyShowIn=GNOME;
+NoDisplay=true
+X-GNOME-Autostart-Notify=false
+EOF
+rpm -qa --qf '%{name}-%{version}-%{release}.%{arch}\n' | sort > /var/log/azl-desktop-install-package-list.txt
+%end

@@ -1,0 +1,7 @@
+Installer release run 29890385508:
+
+KiwiScriptFailed: config.sh failed with:
+/usr/share/plymouth/themes/azurelinux/azurelinux.plymouth does not exist
+
+upload-artifact:
+EACCES: permission denied, scandir 'installer-result/build/image-root/boot/efi'

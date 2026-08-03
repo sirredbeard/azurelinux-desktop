@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Azure Linux Desktop
+Description=Azure Linux logo splash for the Azure Linux Desktop live ISO proof of concept
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/azurelinux
+ScriptFile=/usr/share/plymouth/themes/azurelinux/azurelinux.script

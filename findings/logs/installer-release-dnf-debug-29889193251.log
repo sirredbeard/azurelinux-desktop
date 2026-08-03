@@ -1,0 +1,9 @@
+Installer release run 29889193251, offline repository download diagnostic:
+
+=== Downloading target-install packages + dependencies ===
+Unknown argument "-v" for command "dnf5". Add "--help" for more information about the arguments.
+Offline repository download attempt 1 failed.
+Unknown argument "-v" for command "dnf5". Add "--help" for more information about the arguments.
+Offline repository download attempt 2 failed.
+Unknown argument "-v" for command "dnf5". Add "--help" for more information about the arguments.
+Offline repository download attempt 3 failed.

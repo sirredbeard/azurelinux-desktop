@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+
+exec gnome-terminal --app-id org.azurelinux.PowerShell --title=PowerShell -- /usr/bin/pwsh

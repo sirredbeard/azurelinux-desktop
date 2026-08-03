@@ -1,0 +1,30 @@
+Run: https://github.com/sirredbeard/azurelinux-desktop-iso/actions/runs/29630148458
+Step: Build live disk images (qcow2 + VHDX)
+Date: 2026-07-18
+
+2026-07-18T04:42:43.0336983Z >>> grub2-probe: error: failed to get canonical path of `overlay'.
+2026-07-18T04:42:43.2383136Z 2026-07-18 04:42:43,237: livemedia-creator v44.6-1
+2026-07-18T04:42:43.2383771Z 2026-07-18 04:42:43,237: selinux is Disabled
+2026-07-18T04:42:43.2388896Z 2026-07-18 04:42:43,238: The disk image /workspace/live-disk-result/azurelinux-desktop-live.img is missing.
+2026-07-18T04:42:44.0258924Z ##[error]Process completed with exit code 1.
+
+Root cause: --disk-image points livemedia-creator at an already-existing
+disk image to reinstall onto. It is not an output path for --make-disk
+to create fresh. lorax's own argument validation (src/pylorax/cmdline/
+livemedia.py) checks `if opts.disk_image and not os.path.exists(opts.
+disk_image): errors.append("The disk image %s is missing." % opts.
+disk_image)` unconditionally, before any real work starts. --image-size
+also isn't a real flag at all - only --image-size-align exists, and
+argparse's prefix matching silently treated the "--image-size 24" we
+passed as an abbreviation of that unrelated flag, so it was never doing
+what it looked like it was doing either way.
+
+Fix: drop --disk-image and --image-size, use --image-name <filename>
+instead (joined with --resultdir for the actual output path). Size gets
+calculated automatically from the kickstart's own partition sizes
+(src/pylorax/creator.py, calculate_disk_size()) - there is no manual
+size flag for a from-scratch --make-disk build.
+
+The grub2-probe error one line above the livemedia-creator banner is
+unrelated noise from the toolchain-install container (dnf5 installing
+lorax itself), not from the actual livemedia-creator run.

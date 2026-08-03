@@ -1,0 +1,16 @@
+Aug 03 13:10:01 azurelinux-desktop systemd[901]: Created slice app-dbus\x2d:1.2\x2dorg.gnome.Shell.Screencast.slice - Slice /app/dbus-:1.2-org.gnome.Shell.Screencast.
+Aug 03 13:10:01 azurelinux-desktop systemd[901]: Started dbus-:1.2-org.gnome.Shell.Screencast@0.service.
+Aug 03 13:10:04 azurelinux-desktop /usr/libexec/xdg-desktop-portal[1219]: Failed connect to PipeWire: Couldn't connect to PipeWire
+Aug 03 13:10:06 azurelinux-desktop systemd[901]: dbus-:1.2-org.gnome.Shell.Screencast@0.service: Consumed 1.479s CPU time, 192.6M memory peak.
+Aug 03 13:10:15 azurelinux-desktop systemd[1894]: Created slice app-dbus\x2d:1.2\x2dorg.gnome.Shell.Screencast.slice - Slice /app/dbus-:1.2-org.gnome.Shell.Screencast.
+Aug 03 13:10:15 azurelinux-desktop systemd[1894]: Started dbus-:1.2-org.gnome.Shell.Screencast@0.service.
+Aug 03 13:10:20 azurelinux-desktop /usr/libexec/xdg-desktop-portal[2453]: Failed connect to PipeWire: Couldn't connect to PipeWire
+Aug 03 13:10:31 azurelinux-desktop systemd[901]: Removed slice app-dbus\x2d:1.2\x2dorg.gnome.Shell.Screencast.slice - Slice /app/dbus-:1.2-org.gnome.Shell.Screencast.
+Aug 03 13:10:31 azurelinux-desktop systemd[901]: app-dbus\x2d:1.2\x2dorg.gnome.Shell.Screencast.slice: Consumed 1.479s CPU time, 192.6M memory peak.
+Aug 03 13:11:34 azurelinux-desktop systemd[1894]: Started dbus-:1.2-org.gnome.Shell.Screencast@1.service.
+Aug 03 13:11:35 azurelinux-desktop org.gnome.Shell.Screencast[3710]: JS LOG: Failed to start recorder: GDBus.Error:org.freedesktop.DBus.Error.Failed: Failed to start screen cast: Couldn't connect pipewire context
+Aug 03 13:11:35 azurelinux-desktop gnome-shell[2051]: Screencast failed during phase STARTUP: Gio.DBusError: GDBus.Error:org.freedesktop.DBus.Error.Failed: GDBus.Error:org.freedesktop.DBus.Error.Failed: Failed to start screen cast: Couldn't connect pipewire context
+Aug 03 13:11:47 azurelinux-desktop systemd[1894]: Started dbus-:1.2-org.gnome.Shell.Screencast@2.service.
+Aug 03 13:11:47 azurelinux-desktop org.gnome.Shell.Screencast[3734]: JS LOG: Failed to start recorder: GDBus.Error:org.freedesktop.DBus.Error.Failed: Failed to start screen cast: Couldn't connect pipewire context
+Aug 03 13:11:47 azurelinux-desktop gnome-shell[2051]: Screencast failed during phase STARTUP: Gio.DBusError: GDBus.Error:org.freedesktop.DBus.Error.Failed: GDBus.Error:org.freedesktop.DBus.Error.Failed: Failed to start screen cast: Couldn't connect pipewire context
+Aug 03 13:18:20 azurelinux-desktop systemd[1894]: Removed slice app-dbus\x2d:1.2\x2dorg.gnome.Shell.Screencast.slice - Slice /app/dbus-:1.2-org.gnome.Shell.Screencast.

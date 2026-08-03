@@ -1,0 +1,4 @@
+Requirement 'grub2-tools-extra' is applied.
+Reason: Necessary for the bootloader configuration.
+
+No match for argument: grub2-tools-extra

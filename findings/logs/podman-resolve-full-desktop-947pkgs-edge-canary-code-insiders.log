@@ -1,0 +1,104 @@
+>>> mknod: /var/tmp/dracut.dcva6zG/initramfs/dev/console: Operation not permitted
+>>> mknod: /var/tmp/dracut.dcva6zG/initramfs/dev/random: Operation not permitted
+>>> mknod: /var/tmp/dracut.dcva6zG/initramfs/dev/urandom: Operation not permitted
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /usr/lib/dracut/modules.d/01systemd-modules-load/module-setup.sh: line 36: /dev/fd/63: No such file or directory
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> grub2-editenv: warning: cannot find a device for /boot/grub2 (is /dev mounted?).
+>>> grub2-editenv: warning: cannot find a device for /boot/grub2 (is /dev mounted?).
+>>> grub2-editenv: warning: cannot find a device for /boot/grub2 (is /dev mounted?).
+>>> 
+>>> Running %posttrans scriptlet: grub2-efi-x64-1:2.12-60.fc44.x86_64
+>>> Finished %posttrans scriptlet: grub2-efi-x64-1:2.12-60.fc44.x86_64
+>>> Scriptlet output:
+>>> grub2-probe: error: cannot find a device for /boot/grub2 (is /dev mounted?).
+>>> 
+>>> Running %posttrans scriptlet: wireplumber-0:0.5.14-1.fc44.x86_64
+>>> Finished %posttrans scriptlet: wireplumber-0:0.5.14-1.fc44.x86_64
+>>> Scriptlet output:
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> 
+>>> Running %posttrans scriptlet: systemd-resolved-0:258.4-4.azl4.x86_64
+>>> Finished %posttrans scriptlet: systemd-resolved-0:258.4-4.azl4.x86_64
+>>> Scriptlet output:
+>>> '/etc/resolv.conf' -> '../run/systemd/resolve/stub-resolv.conf'
+>>> 
+>>> Running %triggerin scriptlet: systemd-0:258.4-4.azl4.x86_64
+>>> Finished %triggerin scriptlet: systemd-0:258.4-4.azl4.x86_64
+>>> Scriptlet output:
+>>> Failed to connect to audit log, ignoring: Invalid argument
+>>> 
+>>> Running %triggerin scriptlet: systemd-0:258.4-4.azl4.x86_64
+>>> Finished %triggerin scriptlet: systemd-0:258.4-4.azl4.x86_64
+>>> Scriptlet output:
+>>> Failed to open file /usr/lib/systemd/catalog/dbus-broker-launch.catalog: No such file or directory
+>>> Failed to import file '/usr/lib/systemd/catalog/dbus-broker-launch.catalog': No such file or directory
+>>> Failed to update catalog: No such file or directory
+>>> 
+>>> Running %triggerin scriptlet: systemd-udev-0:258.4-4.azl4.x86_64
+>>> Finished %triggerin scriptlet: systemd-udev-0:258.4-4.azl4.x86_64
+>>> Scriptlet output:
+>>> Failed to write database /etc/udev/hwdb.bin: Function not implemented
+>>> 
+Transaction failed: Rpm transaction failed.
+Warning: skipped OpenPGP checks for 948 packages from repositories: azl-base, edge-canary, fedora44, fedora44-updates, gh-cli, github-desktop, ms-prod, vscode
+=== RESULT ===
+
+real	9m43.917s
+user	5m25.054s
+sys	1m48.570s
+NAME="Azure Linux"
+VERSION="4.0 (Four Beta)"
+RELEASE_TYPE=development
+ID=azurelinux
+ID_LIKE=fedora
+glibc-2.43-7.fc44.x86_64
+systemd-258.4-4.azl4.x86_64
+mutter-50.3-2.fc44.x86_64
+gnome-shell-50.3-1.fc44.x86_64
+azurelinux-release-4.0-20.azl4.noarch
+gdm-50.1-1.fc44.x86_64
+NetworkManager-1.54.3-3.azl4.x86_64
+powershell-7.6.3-1.rh.x86_64
+code-1.129.0-1784075033.el8.x86_64
+code-insiders-1.130.0-1784200946.el8.x86_64
+gh-2.96.0-1.x86_64
+github-desktop-3.4.12.linux1-1.x86_64
+microsoft-edge-canary-152.0.4160.0-1.x86_64
+azl: 729  fc44: 210  total: 947

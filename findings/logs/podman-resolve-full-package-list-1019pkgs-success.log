@@ -1,0 +1,124 @@
+# Trimmed package-resolve success log (1019 pkgs).
+# Full NEVRA dumps belong in live-package-list.txt when refreshed from CI.
+
+Updating and loading repositories:
+ RPM Fusion Nonfree                     100% |  46.8 KiB/s | 105.0 KiB |  00m02s
+ Visual Studio Code                     100% | 219.7 KiB/s | 250.2 KiB |  00m01s
+ Microsoft Production                   100% | 308.6 KiB/s | 308.3 KiB |  00m01s
+ GitHub CLI                             100% |   3.8 KiB/s |   3.9 KiB |  00m01s
+ GitHub Desktop                         100% |   5.3 KiB/s |   6.0 KiB |  00m01s
+ RPM Fusion Free                        100% |  70.1 KiB/s | 149.2 KiB |  00m02s
+ Microsoft Edge Canary                  100% |  28.5 KiB/s |  93.4 KiB |  00m03s
+ Azure Linux 4.0 Microsoft              100% |   3.4 KiB/s |  11.0 KiB |  00m03s
+ Azure Linux 4.0 Base                   100% |   1.8 MiB/s |   6.4 MiB |  00m03s
+ Fedora 44 Updates                      100% |   2.0 MiB/s |  10.5 MiB |  00m05s
+ Fedora 44                              100% |   1.7 MiB/s |  36.7 MiB |  00m22s
+Repositories loaded.
+Package                                  Arch   Version                            Repository             Size
+Installing:
+ NetworkManager                          x86_64 1:1.54.3-3.azl4                    azl-base            5.9 MiB
+ adwaita-mono-fonts                      noarch 0:50.0-1.fc44                      fedora44            5.6 MiB
+ adwaita-sans-fonts                      noarch 0:50.0-1.fc44                      fedora44            1.7 MiB
+ audit                                   x86_64 0:4.1.3-2.azl4                     azl-base          500.8 KiB
+ azurelinux-release                      noarch 0:4.0-20.azl4                      azl-base            0.0   B
+ azurelinux-repos                        noarch 0:4.0-18.azl4                      azl-base            1.3 KiB
+ bash                                    x86_64 0:5.3.9-5.azl4                     azl-base            8.4 MiB
+ brightnessctl                           x86_64 0:0.5.1-16.fc44                    fedora44           29.0 KiB
+ ca-certificates                         noarch 0:2025.2.80_v9.0.304-1.1.azl4      azl-base            2.7 MiB
+ chrony                                  x86_64 0:4.8-4.azl4                       azl-base          690.3 KiB
+ code                                    x86_64 0:1.129.0-1784075033.el8           vscode            915.5 MiB
+ code-insiders                           x86_64 0:1.130.0-1784200946.el8           vscode            919.6 MiB
+ coreutils                               x86_64 0:9.7-8.azl4                       azl-base            5.4 MiB
+ cryptsetup                              x86_64 0:2.8.4-2.azl4                     azl-base          762.6 KiB
+ dejavu-sans-fonts                       noarch 0:2.37-27.azl4                     azl-base            5.5 MiB
+ dnf5                                    x86_64 0:5.4.2.1-1.fc44                   fedora44-updates    3.2 MiB
+ dotnet-runtime-11.0                     x86_64 0:11.0.0-0.1.preview.6.26359.118   azl-microsoft      78.0 MiB
+ dotnet-sdk-11.0                         x86_64 0:11.0.100-0.1.preview.6.26359.118 azl-microsoft     282.1 MiB
+ efibootmgr                              x86_64 0:18-12.azl4                       azl-base           94.4 KiB
+ evolution                               x86_64 0:3.60.2-1.fc44                    fedora44-updates   17.6 MiB
+ evolution-ews                           x86_64 0:3.60.2-1.fc44                    fedora44-updates  485.8 KiB
+ ffmpeg                                  x86_64 0:8.0.1-6.fc44                     rpmfusion-free      2.6 MiB
+ firewalld                               noarch 0:2.3.2-2.azl4                     azl-base            2.0 MiB
+ flatpak                                 x86_64 0:1.18.0-1.fc44                    fedora44-updates    8.0 MiB
+ gdm                                     x86_64 1:50.1-1.fc44                      fedora44-updates    5.2 MiB
+ gh                                      x86_64 0:2.96.0-1                         gh-cli             39.2 MiB
+ github-desktop                          x86_64 0:3.4.12.linux1-1                  github-desktop    375.7 MiB
+ gnome-backgrounds                       noarch 0:50.0-1.fc44                      fedora44           37.8 MiB
+ gnome-calculator                        x86_64 0:50.0-1.fc44                      fedora44            8.1 MiB
+ gnome-characters                        x86_64 0:50.0-1.fc44                      fedora44            2.8 MiB
+ gnome-clocks                            x86_64 0:50.0-1.fc44                      fedora44            3.5 MiB
+ gnome-connections                       x86_64 0:50.0-1.fc44                      fedora44            1.2 MiB
+ gnome-control-center                    x86_64 0:50.3-1.fc44                      fedora44-updates   23.8 MiB
+ gnome-control-center-filesystem         noarch 0:50.3-1.fc44                      fedora44-updates    0.0   B
+ gnome-disk-utility                      x86_64 0:46.1-4.fc44                      fedora44            6.7 MiB
+ gnome-font-viewer                       x86_64 0:50.0-1.fc44                      fedora44            1.3 MiB
+ gnome-keyring                           x86_64 0:50.0-1.fc44                      fedora44            3.5 MiB
+ gnome-keyring-pam                       x86_64 0:50.0-1.fc44                      fedora44           31.4 KiB
+ gnome-logs                              x86_64 0:50.0-1.fc44                      fedora44            1.5 MiB
+ gnome-menus                             x86_64 0:3.38.1-2.fc44                    fedora44          638.0 KiB
+ gnome-online-accounts                   x86_64 0:3.58.1-1.fc44                    fedora44-updates    1.5 MiB
+ gnome-power-manager                     x86_64 0:50.0-1.fc44                      fedora44          928.8 KiB
+ gnome-screenshot                        x86_64 0:41.0-13.fc44                     fedora44          857.7 KiB
+ gnome-session                           x86_64 0:50.1-1.fc44                      fedora44-updates    1.3 MiB
+ gnome-session-wayland-session           x86_64 0:50.1-1.fc44                      fedora44-updates    8.0 KiB
+ gnome-shell                             x86_64 0:50.3-1.fc44                      fedora44-updates   14.3 MiB
+ gnome-software                          x86_64 0:50.3-1.fc44                      fedora44-updates   12.4 MiB
+ gnome-system-monitor                    x86_64 0:50.0-1.fc44                      fedora44            5.2 MiB
+ gnome-terminal                          x86_64 0:3.60.0-1.fc44                    fedora44            8.5 MiB
+ gnome-text-editor                       x86_64 0:50.1-1.fc44                      fedora44-updates    2.5 MiB
+ gnome-weather                           noarch 0:50.0-1.fc44                      fedora44          834.2 KiB
+ google-noto-fonts-common                noarch 0:20251101-3.azl4                  azl-base           17.7 KiB
+ grub2-efi-x64                           x86_64 1:2.12-60.fc44                     fedora44-updates    6.2 MiB
+ grub2-efi-x64-modules                   noarch 1:2.12-60.fc44                     fedora44-updates    5.7 MiB
+ grub2-pc                                x86_64 1:2.12-60.fc44                     fedora44-updates   31.0   B
+ gsettings-desktop-schemas               x86_64 0:50.1-1.fc44                      fedora44-updates    6.1 MiB
+ gstreamer1-plugin-libav                 x86_64 0:1.28.5-1.fc44                    fedora44-updates  333.0 KiB
+ gstreamer1-plugin-openh264              x86_64 0:1.28.5-1.fc44                    fedora44-updates   68.2 KiB
+ gstreamer1-plugins-bad-free             x86_64 0:1.28.5-1.fc44                    fedora44-updates   10.2 MiB
+ gstreamer1-plugins-good                 x86_64 0:1.28.5-1.fc44                    fedora44-updates    7.5 MiB
+ gstreamer1-plugins-ugly-free            x86_64 0:1.28.5-1.fc44                    fedora44-updates  569.8 KiB
+ gvfs                                    x86_64 0:1.60.1-1.fc44                    fedora44-updates    1.2 MiB
+ gvfs-goa                                x86_64 0:1.60.1-1.fc44                    fedora44-updates  162.2 KiB
+ gvfs-mtp                                x86_64 0:1.60.1-1.fc44                    fedora44-updates  169.8 KiB
+ gvfs-smb                                x86_64 0:1.60.1-1.fc44                    fedora44-updates  100.1 KiB
+--- snip package list body ---
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> /proc/ is not mounted. This is not a supported mode of operation. Please fix
+>>> your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.
+>>> Your mileage may vary.
+>>> grub2-editenv: warning: cannot find a device for /boot/grub2 (is /dev mounted?).
+>>> grub2-editenv: warning: cannot find a device for /boot/grub2 (is /dev mounted?).
+>>> grub2-editenv: warning: cannot find a device for /boot/grub2 (is /dev mounted?).
+>>> 
+>>> Running %posttrans scriptlet: grub2-efi-x64-1:2.12-60.fc44.x86_64
+>>> Finished %posttrans scriptlet: grub2-efi-x64-1:2.12-60.fc44.x86_64
+>>> Scriptlet output:
+>>> grub2-probe: error: cannot find a device for /boot/grub2 (is /dev mounted?).
+>>> 
+>>> Running %posttrans scriptlet: systemd-resolved-0:258.4-4.azl4.x86_64
+>>> Finished %posttrans scriptlet: systemd-resolved-0:258.4-4.azl4.x86_64
+>>> Scriptlet output:
+>>> '/etc/resolv.conf' -> '../run/systemd/resolve/stub-resolv.conf'
+>>> 
+>>> Running %triggerin scriptlet: systemd-0:258.4-4.azl4.x86_64
+>>> Finished %triggerin scriptlet: systemd-0:258.4-4.azl4.x86_64
+>>> Scriptlet output:
+>>> Failed to connect to audit log, ignoring: Invalid argument
+>>> 
+>>> Running %triggerin scriptlet: systemd-0:258.4-4.azl4.x86_64
+>>> Finished %triggerin scriptlet: systemd-0:258.4-4.azl4.x86_64
+>>> Scriptlet output:
+>>> Failed to open file /usr/lib/systemd/catalog/dbus-broker-launch.catalog: No such file or directory
+>>> Failed to import file '/usr/lib/systemd/catalog/dbus-broker-launch.catalog': No such file or directory
+>>> Failed to update catalog: No such file or directory
+>>> 
+>>> Running %triggerin scriptlet: systemd-udev-0:258.4-4.azl4.x86_64
+>>> Finished %triggerin scriptlet: systemd-udev-0:258.4-4.azl4.x86_64
+>>> Scriptlet output:
+>>> Failed to write database /etc/udev/hwdb.bin: Function not implemented
+>>> 
+Warning: skipped OpenPGP checks for 1019 packages from repositories: azl-base, azl-microsoft, edge-canary, fedora44, fedora44-updates, gh-cli, github-desktop, ms-prod, rpmfusion-free, rpmfusion-nonfree, vscode
+Complete!
+DNF_EXIT:0

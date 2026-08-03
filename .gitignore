@@ -1,0 +1,12 @@
+*.iso
+*.qcow2
+*.img
+*.rpm
+*.vhdx
+*.vdi
+*.vmdk
+*.7z
+*.part
+*.ovmf-vars.fd
+*-overlay.qcow2
+.tmp/*

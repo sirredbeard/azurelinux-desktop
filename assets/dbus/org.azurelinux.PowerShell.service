@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.azurelinux.PowerShell
+Exec=/usr/libexec/gnome-terminal-server --app-id org.azurelinux.PowerShell

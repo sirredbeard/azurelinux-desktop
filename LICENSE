@@ -1,0 +1,156 @@
+MIT License
+
+Copyright (c) 2026 Hayden Barnes
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+THIRD-PARTY COMPONENTS
+================================================================================
+
+The kickstart, workflow, and findings in this repository build an ISO out of
+packages and reference files from other projects. Each keeps its own
+license. Nothing from these projects is vendored into this repository
+except the handful of icon, logo, and reference files noted below.
+
+Azure Linux
+    Packages and repo metadata come from https://github.com/microsoft/azurelinux,
+    MIT licensed. Every individual package pulled from Azure Linux's repos
+    carries its own upstream license, same as any Linux distro. The five
+    files under reference/azl-installer/ (azl-install.ks,
+    azl-install-encrypted.ks, post-install.sh, post-bootloader.sh,
+    anaconda-launcher.sh) are copied verbatim from the real Azure Linux 4.0
+    installer ISO and are byte-for-byte identical to (or, for the two .ks
+    files, the rendered output of) the MIT-licensed source in
+    microsoft/azurelinux's base/images/vm-iso-installer/ directory. See
+    reference/azl-installer/README.md for the full provenance and pinned
+    upstream links.
+
+Fedora
+    Packages, including GNOME (shell, session, gdm, mutter, nautilus,
+    and the rest of the desktop), come from the Fedora Project. Every
+    package carries its own upstream license.
+
+GNOME
+    Licensed by the GNOME Project, primarily under the LGPL and GPL. See
+    https://www.gnome.org/licensing/ for the full per-component breakdown.
+
+Microsoft Edge (Canary)
+    Proprietary, installed from Microsoft's own packages.microsoft.com repo
+    under the Microsoft Edge license terms:
+    https://www.microsoft.com/en-us/legal/products/agreements/microsoftedge
+
+PowerShell
+    MIT licensed at https://github.com/PowerShell/PowerShell, installed
+    from Microsoft's official Linux repo. This repository carries
+    assets/icons/powershell.png, copied from that project, for the
+    .desktop launcher.
+
+Visual Studio Code Insiders
+    Distributed under the Microsoft Software License Terms
+    (https://code.visualstudio.com/license) and installed from
+    packages.microsoft.com. The Code - OSS source it builds from is MIT
+    licensed at https://github.com/microsoft/vscode.
+
+GitHub CLI
+    The gh command. MIT licensed at https://github.com/cli/cli, installed
+    from GitHub's own package repo (cli.github.com/packages/rpm).
+
+GitHub Desktop
+    Source is MIT licensed at https://github.com/desktop/desktop. This
+    repository installs the community-maintained Linux packaging of it,
+    https://github.com/shiftkey/desktop, not an official GitHub Linux
+    build.
+
+GitHub Copilot CLI
+    The standalone copilot terminal agent. Proprietary, subject to
+    GitHub's own Terms of Service:
+    https://docs.github.com/en/site-policy/github-terms/github-terms-of-service
+
+GitHub Copilot (desktop GUI app)
+    Proprietary, subject to the same GitHub Terms of Service as above.
+
+.NET
+    MIT licensed at https://github.com/dotnet/runtime and installed from
+    Microsoft's official repo. This repository carries
+    assets/icons/dotnet.svg, the official .NET logo from
+    https://github.com/dotnet/brand, CC0-1.0 licensed (public domain
+    dedication), used here as the icon for the .desktop launcher that
+    reports "dotnet --info".
+
+edit
+    Microsoft's terminal text editor. MIT licensed at
+    https://github.com/microsoft/edit. This repository carries
+    assets/icons/edit.svg, copied from that project, for the .desktop
+    launcher.
+
+Plymouth
+    GPL-2.0 licensed at https://gitlab.freedesktop.org/plymouth/plymouth.
+    The custom boot theme at assets/plymouth/azurelinux/ is original to
+    this repository (MIT, per the top of this file), except for
+    assets/branding/AzureLinuxLogo.png, noted next.
+
+assets/branding/AzureLinuxLogo.png
+    This is Microsoft's Azure Linux penguin icon, taken from
+    https://github.com/microsoft/azurelinux/blob/4.0/assets/azurelinux-logo-48.png.
+    It is NOT MIT licensed and is not this project's to relicense.
+    Microsoft permits use of this icon only in accordance with its
+    trademark and brand guidelines, per the upstream notice at
+    https://github.com/microsoft/azurelinux/blob/4.0/assets/NOTICE.md,
+    which itself points to
+    https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks.
+    It is used here solely to visually identify this project as building
+    on Azure Linux; no ownership of the icon or the Azure Linux trademark
+    is claimed, and this project is not sponsored, endorsed, or approved
+    by Microsoft.
+
+================================================================================
+TRADEMARKS
+================================================================================
+
+This is a personal proof-of-concept project. It is not affiliated with,
+sponsored by, or endorsed by Microsoft, the Fedora Project, Red Hat, the
+GNOME Foundation, or GitHub, and none of them have reviewed or certified
+it in any way.
+
+Microsoft, Azure, Azure Linux, Windows, Microsoft Edge, Visual Studio
+Code, PowerShell, GitHub, GitHub Desktop, and GitHub Copilot are
+trademarks of the Microsoft group of companies. Fedora is a trademark of
+Red Hat, Inc. GNOME is a trademark of the GNOME Foundation. Linux is the
+registered trademark of Linus Torvalds in the United States and other
+countries. All other trademarks, logos, and copyrights belong to their
+respective owners, and no ownership of any of them is claimed.
+
+================================================================================
+THIRD-PARTY ASSETS
+================================================================================
+
+assets/wallpapers/adwaita-l.jpg
+assets/wallpapers/adwaita-d.jpg
+
+    Copyright © 2011–2026 Jakub Steiner <jimmac@gmail.com>
+    Licensed under the Creative Commons Attribution-ShareAlike 3.0 License.
+    https://creativecommons.org/licenses/by-sa/3.0/
+
+    Source: GNOME Backgrounds (gnome-backgrounds)
+    https://gitlab.gnome.org/GNOME/gnome-backgrounds
+
+    Converted from the original JPEG XL (JXL) sources to JPEG for
+    compatibility with Azure Linux's glycin image loader configuration.
+    No other modifications were made.

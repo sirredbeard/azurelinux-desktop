@@ -1,0 +1,18 @@
+The full Fedora-kernel control transaction resolved locally:
+
+  kernel-6.17.1-300.fc43.x86_64
+  kernel-core-6.17.1-300.fc43.x86_64
+  kernel-modules-6.17.1-300.fc43.x86_64
+  kernel-modules-core-6.17.1-300.fc43.x86_64
+  systemd-258.4-4.azl4.x86_64
+
+The first GitHub Actions ISO and disk builds both reached package download
+completion near the end, then Anaconda reported:
+
+  Started downloading 'clevis-luks-0:21-13.azl4.x86_64' - 35146.0 bytes
+  Failed to download 'clevis-luks-0:21-13.azl4.x86_64': No more mirrors to try
+  Failed to download the following packages: Failed to download packages
+
+Immediately after the run, the published Azure RPM URL returned HTTP 200 with
+`Content-Length: 35146`. The failure is therefore a transient package-download
+failure, not a missing package or a Fedora-kernel control incompatibility.

@@ -1,0 +1,92 @@
+# Azure Linux Desktop plymouth theme - centered logo on a plain dark
+# background, plus a simple dot-based "throbber" underneath so there's
+# still visible activity during the long dracut/systemd portion of boot.
+# Deliberately minimal (no upstream fedora-logos theme assets reused) -
+# this is the one thing on screen that should look "Azure Linux", not
+# "generic Fedora live boot".
+
+Window.SetBackgroundTopColor(0.05, 0.05, 0.08);
+Window.SetBackgroundBottomColor(0.05, 0.05, 0.08);
+
+# Scale the logo to fit within 30% of the screen dimension, preserving
+# aspect ratio and never upscaling. Plymouth script coordinates map 1:1 to
+# screen pixels - without this, a large PNG on a low-res EFI framebuffer
+# (e.g. 1024x768 simpledrm) gets cropped instead of fitting the screen.
+logo.original_image = Image("azurelinuxlogo.png");
+
+fun ScaleLogoToFit(img)
+{
+    local.screen_w = Window.GetWidth();
+    local.screen_h = Window.GetHeight();
+    local.img_w    = img.GetWidth();
+    local.img_h    = img.GetHeight();
+
+    local.max_w = Math.Int(screen_w * 0.30);
+    local.max_h = Math.Int(screen_h * 0.30);
+
+    if (img_w <= max_w && img_h <= max_h) {
+        return img;
+    }
+
+    local.scale_w = max_w / img_w;
+    local.scale_h = max_h / img_h;
+    local.scale   = Math.Min(scale_w, scale_h);
+
+    return img.Scale(Math.Int(img_w * scale), Math.Int(img_h * scale));
+}
+
+logo.image = ScaleLogoToFit(logo.original_image);
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Math.Int((Window.GetWidth()  - logo.image.GetWidth())  / 2));
+logo.sprite.SetY(Math.Int((Window.GetHeight() - logo.image.GetHeight()) / 2));
+
+# Small row of glowing dots below the logo. Each dot is a real filled
+# circle image with its own soft glow halo image behind it (both
+# pre-rendered PNGs - plymouth's script language has no circle-drawing
+# or blur primitive of its own), and the "glow" pulses smoothly in and
+# out using a sine wave rather than flipping on/off, so it reads as
+# slowly glowing rather than blinking. The active dot shifts one
+# position to the right every couple of seconds, looping.
+dot_count = 5;
+dot_spacing = 22;
+dot_glow_image = Image("dot-glow.png");
+dot_image = Image("dot.png");
+for (i = 0; i < dot_count; i++) {
+    dots[i].glow_sprite = Sprite(dot_glow_image);
+    dots[i].glow_sprite.SetX(Window.GetWidth() / 2 - (dot_count * dot_spacing) / 2 + i * dot_spacing - dot_glow_image.GetWidth() / 2 + 8);
+    dots[i].glow_sprite.SetY(Window.GetHeight() / 2 + logo.image.GetHeight() / 2 - dot_glow_image.GetHeight() / 2 + 8);
+    dots[i].glow_sprite.SetOpacity(0);
+
+    dots[i].sprite = Sprite(dot_image);
+    dots[i].sprite.SetX(Window.GetWidth() / 2 - (dot_count * dot_spacing) / 2 + i * dot_spacing);
+    dots[i].sprite.SetY(Window.GetHeight() / 2 + logo.image.GetHeight() / 2);
+    dots[i].sprite.SetOpacity(0.25);
+}
+
+tick_count = 0;
+fun refresh_callback() {
+    tick_count++;
+    # Re-center logo every frame in case the display mode changes mid-boot.
+    logo.sprite.SetX(Math.Int((Window.GetWidth()  - logo.image.GetWidth())  / 2));
+    logo.sprite.SetY(Math.Int((Window.GetHeight() - logo.image.GetHeight()) / 2));
+    # One full loop through every dot takes ~dot_count * 60 ticks
+    # (plymouth refreshes at roughly 30fps, so ~2 seconds per dot).
+    active_dot = Math.Int(tick_count / 60) - dot_count * Math.Int(Math.Int(tick_count / 60) / dot_count);
+    pulse = 0.5 + 0.5 * Math.Sin(tick_count * 0.1);
+    for (i = 0; i < dot_count; i++) {
+        if (i == active_dot) {
+            dots[i].sprite.SetOpacity(0.5 + 0.5 * pulse);
+            dots[i].glow_sprite.SetOpacity(0.5 * pulse);
+        } else {
+            dots[i].sprite.SetOpacity(0.25);
+            dots[i].glow_sprite.SetOpacity(0);
+        }
+    }
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+fun message_callback(text) {
+    # Swallow boot messages instead of drawing them - that's the whole
+    # point of this theme (hide dracut/systemd noise behind the splash).
+}
+Plymouth.SetMessageFunction(message_callback);

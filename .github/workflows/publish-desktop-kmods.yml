@@ -1,0 +1,536 @@
+name: Desktop kmod repo (GitHub Pages)
+
+# Parallel family builds → one package job → one serial Pages publish.
+# Triggers: schedule (new kernel), push to builder/workflow, manual, reusable call.
+# Concurrency group serializes Pages writes so two runs never clobber the DNF repo.
+
+on:
+  schedule:
+    # Once nightly, before nightly-release (05:30 UTC). Policy coupling
+    # means mid-day kernel drift is rare; push/manual still rebuilds.
+    - cron: "17 4 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build-desktop-kmods.sh"
+      - "scripts/generate-kmod-repo-index.sh"
+      - ".github/workflows/publish-desktop-kmods.yml"
+  workflow_dispatch:
+    inputs:
+      republish:
+        description: "Rebuild and redeploy even if Pages already has this kernel set"
+        type: boolean
+        default: false
+      families:
+        description: "Comma list of families, or 'all'"
+        type: string
+        default: all
+  workflow_call:
+    inputs:
+      republish:
+        type: boolean
+        default: false
+      families:
+        type: string
+        default: all
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # Never cancel an in-flight publish mid-deploy; queue the next run.
+  group: azurelinux-desktop-kmod-repository
+  cancel-in-progress: false
+
+env:
+  KMOD_REPO_URL: https://sirredbeard.github.io/azurelinux-desktop/repo
+  KMOD_IMAGE: mcr.microsoft.com/azurelinux-beta/base/core:4.0
+  AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64
+
+jobs:
+  detect:
+    runs-on: ubuntu-24.04
+    outputs:
+      build_required: ${{ steps.detect.outputs.build_required }}
+      kernel_nevra: ${{ steps.detect.outputs.kernel_nevra }}
+      families_json: ${{ steps.detect.outputs.families_json }}
+      full_set: ${{ steps.detect.outputs.full_set }}
+    steps:
+      - id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPUBLISH: ${{ inputs.republish || 'false' }}
+          FAMILIES_IN: ${{ inputs.families || 'all' }}
+        run: |
+          set -euo pipefail
+          kernel_nevra="$(
+            docker run --rm "$KMOD_IMAGE" \
+              bash -c "dnf5 repoquery --setopt=reposdir=/dev/null \
+                --repofrompath=azl-base,$AZL_BASE_URL --repo=azl-base --available \
+                --latest-limit=1 --qf '%{name}-%{version}-%{release}.%{arch}' kernel"
+          )"
+          test -n "$kernel_nevra"
+          echo "kernel_nevra=$kernel_nevra" >> "$GITHUB_OUTPUT"
+
+          krel="${kernel_nevra#kernel-}"
+          curl --fail --silent --show-error --location \
+            "$KMOD_REPO_URL/manifest.txt" -o /tmp/manifest.txt || : > /tmp/manifest.txt
+          missing=0
+          for base in \
+            azurelinux-desktop-policy \
+            azurelinux-desktop-usbhid-kmod \
+            azurelinux-desktop-usb-storage-kmod \
+            azurelinux-desktop-iwlwifi-kmod \
+            azurelinux-desktop-sound-kmod \
+            azurelinux-desktop-bluetooth-kmod \
+            azurelinux-desktop-uvc-kmod \
+            azurelinux-desktop-thinkpad-kmod \
+            azurelinux-desktop-typec-kmod
+          do
+            grep -Fxq "${base}-${krel}.rpm" /tmp/manifest.txt || missing=1
+          done
+
+          # Push to builder/workflow always rebuilds. Schedule only when set incomplete.
+          # Manual/reusable honor republish; otherwise same completeness check.
+          build=false
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            build=true
+          elif [[ "$REPUBLISH" == "true" ]]; then
+            build=true
+          elif [[ "$missing" -ne 0 ]]; then
+            build=true
+          fi
+          echo "build_required=$build" >> "$GITHUB_OUTPUT"
+
+          # Family matrix. Keep order stable; 'all' expands to the full set.
+          all='["usbhid","usb-storage","iwlwifi","sound","bluetooth","uvc","thinkpad","typec"]'
+          if [[ "$FAMILIES_IN" == "all" || -z "$FAMILIES_IN" ]]; then
+            echo "families_json=$all" >> "$GITHUB_OUTPUT"
+            echo "full_set=true" >> "$GITHUB_OUTPUT"
+          else
+            python3 - "$FAMILIES_IN" <<'PY' >> "$GITHUB_OUTPUT"
+          import json, sys
+          allowed = {"usbhid","usb-storage","iwlwifi","sound","bluetooth","uvc","thinkpad","typec"}
+          raw = [p.strip() for p in sys.argv[1].split(",") if p.strip()]
+          bad = [p for p in raw if p not in allowed]
+          if bad:
+              raise SystemExit(f"unknown families: {bad}")
+          if not raw:
+              raise SystemExit("empty families list")
+          print("families_json=" + json.dumps(raw))
+          print("full_set=" + ("true" if set(raw) == allowed else "false"))
+          PY
+          fi
+
+  prepare:
+    needs: detect
+    if: ${{ needs.detect.outputs.build_required == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch kernel source into reusable workdir
+        env:
+          KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+        run: |
+          set -euo pipefail
+          mkdir -p kmod-work kmod-output
+          docker pull "$KMOD_IMAGE"
+          for attempt in 1 2 3; do
+            echo "prepare attempt $attempt"
+            if docker run --rm \
+              -v "$GITHUB_WORKSPACE:/workspace" \
+              -e DESKTOP_KMOD_WORKDIR=/workspace/kmod-work \
+              -e DESKTOP_KMOD_PREPARE_TARBALL_ONLY=1 \
+              "$KMOD_IMAGE" \
+              bash /workspace/scripts/build-desktop-kmods.sh \
+                /workspace/kmod-output "$KERNEL_NEVRA" prepare
+            then
+              break
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
+          test -f kmod-work/.prepared
+          test -f kmod-work/env.sh
+          test -f kmod-work/kernel.tar.gz
+          # No extracted tree in the artifact (root-owned + huge); families extract.
+          if compgen -G 'kmod-work/CBL-Mariner-Linux-Kernel-*' >/dev/null; then
+            docker run --rm -v "$GITHUB_WORKSPACE:/workspace" "$KMOD_IMAGE" \
+              bash -c 'rm -rf /workspace/kmod-work/CBL-Mariner-Linux-Kernel-*'
+          fi
+          ls -lh kmod-work/
+
+      - name: Upload prepare artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmod-prepare
+          path: kmod-work/
+          retention-days: 3
+          if-no-files-found: error
+
+  build-family:
+    needs: [detect, prepare]
+    if: ${{ needs.detect.outputs.build_required == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        family: ${{ fromJSON(needs.detect.outputs.families_json) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download prepare artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kmod-prepare
+          path: kmod-work
+
+      - name: Build ${{ matrix.family }} (resilient)
+        env:
+          KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+          FAMILY: ${{ matrix.family }}
+        run: |
+          set -euo pipefail
+          mkdir -p kmod-output
+          docker pull "$KMOD_IMAGE"
+          test -f kmod-work/kernel.tar.gz
+          test -f kmod-work/env.sh
+          # shellcheck disable=SC1091
+          source kmod-work/env.sh
+          if ! compgen -G 'kmod-work/CBL-Mariner-Linux-Kernel-*' >/dev/null; then
+            tar -xzf kmod-work/kernel.tar.gz -C kmod-work
+          fi
+          touch kmod-work/.prepared
+
+          ok=0
+          for attempt in 1 2 3; do
+            echo "=== family=$FAMILY attempt=$attempt ==="
+            if docker run --rm \
+              -v "$GITHUB_WORKSPACE:/workspace" \
+              -e DESKTOP_KMOD_WORKDIR=/workspace/kmod-work \
+              "$KMOD_IMAGE" \
+              bash /workspace/scripts/build-desktop-kmods.sh \
+                /workspace/kmod-output "$KERNEL_NEVRA" "$FAMILY"
+            then
+              ok=1
+              break
+            fi
+            echo "family=$FAMILY attempt=$attempt failed"
+            sleep $((attempt * 20))
+          done
+          test "$ok" -eq 1
+
+          rm -rf family-out
+          mkdir -p family-out
+          case "$FAMILY" in
+            usbhid) cp -a kmod-work/usbhid family-out/ ;;
+            usb-storage) cp -a kmod-work/usb-storage family-out/ ;;
+            iwlwifi) cp -a kmod-work/iwlwifi family-out/ ;;
+            sound) cp -a kmod-work/sound family-out/ ;;
+            bluetooth)
+              cp -a kmod-work/btnet family-out/
+              cp -a kmod-work/btdrv family-out/
+              ;;
+            uvc) cp -a kmod-work/uvc family-out/ ;;
+            thinkpad) cp -a kmod-work/thinkpad family-out/ ;;
+            typec) cp -a kmod-work/typec family-out/ ;;
+            *) echo "unknown family $FAMILY"; exit 1 ;;
+          esac
+          find family-out -name '*.ko' | tee family-out/modules.list
+          test -s family-out/modules.list
+
+      - name: Upload ${{ matrix.family }} modules
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmod-family-${{ matrix.family }}
+          path: family-out/
+          retention-days: 3
+          if-no-files-found: error
+
+  package:
+    needs: [detect, prepare, build-family]
+    # Publish whatever families succeeded. Do not require the full matrix.
+    if: ${{ needs.detect.outputs.build_required == 'true' && needs.prepare.result == 'success' && !cancelled() && (needs.build-family.result == 'success' || needs.build-family.result == 'failure') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download prepare artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kmod-prepare
+          path: kmod-work
+
+      - name: Download all family module artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kmod-family-*
+          path: family-artifacts
+          merge-multiple: false
+
+      - name: Assemble workdir and package RPMs
+        env:
+          KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+        run: |
+          set -euo pipefail
+          mkdir -p kmod-output
+          shopt -s nullglob
+          families=(family-artifacts/kmod-family-*)
+          if ((${#families[@]} == 0)); then
+            echo "No family artifacts uploaded; nothing to package" >&2
+            exit 1
+          fi
+          for d in "${families[@]}"; do
+            echo "merge $d"
+            cp -a "$d"/. kmod-work/
+          done
+          # shellcheck disable=SC1091
+          source kmod-work/env.sh
+          if ! compgen -G 'kmod-work/CBL-Mariner-Linux-Kernel-*' >/dev/null; then
+            tar -xzf kmod-work/kernel.tar.gz -C kmod-work
+          fi
+          touch kmod-work/.prepared
+
+          echo "Assembled modules:"
+          find kmod-work -name '*.ko' | sort
+          test "$(find kmod-work -name '*.ko' | wc -l)" -ge 1
+
+          docker pull "$KMOD_IMAGE"
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -e DESKTOP_KMOD_WORKDIR=/workspace/kmod-work \
+            "$KMOD_IMAGE" \
+            bash /workspace/scripts/build-desktop-kmods.sh \
+              /workspace/kmod-output "$KERNEL_NEVRA" package
+
+          ls -la kmod-output/*.rpm
+          test -f kmod-output/azurelinux-desktop-policy-*.rpm || \
+            test -f "kmod-output/azurelinux-desktop-policy-${KERNEL_NEVRA#kernel-}.rpm"
+          krel="${KERNEL_NEVRA#"kernel-"}"
+          test -f "kmod-output/azurelinux-desktop-policy-${krel}.rpm"
+          # At least one sibling kmod RPM must ship with policy.
+          shopt -s nullglob
+          kmods=(kmod-output/azurelinux-desktop-*-kmod-*.rpm)
+          test "${#kmods[@]}" -ge 1
+          echo "Packaged ${#kmods[@]} kmod RPMs + policy"
+          cat kmod-output/present-families.txt || true
+
+      - name: Upload RPM set
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmod-rpms
+          path: |
+            kmod-output/*.rpm
+            kmod-output/present-families.txt
+          retention-days: 5
+          if-no-files-found: error
+
+  publish:
+    needs: [detect, package]
+    if: ${{ needs.detect.outputs.build_required == 'true' && needs.package.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download RPM set
+        uses: actions/download-artifact@v4
+        with:
+          name: kmod-rpms
+          path: kmod-output
+
+      - name: Merge prior repo, createrepo, write indexes
+        env:
+          KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+        run: |
+          set -euo pipefail
+          mkdir -p site/repo
+          krel="${KERNEL_NEVRA#"kernel-"}"
+          if curl --fail --location --retry 5 --retry-delay 3 \
+              "$KMOD_REPO_URL/manifest.txt" -o prior-manifest.txt; then
+            while IFS= read -r rpm; do
+              [ -n "$rpm" ] || continue
+              case "$rpm" in
+                azurelinux-desktop-*-kmod-*|azurelinux-desktop-policy-*) ;;
+                *) continue ;;
+              esac
+              # Prefer this run's RPM; keep prior siblings for the same kernel
+              # when a family failed this time so the repo stays useful.
+              if [[ -f "kmod-output/$rpm" ]]; then
+                continue
+              fi
+              # Drop prior policy for this kernel; we ship a fresh policy that
+              # Requires exactly the kmod RPMs present after merge logic below.
+              if [[ "$rpm" == "azurelinux-desktop-policy-${krel}.rpm" ]]; then
+                continue
+              fi
+              curl --fail --location --retry 5 --retry-delay 3 \
+                "$KMOD_REPO_URL/$rpm" -o "site/repo/$rpm" || {
+                  echo "warn: could not fetch prior $rpm (skipped)"
+                  rm -f "site/repo/$rpm"
+                }
+            done < prior-manifest.txt
+          fi
+          cp -v kmod-output/*.rpm site/repo/
+
+          # If prior same-kernel kmod RPMs were merged, rebuild policy so it
+          # Requires every sibling present for this kernel release.
+          mapfile -t KREL_KMODS < <(
+            find site/repo -maxdepth 1 -type f -name "azurelinux-desktop-*-kmod-${krel}.rpm" -printf '%f\n' | sort
+          )
+          if ((${#KREL_KMODS[@]} == 0)); then
+            echo "no kmod RPMs for $krel after merge" >&2
+            exit 1
+          fi
+          {
+            echo "Name: azurelinux-desktop-policy"
+            echo "Version: ${krel%%-*}"
+            # krel is VERSION-RELEASE.ARCH — split carefully below
+          } >/dev/null
+          # Parse EVR.ARCH from kernel nevra: kernel-VERSION-RELEASE.ARCH
+          k_ver="${KERNEL_NEVRA#kernel-}"
+          k_arch="${k_ver##*.}"
+          k_vr="${k_ver%.$k_arch}"
+          k_version="${k_vr%%-*}"
+          k_release="${k_vr#*-}"
+          # If release contains extra dashes (1.9.azl4), keep full remainder:
+          k_version="$(echo "$KERNEL_NEVRA" | sed -E 's/^kernel-([^-]+)-.*/\1/')"
+          k_release="$(echo "$KERNEL_NEVRA" | sed -E 's/^kernel-[^-]+-(.+)\.[^.]+$/\1/')"
+          k_arch="$(echo "$KERNEL_NEVRA" | sed -E 's/^.*\.([^.]+)$/\1/')"
+
+          reqs=""
+          for rpm in "${KREL_KMODS[@]}"; do
+            base="${rpm%-${krel}.rpm}"
+            reqs+="Requires: ${base} = ${k_version}-${k_release}\n"
+          done
+          mkdir -p /tmp/policy-rpm/{SPECS,RPMS,BUILD,BUILDROOT,SOURCES,SRPMS}
+          cat > /tmp/policy-rpm/SPECS/policy.spec <<SPEC
+          Name:           azurelinux-desktop-policy
+          Version:        ${k_version}
+          Release:        ${k_release}
+          Summary:        Exact Azure Linux kernel and desktop kmod update policy
+          License:        GPL-2.0-only
+          BuildArch:      ${k_arch}
+          Requires:       kernel-core-uname-r = ${k_version}-${k_release}.${k_arch}
+          $(printf '%b' "$reqs")
+          %description
+          Couples kernel ${k_version}-${k_release}.${k_arch} to the desktop
+          kmod RPMs present in this repository snapshot.
+          %files
+          SPEC
+          # strip leading spaces from spec lines
+          sed -i 's/^          //' /tmp/policy-rpm/SPECS/policy.spec
+          sudo apt-get update
+          sudo apt-get install -y rpm createrepo-c
+          rpmbuild --define "_topdir /tmp/policy-rpm" -bb /tmp/policy-rpm/SPECS/policy.spec
+          cp -v /tmp/policy-rpm/RPMS/*/*.rpm site/repo/
+          # Remove any stale policy from kmod-output overwrite confusion
+          ls -la site/repo/azurelinux-desktop-policy-*.rpm
+
+          createrepo_c site/repo
+          find site/repo -maxdepth 1 -type f -name '*.rpm' -printf '%f\n' | sort \
+            > site/repo/manifest.txt
+
+          test -f "site/repo/azurelinux-desktop-policy-${krel}.rpm"
+          grep -Fxq "azurelinux-desktop-policy-${krel}.rpm" site/repo/manifest.txt
+          for rpm in "${KREL_KMODS[@]}"; do
+            test -f "site/repo/$rpm"
+            grep -Fxq "$rpm" site/repo/manifest.txt
+          done
+          echo "Published families for ${krel}:" 
+          printf '  %s\n' "${KREL_KMODS[@]}"
+
+          bash scripts/generate-kmod-repo-index.sh site
+          test -f site/index.html
+          test -f site/repo/index.html
+          test -f site/.nojekyll
+
+      - name: Validate exact-kernel dependency resolution
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/site/repo:/repo:ro" \
+            "$KMOD_IMAGE" \
+            bash -exc '
+              dnf5 install -y \
+                --setopt=reposdir=/dev/null \
+                --setopt=azl-base.gpgcheck=0 \
+                --setopt=azl-desktop-kmods.gpgcheck=0 \
+                --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64 \
+                --repofrompath=azl-desktop-kmods,file:///repo \
+                --repo=azl-base --repo=azl-desktop-kmods \
+                kernel azurelinux-desktop-policy
+              kver=$(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}" kernel-core)
+              moddir="/usr/lib/modules/$kver/extra/azurelinux-desktop"
+              test -d "$moddir"
+              count=$(find "$moddir" -name "*.ko" | wc -l)
+              test "$count" -ge 1
+              echo "installed $count modules:"
+              find "$moddir" -name "*.ko" -printf "%f\n" | sort
+              while IFS= read -r f; do
+                v=$(modinfo -F vermagic "$f")
+                case "$v" in "$kver"*) ;; *) echo "bad vermagic $f: $v"; exit 1 ;; esac
+              done < <(find "$moddir" -name "*.ko")
+              rpm -qa "azurelinux-desktop-*-kmod" | sort
+            ' 2>&1 | tee kmod-dnf-resolve.log
+          grep -Fq "azurelinux-desktop-policy" kmod-dnf-resolve.log
+          # Core families that already built green should be in the repo when present.
+          if grep -q 'azurelinux-desktop-usbhid-kmod' site/repo/manifest.txt; then
+            grep -Fq "azurelinux-desktop-usbhid-kmod" kmod-dnf-resolve.log
+          fi
+          if grep -q 'azurelinux-desktop-sound-kmod' site/repo/manifest.txt; then
+            grep -Fq "azurelinux-desktop-sound-kmod" kmod-dnf-resolve.log
+          fi
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Verify published repository metadata
+        env:
+          KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 18); do
+            if curl --fail --silent --show-error --location \
+              "$KMOD_REPO_URL/repodata/repomd.xml" >/dev/null; then
+              break
+            fi
+            sleep 10
+            if [[ "$i" -eq 18 ]]; then
+              echo "repomd.xml not reachable after deploy"
+              exit 1
+            fi
+          done
+          curl --fail --location --retry 6 --retry-delay 5 \
+            "$KMOD_REPO_URL/manifest.txt" | tee published-manifest.txt
+          krel="${KERNEL_NEVRA#"kernel-"}"
+          grep -Fxq "azurelinux-desktop-policy-${krel}.rpm" published-manifest.txt
+          # Every RPM we just built must appear; prior-only siblings are bonus.
+          while IFS= read -r rpm; do
+            [[ "$rpm" == *.rpm ]] || continue
+            grep -Fxq "$rpm" published-manifest.txt
+          done < <(find kmod-output -maxdepth 1 -type f -name '*.rpm' -printf '%f\n')
+          curl --fail --location --retry 6 --retry-delay 5 \
+            "https://sirredbeard.github.io/azurelinux-desktop/" | grep -Fq 'kmod'
+          curl --fail --location --retry 6 --retry-delay 5 \
+            "$KMOD_REPO_URL" | grep -Fq 'azurelinux-desktop-policy'

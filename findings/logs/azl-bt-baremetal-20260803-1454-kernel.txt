@@ -1,0 +1,121 @@
+# Trimmed excerpt: bluetooth/hci/oops lines only
+# Full boot journal was larger; noise dropped for findings/logs hygiene.
+
+---
+Aug 03 14:52:51 azurelinux-desktop kernel: ACPI: EC: Boot ECDT EC used to handle transactions
+Aug 03 14:52:51 azurelinux-desktop kernel: ACPI: [Firmware Bug]: BIOS _OSI(Linux) query ignored
+Aug 03 14:52:51 azurelinux-desktop kernel: ACPI: Dynamic OEM Table Load:
+---
+Aug 03 14:52:51 azurelinux-desktop kernel: PPP generic driver version 2.4.2
+Aug 03 14:52:51 azurelinux-desktop kernel: xhci_hcd 0000:00:14.0: xHCI Host Controller
+Aug 03 14:52:51 azurelinux-desktop kernel: xhci_hcd 0000:00:14.0: new USB bus registered, assigned bus number 1
+Aug 03 14:52:51 azurelinux-desktop kernel: xhci_hcd 0000:00:14.0: hcc params 0x200077c1 hci version 0x100 quirks 0x0000000081109810
+Aug 03 14:52:51 azurelinux-desktop kernel: xhci_hcd 0000:00:14.0: xHCI Host Controller
+Aug 03 14:52:51 azurelinux-desktop kernel: xhci_hcd 0000:00:14.0: new USB bus registered, assigned bus number 2
+Aug 03 14:52:51 azurelinux-desktop kernel: xhci_hcd 0000:00:14.0: Host supports USB 3.0 SuperSpeed
+Aug 03 14:52:51 azurelinux-desktop kernel: hub 1-0:1.0: USB hub found
+---
+Aug 03 14:52:51 azurelinux-desktop systemd[1]: Inserted module 'autofs4'
+Aug 03 14:52:51 azurelinux-desktop kernel: usb 1-2: new high-speed USB device number 2 using xhci_hcd
+Aug 03 14:52:51 azurelinux-desktop systemd[1]: Successfully made /usr/ read-only.
+---
+Aug 03 14:52:51 azurelinux-desktop kernel: hub 1-2:1.0: 4 ports detected
+Aug 03 14:52:51 azurelinux-desktop kernel: usb 2-4: new SuperSpeed USB device number 2 using xhci_hcd
+Aug 03 14:52:51 azurelinux-desktop systemd[1]: bpf-restrict-fs: LSM BPF program attached
+---
+Aug 03 14:52:51 azurelinux-desktop systemd[1]: Starting systemd-sysctl.service - Apply Kernel Variables...
+Aug 03 14:52:51 azurelinux-desktop kernel: usb 1-4: new full-speed USB device number 3 using xhci_hcd
+Aug 03 14:52:51 azurelinux-desktop systemd[1]: Finished systemd-sysctl.service - Apply Kernel Variables.
+---
+Aug 03 14:52:51 azurelinux-desktop kernel: usb 1-4: device descriptor read/64, error -71
+Aug 03 14:52:51 azurelinux-desktop kernel: usb 1-4: new full-speed USB device number 4 using xhci_hcd
+Aug 03 14:52:51 azurelinux-desktop kernel: usb 1-4: device descriptor read/64, error -71
+---
+Aug 03 14:52:52 azurelinux-desktop kernel: usb usb1-port4: attempt power cycle
+Aug 03 14:52:52 azurelinux-desktop kernel: usb 1-2.1: new low-speed USB device number 5 using xhci_hcd
+Aug 03 14:52:53 azurelinux-desktop kernel: i915 0000:00:02.0: enabling device (0006 -> 0007)
+---
+Aug 03 14:52:53 azurelinux-desktop kernel: i915 0000:00:02.0: [drm] VT-d active for gfx access
+Aug 03 14:52:53 azurelinux-desktop kernel: usb 1-4: new full-speed USB device number 6 using xhci_hcd
+Aug 03 14:52:53 azurelinux-desktop kernel: usb 1-4: Device not responding to setup address.
+---
+Aug 03 14:52:53 azurelinux-desktop kernel: i915 0000:00:02.0: vgaarb: VGA decodes changed: olddecodes=io+mem,decodes=io+mem:owns=mem
+Aug 03 14:52:53 azurelinux-desktop kernel: i915 0000:00:02.0: [drm] Finished loading DMC firmware i915/skl_dmc_ver1_27.bin (v1.27)
+Aug 03 14:52:53 azurelinux-desktop kernel: EXT4-fs (dm-2): orphan cleanup on readonly fs
+---
+Aug 03 14:52:53 azurelinux-desktop kernel: usb 1-4: WARN: invalid context state for evaluate context command.
+Aug 03 14:52:53 azurelinux-desktop kernel: usb 1-4: new full-speed USB device number 7 using xhci_hcd
+Aug 03 14:52:53 azurelinux-desktop kernel: usb 1-4: Device not responding to setup address.
+---
+Aug 03 14:52:54 azurelinux-desktop kernel: usb usb1-port4: unable to enumerate USB device
+Aug 03 14:52:54 azurelinux-desktop kernel: usb 1-2.2: new high-speed USB device number 8 using xhci_hcd
+Aug 03 14:52:54 azurelinux-desktop kernel: usb 1-6: new high-speed USB device number 9 using xhci_hcd
+Aug 03 14:52:54 azurelinux-desktop kernel: usb 1-6: config 1 has an invalid interface number: 12 but max is 4
+---
+Aug 03 14:52:54 azurelinux-desktop kernel: usb 1-6: config 1 has no interface number 4
+Aug 03 14:52:54 azurelinux-desktop kernel: usb 1-2.3: new high-speed USB device number 10 using xhci_hcd
+Aug 03 14:52:55 azurelinux-desktop kernel: usb 1-7: new full-speed USB device number 11 using xhci_hcd
+Aug 03 14:52:55 azurelinux-desktop kernel: usb 1-2.4: new low-speed USB device number 12 using xhci_hcd
+Aug 03 14:52:55 azurelinux-desktop kernel: usb 1-8: new high-speed USB device number 13 using xhci_hcd
+Aug 03 14:52:57 azurelinux-desktop systemd-journald[206]: Received SIGTERM from PID 1 (systemd).
+Aug 03 14:52:57 azurelinux-desktop kernel: SELinux:  Permission firmware_load in class system not defined in policy.
+Aug 03 14:52:57 azurelinux-desktop kernel: SELinux:  Permission kexec_image_load in class system not defined in policy.
+---
+Aug 03 14:52:57 azurelinux-desktop systemd[1]: Stopped plymouth-switch-root.service - Plymouth switch root service.
+Aug 03 14:52:57 azurelinux-desktop systemd[1]: systemd-boot-clear-sysfail.service - Clear SysFail Entry If The Boot Is Successful skipped, unmet condition check ConditionPathExists=/sys/firmware/efi/efivars/LoaderEntrySysFail-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+Aug 03 14:52:57 azurelinux-desktop systemd[1]: systemd-hibernate-clear.service - Clear Stale Hibernate Storage Info skipped, unmet condition check ConditionPathExists=/sys/firmware/efi/efivars/HibernateLocation-8cf2644b-4b0b-428f-9387-6d876050dc67
+Aug 03 14:52:57 azurelinux-desktop systemd[1]: Starting systemd-journald.service - Journal Service...
+---
+Aug 03 14:52:58 azurelinux-desktop kernel: Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+Aug 03 14:52:58 azurelinux-desktop kernel: bluetooth: loading out-of-tree module taints kernel.
+Aug 03 14:52:58 azurelinux-desktop kernel: bluetooth: module verification failed: signature and/or required key missing - tainting kernel
+Aug 03 14:52:58 azurelinux-desktop kernel: Bluetooth: Core ver 2.22
+Aug 03 14:52:58 azurelinux-desktop kernel: NET: Registered PF_BLUETOOTH protocol family
+Aug 03 14:52:58 azurelinux-desktop kernel: Bluetooth: HCI device and connection manager initialized
+Aug 03 14:52:58 azurelinux-desktop kernel: Bluetooth: HCI socket layer initialized
+Aug 03 14:52:58 azurelinux-desktop kernel: Bluetooth: L2CAP socket layer initialized
+Aug 03 14:52:58 azurelinux-desktop kernel: Bluetooth: SCO socket layer initialized
+Aug 03 14:52:58 azurelinux-desktop kernel: hid: raw HID events driver (C) Jiri Kosina
+---
+Aug 03 14:52:58 azurelinux-desktop kernel: ACPI: battery: Slot [BAT0] (battery present)
+Aug 03 14:52:58 azurelinux-desktop kernel: thinkpad_acpi: rfkill switch tpacpi_bluetooth_sw: radio is unblocked
+Aug 03 14:52:58 azurelinux-desktop kernel: ACPI: battery: Slot [BAT1] (battery present)
+---
+Aug 03 14:52:58 azurelinux-desktop kernel: input: ThinkPad Extra Buttons as /devices/platform/thinkpad_acpi/input/input6
+Aug 03 14:52:58 azurelinux-desktop kernel: usbcore: registered new interface driver btusb
+Aug 03 14:52:58 azurelinux-desktop kernel: Bluetooth: hci0: sending frame failed (-2062533632)
+Aug 03 14:52:58 azurelinux-desktop kernel: BUG: unable to handle page fault for address: ffffffff85103cdc
+Aug 03 14:52:58 azurelinux-desktop kernel: #PF: supervisor read access in kernel mode
+---
+Aug 03 14:52:58 azurelinux-desktop kernel: PGD 3ce641067 P4D 3ce641067 PUD 3ce642063 PMD 0 
+Aug 03 14:52:58 azurelinux-desktop kernel: Oops: Oops: 0000 [#1] SMP PTI
+Aug 03 14:52:58 azurelinux-desktop kernel: CPU: 3 UID: 0 PID: 90 Comm: kworker/u17:0 Tainted: G           OE       6.18.31-1.9.azl4.x86_64 #1 VOLUNTARY 
+---
+Aug 03 14:52:58 azurelinux-desktop kernel: Hardware name: LENOVO 20JTS0D500/20JTS0D500, BIOS N1WET76W (1.55 ) 11/05/2024
+Aug 03 14:52:58 azurelinux-desktop kernel: Workqueue: hci0 hci_power_on [bluetooth]
+Aug 03 14:52:58 azurelinux-desktop kernel: RIP: 0010:sk_skb_reason_drop+0x17/0x110
+Aug 03 14:52:58 azurelinux-desktop kernel: Code: 00 00 00 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 f3 0f 1e fa 0f 1f 44 00 00 48 85 f6 0f 84 bf 00 00 00 55 48 89 e5 53 <8b> 86 dc 00 00 00 48 89 f3 83 f8 01 0f 85 ad 00 00 00 83 fa 01 74
+---
+Aug 03 14:52:58 azurelinux-desktop kernel: CR2: ffffffff85103cdc CR3: 0000000101c5e004 CR4: 00000000003706f0
+Aug 03 14:52:58 azurelinux-desktop kernel: Call Trace:
+Aug 03 14:52:58 azurelinux-desktop kernel:  <TASK>
+Aug 03 14:52:58 azurelinux-desktop kernel:  btintel_shutdown_combined+0x40/0xe0 [btintel]
+Aug 03 14:52:58 azurelinux-desktop kernel:  hci_dev_open_sync+0x10b/0xc20 [bluetooth]
+Aug 03 14:52:58 azurelinux-desktop kernel:  hci_dev_do_open+0x25/0x60 [bluetooth]
+Aug 03 14:52:58 azurelinux-desktop kernel:  hci_power_on+0x51/0x200 [bluetooth]
+Aug 03 14:52:58 azurelinux-desktop kernel:  ? lock_timer_base+0x83/0xc0
+---
+Aug 03 14:52:58 azurelinux-desktop kernel:  </TASK>
+Aug 03 14:52:58 azurelinux-desktop kernel: Modules linked in: btusb(OE) nls_iso8859_1 snd_usb_audio(OE+) snd_usbmidi_lib(OE) snd_rawmidi(OE) snd_hwdep(OE) uvcvideo(OE) uvc(OE) snd_pcm(OE) videobuf2_vmalloc thinkpad_acpi(OE) battery(OE) nvram drm_privacy_screen(OE) sparse_keymap videobuf2_memops platform_profile snd_timer(OE) videobuf2_v4l2 btrtl(OE) usbhid(OE) snd(OE) videobuf2_common soundcore(OE) videodev btintel(OE) btbcm(OE) btmtk(OE) hid mc bluetooth(OE) led_class cfg80211 mac_hid sch_fq_codel nfnetlink i915 i2c_algo_bit drm_buddy ttm drm_display_helper polyval_clmulni ghash_clmulni_intel cec rc_core intel_oc_wdt video wmi serio_raw msr i2c_dev autofs4 aesni_intel
+Aug 03 14:52:58 azurelinux-desktop kernel: CR2: ffffffff85103cdc
+Aug 03 14:52:58 azurelinux-desktop kernel: ---[ end trace 0000000000000000 ]---
+Aug 03 14:52:58 azurelinux-desktop kernel: RIP: 0010:sk_skb_reason_drop+0x17/0x110
+Aug 03 14:52:58 azurelinux-desktop kernel: Code: 00 00 00 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 90 f3 0f 1e fa 0f 1f 44 00 00 48 85 f6 0f 84 bf 00 00 00 55 48 89 e5 53 <8b> 86 dc 00 00 00 48 89 f3 83 f8 01 0f 85 ad 00 00 00 83 fa 01 74
+---
+Aug 03 14:52:59 azurelinux-desktop kernel: snd_hda_codec_alc269 hdaudioC1D0:      Dock Mic=0x19
+Aug 03 14:52:59 azurelinux-desktop kernel: iwlwifi 0000:3a:00.0: loaded firmware version 36.c8e8e144.0 8000C-36.ucode op_mode iwlmvm
+Aug 03 14:52:59 azurelinux-desktop kernel: snd_hda_codec_intelhdmi hdaudioC1D2: No i915 binding for Intel HDMI/DP codec
+---
+Aug 03 14:53:06 azurelinux-desktop kernel: rfkill: input handler disabled
+Aug 03 14:53:08 azurelinux-desktop kernel: usb 1-2.3: reset high-speed USB device number 10 using xhci_hcd
+Aug 03 14:53:18 azurelinux-desktop systemd-journald[450]: File /var/log/journal/977998b1a4aa447e956df3cab885627c/user-1000.journal corrupted or uncleanly shut down, renaming and replacing.

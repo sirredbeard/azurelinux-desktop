@@ -1,0 +1,16 @@
+KIWI completed image assembly:
+
+  [ INFO    ]: Result files:
+  [ INFO    ]: --> image_changes: azl-desktop-installer.x86_64-0.1.changes
+  [ INFO    ]: --> image_packages: azl-desktop-installer.x86_64-0.1.packages
+  [ INFO    ]: --> image_verified: azl-desktop-installer.x86_64-0.1.verified
+  [ INFO    ]: --> live_image: azl-desktop-installer.x86_64-0.1.iso
+
+The post-build assertion then used a Lorax-only path:
+
+  xorriso : FAILURE : Cannot determine attributes of (ISO) source file
+  '/images/pxeboot/initrd.img' : No such file or directory
+
+The matching KIWI installer ISO contains its boot initramfs at:
+
+  /boot/x86_64/loader/initrd

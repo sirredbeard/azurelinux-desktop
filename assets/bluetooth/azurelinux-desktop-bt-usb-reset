@@ -1,0 +1,219 @@
+#!/bin/bash
+# Reset Intel Bluetooth USB controllers so HCI can initialize.
+#
+# On ThinkPad (and similar) laptops the BT USB device often enumerates
+# before thinkpad_acpi creates/unblocks platform rfkill. btusb then
+# binds, HCI reset (0x0c03) times out, and firmware download never
+# starts.
+#
+# Bare-metal 2026-08-03: rmmod btusb while hci_power_on was still
+# running caused an OOT btintel Oops (btintel_shutdown_combined ->
+# sk_skb_reason_drop). This helper must quiesce userspace + HCI before
+# any driver teardown.
+#
+# Safe no-op when no Intel BT USB device is present.
+set -euo pipefail
+
+TAG=azl-bt-usb-reset
+
+log() {
+    logger -t "$TAG" -- "$@" 2>/dev/null || true
+    echo "$TAG: $*" >&2
+}
+
+have_intel_bt_usb() {
+    local dev
+    shopt -s nullglob
+    for dev in /sys/bus/usb/devices/*; do
+        [[ -f "$dev/idVendor" ]] || continue
+        [[ "$(cat "$dev/idVendor" 2>/dev/null || true)" == "8087" ]] || continue
+        return 0
+    done
+    return 1
+}
+
+# Prefer platform rfkill first when the module exists (ThinkPad).
+if modprobe thinkpad_acpi 2>/dev/null; then
+    sleep 0.5
+    for f in /sys/class/rfkill/rfkill*/type; do
+        [[ -f "$f" ]] || continue
+        [[ "$(cat "$f" 2>/dev/null || true)" == "bluetooth" ]] || continue
+        state_f="$(dirname "$f")/state"
+        soft_f="$(dirname "$f")/soft"
+        if [[ -w "$soft_f" ]]; then
+            echo 0 >"$soft_f" 2>/dev/null || true
+        fi
+        if [[ -w "$state_f" ]]; then
+            echo 1 >"$state_f" 2>/dev/null || true
+        fi
+    done
+fi
+
+if ! have_intel_bt_usb; then
+    log "no Intel USB BT device found"
+    exit 0
+fi
+
+# Stop BlueZ so it is not opening HCI while we tear the transport down.
+# Track whether WE stopped it — early recover runs Before=bluetooth.service
+# and must NOT systemctl start bluetooth (ordering deadlock).
+STOPPED_BLUETOOTH=0
+if command -v systemctl >/dev/null 2>&1; then
+    if systemctl is-active --quiet bluetooth.service 2>/dev/null; then
+        log "stopping bluetooth.service before USB reset"
+        systemctl stop bluetooth.service 2>/dev/null || true
+        STOPPED_BLUETOOTH=1
+        sleep 1
+    fi
+fi
+
+# Soft-block HCI rfkill so the stack stops transmitting.
+for f in /sys/class/rfkill/rfkill*/type; do
+    [[ -f "$f" ]] || continue
+    [[ "$(cat "$f" 2>/dev/null || true)" == "bluetooth" ]] || continue
+    name_f="$(dirname "$f")/name"
+    name="$(cat "$name_f" 2>/dev/null || true)"
+    # Only block the HCI device switch, not the ThinkPad platform switch.
+    if [[ "$name" == hci* ]]; then
+        soft_f="$(dirname "$f")/soft"
+        if [[ -w "$soft_f" ]]; then
+            echo 1 >"$soft_f" 2>/dev/null || true
+        fi
+    fi
+done
+
+# Request HCI power-off via sysfs when present.
+for hci in /sys/class/bluetooth/hci*; do
+    [[ -e "$hci" ]] || continue
+    if [[ -w "$hci/powered" ]]; then
+        echo 0 >"$hci/powered" 2>/dev/null || true
+    fi
+done
+sleep 1
+
+# Unbind btusb from each Intel BT interface. Prefer unbind over rmmod so
+# the bluetooth core is not yanked under a live hci_power_on work item.
+unbind_btusb_ifaces() {
+    local dev iface basen drv
+    shopt -s nullglob
+    for dev in /sys/bus/usb/devices/*; do
+        [[ -f "$dev/idVendor" ]] || continue
+        [[ "$(cat "$dev/idVendor" 2>/dev/null || true)" == "8087" ]] || continue
+        for iface in "$dev"/[0-9]*:[0-9]*; do
+            [[ -e "$iface" ]] || continue
+            basen="$(basename "$iface")"
+            if [[ -e "$iface/driver" ]]; then
+                drv="$(basename "$(readlink -f "$iface/driver" 2>/dev/null || true)" 2>/dev/null || true)"
+                if [[ "$drv" == "btusb" ]]; then
+                    log "unbinding btusb from $basen"
+                    # After OOT layout bugs / HCI oops, unbind can block forever.
+                    if command -v timeout >/dev/null 2>&1; then
+                        timeout 5 bash -c "echo '$basen' >'$iface/driver/unbind'" 2>/dev/null || log "unbind timed out for $basen"
+                    else
+                        echo "$basen" >"$iface/driver/unbind" 2>/dev/null || true
+                    fi
+                fi
+            fi
+        done
+    done
+}
+
+unbind_btusb_ifaces
+
+# Wait briefly for HCI sysfs nodes to disappear after unbind.
+for _ in 1 2 3 4 5 6 7 8; do
+    shopt -s nullglob
+    left=(/sys/class/bluetooth/hci*)
+    [[ ${#left[@]} -eq 0 ]] && break
+    sleep 0.5
+done
+
+# Only rmmod btusb if nothing still holds it and no HCI node remains.
+if lsmod | grep -q '^btusb'; then
+    shopt -s nullglob
+    left=(/sys/class/bluetooth/hci*)
+    if [[ ${#left[@]} -eq 0 ]]; then
+        log "removing btusb after clean unbind"
+        modprobe -r btusb 2>/dev/null || log "modprobe -r btusb failed (busy); continuing with USB reset"
+    else
+        log "hci still present after unbind; skip rmmod btusb"
+    fi
+fi
+
+reset_one() {
+    local dev="$1"
+    local vendor product class
+    vendor="$(cat "$dev/idVendor" 2>/dev/null || true)"
+    product="$(cat "$dev/idProduct" 2>/dev/null || true)"
+    class="$(cat "$dev/bDeviceClass" 2>/dev/null || true)"
+
+    # Intel vendor; Wireless (0xe0), misc, or composite (0x00).
+    [[ "$vendor" == "8087" ]] || return 0
+    if [[ -n "$class" && "$class" != "e0" && "$class" != "00" && "$class" != "ef" ]]; then
+        return 0
+    fi
+
+    log "resetting Intel USB BT ${vendor}:${product} (${dev##*/})"
+
+    if [[ -w "$dev/authorized" ]]; then
+        echo 0 >"$dev/authorized" 2>/dev/null || true
+        sleep 1
+        echo 1 >"$dev/authorized" 2>/dev/null || true
+    fi
+    if [[ -w "$dev/reset" ]]; then
+        sleep 0.3
+        echo 1 >"$dev/reset" 2>/dev/null || true
+    fi
+
+    if [[ -w "$dev/power/control" ]]; then
+        echo on >"$dev/power/control" 2>/dev/null || true
+    fi
+    if [[ -w "$dev/power/autosuspend" ]]; then
+        echo -1 >"$dev/power/autosuspend" 2>/dev/null || true
+    fi
+}
+
+shopt -s nullglob
+found=0
+for dev in /sys/bus/usb/devices/*; do
+    [[ -f "$dev/idVendor" ]] || continue
+    if [[ "$(cat "$dev/idVendor" 2>/dev/null || true)" == "8087" ]]; then
+        reset_one "$dev"
+        found=1
+    fi
+done
+
+if [[ "$found" -eq 0 ]]; then
+    log "no Intel USB BT device found after quiesce"
+    exit 0
+fi
+
+sleep 2
+modprobe btusb 2>/dev/null || true
+sleep 1
+
+# Unblock HCI rfkill after rebind.
+for f in /sys/class/rfkill/rfkill*/type; do
+    [[ -f "$f" ]] || continue
+    [[ "$(cat "$f" 2>/dev/null || true)" == "bluetooth" ]] || continue
+    soft_f="$(dirname "$f")/soft"
+    state_f="$(dirname "$f")/state"
+    if [[ -w "$soft_f" ]]; then
+        echo 0 >"$soft_f" 2>/dev/null || true
+    fi
+    if [[ -w "$state_f" ]]; then
+        echo 1 >"$state_f" 2>/dev/null || true
+    fi
+done
+
+# Restart BlueZ only if this run stopped it (late recover path).
+# Early recover unit is Before=bluetooth.service — starting bluetooth
+# here deadlocks systemd (recover waits for bluetooth, bluetooth waits
+# for recover).
+if [[ "${STOPPED_BLUETOOTH:-0}" -eq 1 ]] && command -v systemctl >/dev/null 2>&1; then
+    log "starting bluetooth.service after USB reset"
+    systemctl start bluetooth.service 2>/dev/null || true
+fi
+
+log "USB reset cycle done"
+exit 0

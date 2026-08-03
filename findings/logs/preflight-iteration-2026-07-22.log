@@ -1,0 +1,27 @@
+Preflight summary: iteration pass (split-step execution)
+Date: 2026-07-22
+
+Checks completed:
+1. scripts/test-container-repos.sh
+   - PASS: all checkable repo-origin assertions matched
+
+2. scripts/podman-test-azl4-fedora.sh
+   - PASS: resolved package-set summary recorded
+   - azl4=643 fc43=513 total=1171
+
+3. scripts/test-installer-runtime-resolve.sh
+   - PASS: transaction completed
+   - [426/426] Total ... 297.3 MiB
+   - Complete!
+
+4. scripts/test-hybrid-container-local.sh
+   - PASS (rc:0) after flatpak-step hardening
+   - Repo-origin and software-version checks completed
+   - Flatpak app installs listed
+   - bwrap namespace warnings observed in container context but run completed
+
+5. scripts/test-installer-kiwi-build.sh
+   - Expected local environment blocker reproduced
+   - KiwiMountKernelFileSystemsError on bind-mount /dev into image-root
+   - This remains a local host/container limitation; authoritative installer
+     runtime verification remains GitHub Actions artifact based.

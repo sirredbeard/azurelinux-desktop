@@ -1,0 +1,18 @@
+# Live session Flatpak space - azurelinux-desktop-live.iso
+# deliverable-polish-batch branch, QEMU -m 4G, 2026-07-22
+
+/proc/cmdline:
+  rd.live.overlay.overlayfs=1 rd.live.image quiet rhgb
+  → OverlayFS mode confirmed, NOT DM-snapshot
+
+df -h /:
+  LiveOS_rootfs  783M  345M  438M  45%  /
+  → upper tmpfs ≈ 19% of 4 GB RAM (not 50% as dracut docs suggest)
+  → /var/lib/flatpak and /run on same 783 MB device
+
+/var/lib/flatpak/repo/config:
+  min-free-space-size=500MB  ← flatpak OSTree guard
+  Available: 438 MB < 500 MB guard → install blocked
+
+GNOME Platform runtime: 409.7 MB download
+  → would consume essentially all available space even if guard lowered

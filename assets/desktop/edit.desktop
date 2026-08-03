@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Edit
+Comment=Microsoft's small modeless terminal text editor
+Exec=gnome-terminal --title=edit -- /usr/local/bin/edit %F
+Icon=/usr/share/pixmaps/edit.svg
+MimeType=text/plain;
+Terminal=false
+Categories=Utility;TextEditor;
+StartupNotify=false

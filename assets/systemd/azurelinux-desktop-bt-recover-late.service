@@ -1,0 +1,17 @@
+[Unit]
+Description=Late recover for Intel Bluetooth USB after first HCI bind
+Documentation=file:///usr/share/doc/azurelinux-desktop/bluetooth-hci-timeout-thinkpad.md
+After=bluetooth.service azurelinux-desktop-bt-recover.service multi-user.target
+Wants=azurelinux-desktop-bt-recover.service
+
+[Service]
+Type=oneshot
+# First bind often races USB enumeration; retry once the graph is up.
+# Condition: only run when no powered HCI adapter exists yet.
+ExecStartPre=/bin/sleep 12
+ExecStartPre=/bin/bash -c 'for h in /sys/class/bluetooth/hci*; do [[ -e "$h" ]] || continue; p=$(cat "$h/powered" 2>/dev/null || echo 0); [[ "$p" == "1" ]] && exit 1; done; exit 0'
+ExecStart=/usr/libexec/azurelinux-desktop-bt-usb-reset
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

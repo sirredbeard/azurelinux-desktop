@@ -1,0 +1,23 @@
+Validation run: live ISO VNC behavioral check (on-device capture + diff)
+Date: 2026-07-22
+
+Artifact:
+- live ISO sha256: bdb112cec6e24c0bf3678575c80ca06dee3fa10d1946ea2ee97db1b69f16fe5f
+
+Runtime setup:
+- QEMU booted live ISO with UEFI and VNC display :5
+- Captured pre-interaction frame and post-interaction frame
+- Interaction used: Super key toggle (GNOME overview trigger)
+
+Local computed results:
+- screenshot size: 1280x800
+- before_center RGB: (2, 60, 136)
+- after_center RGB:  (2, 60, 136)
+- mean_abs_rgb_diff (before vs after): 23.38
+- changed pixels (>10 channel delta): 468044 / 1024000 (45.71%)
+
+Interpretation:
+- The large diff after Super key indicates the GUI session responded to shell
+  interaction (programmatic behavioral evidence of active GNOME session).
+- Center pixel remaining deep blue is consistent with the generic dark Adwaita
+  background still being present in this iteration.

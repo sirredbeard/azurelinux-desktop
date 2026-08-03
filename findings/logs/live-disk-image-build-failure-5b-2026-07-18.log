@@ -1,0 +1,53 @@
+Run 29637312154 - zerombr/reqpart fix confirmed insufficient, identical failure recurs
+Also reveals a 6th bug: anaconda's own log dir (anaconda/*) is root-owned
+and unreadable by the runner user, crashing the log-upload step itself.
+
+2026-07-18 08:49:28,627: Starting automated install.Saving storage configuration...
+2026-07-18 08:49:28,627: Checking storage configuration...
+2026-07-18 08:49:28,627: You have not created a bootable partition.
+2026-07-18 08:50:00,637: ................................
+2026-07-18 08:50:00,638:
+2026-07-18 08:50:00,638:
+2026-07-18 08:50:00,638: ================================================================================
+2026-07-18 08:50:00,638: ================================================================================
+2026-07-18 08:50:00,638: Installation
+2026-07-18 08:50:00,638:
+2026-07-18 08:50:00,638: 1) [x] Language settings                 2) [x] Time settings
+2026-07-18 08:50:00,638:        (English (United States))                (America/New_York timezone)
+2026-07-18 08:50:00,638: 3) [x] Installation source               4) [x] Software selection
+2026-07-18 08:50:00,638:        (https://packages.microsoft.com/         (Custom software selected)
+2026-07-18 08:50:00,638:        azurelinux/4.0/beta/base/x86_64)
+2026-07-18 08:50:00,639: 5) [!] Installation Destination          6) [ ] User creation
+2026-07-18 08:50:00,639:        (Kickstart insufficient)                 (No user will be created)
+2026-07-18 08:50:00,639:
+2026-07-18 08:50:00,639:
+2026-07-18 08:50:00,639: The installation was stopped due to an error which occurred while running in non-interactive cmdline mode. Since there cannot be any questions in cmdline mode, edit your kickstart file and retry installation.
+2026-07-18 08:50:00,639: The exact error message is:
+2026-07-18 08:50:00,639:
+2026-07-18 08:50:00,639: The following mandatory spokes are not completed:
+2026-07-18 08:50:00,639: Installation Destination.
+2026-07-18 08:50:00,639:
+2026-07-18 08:50:00,639: The installer will now terminate.
+2026-07-18 08:53:01,204: Exception ignored in atexit callback <function exitHandler at 0x7fb3f618f060>:
+2026-07-18 08:53:01,204: Traceback (most recent call last):
+2026-07-18 08:53:01,204:   File "/usr/sbin/anaconda", line 42, in exitHandler
+2026-07-18 08:53:01,204:     runtime_proxy.Exit()
+2026-07-18 08:53:01,204:   File "/usr/lib/python3.14/site-packages/dasbus/client/handler.py", line 450, in _call_method
+2026-07-18 08:53:01,204:     return self._get_method_reply(
+2026-07-18 08:53:01,204:   File "/usr/lib/python3.14/site-packages/dasbus/client/handler.py", line 483, in _get_method_reply
+2026-07-18 08:53:01,205:     return self._handle_method_error(error)
+2026-07-18 08:53:01,208:   File "/usr/lib/python3.14/site-packages/dasbus/client/handler.py", line 509, in _handle_method_error
+2026-07-18 08:53:01,208:     raise exception from None
+2026-07-18 08:53:01,208: pyanaconda.modules.common.errors.general.AnacondaError: umount of /tmp failed (32)
+2026-07-18 08:53:01,208: Running anaconda failed: process '['unshare', '--pid', '--kill-child', '--mount', '--propagation', 'unchanged', 'anaconda', '--kickstart', '/workspace/kickstart/azurelinux-desktop-live-disk.ks', '--cmdline', '--image', '/workspace/live-disk-result/azurelinux-desktop-live.img', '--remotelog', '127.0.0.1:40163']' exited with status 1
+2026-07-18 08:53:01,208: Shutting down log processing
+2026-07-18 08:53:01,273: Install failed: novirt_install failed
+2026-07-18 08:53:01,274: Removing bad disk image
+2026-07-18 08:53:01,274: ERROR: Image creation failed: novirt_install failed
+2026-07-18 08:53:01,274: Image creation failed: novirt_install failed
+Error: Process completed with exit code 1.
+
+--- separately, the "Upload build log" step crashed with: ---
+
+2026-07-18T08:53:19.5781354Z ##[error]An error has occurred while creating the zip file for upload
+2026-07-18T08:53:19.5783672Z Error: EACCES: permission denied, open '/home/runner/work/azurelinux-desktop-iso/azurelinux-desktop-iso/anaconda/anaconda.log'

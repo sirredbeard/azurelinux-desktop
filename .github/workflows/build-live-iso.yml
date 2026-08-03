@@ -1,0 +1,946 @@
+name: Build live ISO and disk images (reusable)
+
+# Manual-only for now (workflow_dispatch) - this is a proof-of-concept build
+# that just produces a downloadable artifact, not a release pipeline yet.
+# See findings/live-iso-and-bare-metal.md for the local build history this
+# is based on (lorax + livemedia-creator --no-virt, confirmed working
+# locally, boots to a real GNOME 49 desktop in QEMU).
+#
+# Architecture notes (see findings/github-actions-research.md for the full
+# research write-up this is based on):
+#   - runs-on is a bare ubuntu-24.04 VM, NOT a `container:` job directive.
+#     Disk-cleanup actions need Ubuntu paths/apt before any Fedora container
+#     exists, and `container:` doesn't reliably give the same privileged
+#     access as a plain `docker run --privileged` step does.
+#   - The actual build happens inside `docker run --privileged -v /dev:/dev
+#     fedora:43 ...` - matches the exact package set already proven to work
+#     on this project's local Fedora 45 dev host (lorax, lorax-lmc-novirt,
+#     anaconda-core/-live, xorriso, squashfs-tools).
+#   - Pinned to fedora:43 (current stable), not the rolling fedora:45
+#     "Prerelease" image - see the matching note in build-installer-
+#     iso.yml and findings/gh-actions-installer-iso-build.md for the
+#     glibc/coreutils/rpm mid-transaction churn this avoids.
+#   - lorax's LiveOS/rootfs.img is a plain (non-partitioned) ext4 image, so
+#     plain `losetup` inside a --privileged container is enough - no
+#     `losetup -P`/partition-scanning needed, which is the part that's
+#     genuinely broken on GitHub-hosted runners. This is why this build is
+#     feasible here even though Azure Linux's own Image Customizer/imagegen
+#     CI (which DOES need partitioned loop devices for VHDX work) requires
+#     self-hosted runners instead - confirmed via microsoft/azure-linux-
+#     image-tools's own workflow YAML and docs.
+#   - Artifact upload uses compression-level: 0 (the ISO is already
+#     mksquashfs-compressed; re-zipping it just burns CPU minutes for
+#     nothing) and a short retention (this is a throwaway proof-of-concept
+#     build, not something we want piling up in artifact storage). Storage
+#     quota isn't a real constraint here anyway - this repo is public, and
+#     GitHub Actions artifact storage for public repos isn't billed against
+#     the 500MB(Free)/2GB(Team) private-repo caps that would otherwise be
+#     blown through by a single ~2.7GB ISO.
+
+#   - build-iso and build-disk-image are separate jobs, not steps in one
+#     job, and the disk-image side is itself split further:
+#     build-disk-image (the slow anaconda/livemedia-creator step, produces
+#     the base qcow2) feeds three independent, fast conversion jobs -
+#     build-vhdx, build-vdi, build-vmdk - each just a `qemu-img convert`
+#     on a plain ubuntu-24.04 runner, no container/anaconda involved at
+#     all. Confirmed from lorax's own source
+#     (pylorax/installer.py:novirt_install()) that --make-iso and
+#     --make-disk are independent code paths that share no state or
+#     output - the disk-image kickstart variant is sed'd from the
+#     original kickstart in the repo checkout, not from anything the ISO
+#     step produces. Splitting the conversions out from the base qcow2
+#     build means iterating on, say, just the VHDX conversion never has
+#     to re-run the ~15-20 minute anaconda build, and never has to build
+#     VDI/VMDK either, if all you changed was the VHDX step. The
+#     build_iso/build_disk_image/build_vhdx/build_vdi/build_vmdk inputs
+#     below let you pick exactly which of these five outputs a given run
+#     actually needs.
+#
+#   - The disk image still goes through livemedia-creator --make-disk
+#     (anaconda), on purpose - this project would rather fix anaconda in
+#     place than take on a second, independently-maintained build tool
+#     just for disk images, so it stays as close to Azure Linux's and
+#     Fedora's own tooling as it can. The "You have not created a bootable
+#     partition." failure that used to block this turned out to be a real
+#     xfs-module/blivet-mountability bug (bug #5) plus a real anaconda-
+#     core packaging bug in Fedora 43's efibootmgr() skip path (bug #7) -
+#     not a platform-detection mismatch to work around. This build makes
+#     a genuine UEFI/GPT disk image (real EFI System Partition, real
+#     anaconda-written bootloader) matching how GitHub-hosted runners and
+#     Azure's own current-generation VMs actually boot, not a BIOS/MBR
+#     image with /sys/firmware masked to fake BIOS detection (that
+#     approach was tried and abandoned - see findings/gh-actions-live-iso-
+#     build.md, bugs #5 through #7, for the full trace and why UEFI ended
+#     up being simpler and more correct than fighting the runner's own
+#     firmware). The disk image is confirmed to genuinely boot via UEFI/
+#     OVMF in QEMU (scripts/qemu-test-disk-image.sh) and its root
+#     partition/filesystem grow to fill the full 64G disk on first real
+#     boot (azl-growroot.service) - both verified against real CI builds,
+#     not just local simulation.
+
+on:
+  # Reusable only. Dispatch release-live-iso.yml (or nightly) to build.
+  workflow_call:
+    inputs:
+      build_iso:
+        type: boolean
+        default: true
+      build_disk_image:
+        type: boolean
+        default: true
+      build_vhdx:
+        type: boolean
+        default: false
+      build_vdi:
+        type: boolean
+        default: false
+      build_vmdk:
+        type: boolean
+        default: false
+      prepare_kernel_modules:
+        type: boolean
+        default: true
+
+permissions:
+  # write: commit findings/live-package-list.txt after a successful ISO build
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  prepare-kernel-modules:
+    if: ${{ inputs.prepare_kernel_modules }}
+    uses: ./.github/workflows/publish-desktop-kmods.yml
+
+  build-iso:
+    needs: prepare-kernel-modules
+    if: ${{ always() && inputs.build_iso && (needs.prepare-kernel-modules.result == 'success' || needs.prepare-kernel-modules.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          # Need the branch tip for package-list commit/push later.
+          fetch-depth: 0
+
+      # Free as much disk as possible on the HOST before the Fedora
+      # container ever starts - lorax's intermediate rootfs.img alone is
+      # ~16-17GB, plus the ~2.7GB squashfs and assorted staging, and the
+      # default GH-hosted runner only guarantees ~14GB free.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+          tool-cache: false
+
+      - name: Show disk space
+        run: df -h /
+
+      - name: Pull Fedora 43 build image
+        run: docker pull fedora:43
+
+      - name: Build live ISO (lorax + livemedia-creator --no-virt)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm \
+            --privileged \
+            -v /dev:/dev \
+            --security-opt label=disable \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -e GITHUB_TOKEN \
+            -e GH_TOKEN \
+            --tmpfs /tmp:exec,size=8g \
+            fedora:43 \
+            bash -exo pipefail -c '
+              dnf5 install -y \
+                lorax lorax-templates-generic lorax-lmc-novirt \
+                anaconda-core anaconda-install-env-deps anaconda-live \
+                squashfs-tools xorriso dosfstools shim-x64 \
+                grub2-efi-x64-cdboot policycoreutils curl python3
+
+              # Vendor snapshot goes under build-meta, not live-result.
+              # livemedia-creator refuses a pre-existing --resultdir
+              # ("should not exist, please delete or move its contents").
+              mkdir -p /workspace/build-meta
+              /workspace/scripts/log-latest-vendor-packages.sh \
+                /workspace/build-meta/vendor-packages-latest.txt \
+                /tmp/dotnet-channel.env
+              cat /workspace/build-meta/vendor-packages-latest.txt
+
+              # Default: boot straight into the real desktop, not the
+              # verify-media path. Keep GRUB hidden with a one-second
+              # interrupt window so Escape still exposes recovery entries.
+              # These are lorax'"'"'s own upstream live-ISO grub templates
+              # (set default="1" picks the SECOND menu entry, "Test this
+              # media & start ...", as the default - not what we want here),
+              # patched in place before livemedia-creator ever runs so the
+              # generated grub.cfg on the actual ISO reflects this.
+              #
+              # Also strip the trailing " @VERSION@" off every menu title -
+              # lorax'"'"'s templates render "Start @PRODUCT@ @VERSION@" as
+              # literally "Start Azure Linux Desktop 44", substituting in
+              # --releasever below verbatim. --releasever is still needed
+              # (it drives dnf/repo variable substitution during the
+              # build), it just should not show up in the boot menu text -
+              # this is Azure Linux 4.0 with a Fedora 43 package set, not
+              # "Azure Linux Desktop 44", and the menu should read plainly
+              # as "Azure Linux Desktop".
+              for f in /usr/share/lorax/templates.d/99-generic/live/config_files/x86/grub2-bios.cfg \
+                       /usr/share/lorax/templates.d/99-generic/live/config_files/x86/grub2-efi.cfg; do
+                  sed -i '"'"'s/^set default="1"/set default="0"/; s/^set timeout=60/set timeout_style=hidden\nset timeout=1/; s/@PRODUCT@ @VERSION@/@PRODUCT@/g'"'"' "$f"
+              done
+
+              rm -rf /workspace/live-result
+              livemedia-creator \
+                --no-virt \
+                --resultdir /workspace/live-result \
+                --make-iso \
+                --iso-only \
+                --iso-name azurelinux-desktop-live.iso \
+                --ks /workspace/kickstart/azurelinux-desktop-live.ks \
+                --project "Azure Linux Desktop" \
+                --releasever 43 \
+                --volid AZLDESKTOP \
+                --rootfs-type squashfs-ext4 \
+                --logfile /workspace/livemedia-build.log
+
+              # Keep the vendor snapshot next to the ISO for artifact upload.
+              cp -a /workspace/build-meta/vendor-packages-latest.txt \
+                /workspace/live-result/vendor-packages-latest.txt
+            '
+
+      - name: Show result directory
+        if: always()
+        run: ls -lah "$GITHUB_WORKSPACE/live-result" || true
+
+      - name: Extract real resolved package list from the built ISO
+        if: success()
+        run: |
+          # Live squashfs only wraps LiveOS/rootfs.img (ext4). The package
+          # list is inside that rootfs at var/log/azl-desktop-package-list.txt,
+          # not as a bare path on the squashfs itself.
+          docker run --rm \
+            --privileged \
+            -v /dev:/dev \
+            --security-opt label=disable \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            fedora:43 \
+            bash -exo pipefail -c '
+              dnf5 install -y xorriso squashfs-tools util-linux e2fsprogs
+              ISO=$(ls /workspace/live-result/*.iso | head -1)
+              mkdir -p /tmp/iso-extract /tmp/rootfs-mnt
+              xorriso -osirrox on -indev "$ISO" \
+                -extract /LiveOS/squashfs.img /tmp/iso-extract/squashfs.img
+              unsquashfs -d /tmp/iso-extract/squash-out \
+                /tmp/iso-extract/squashfs.img LiveOS/rootfs.img
+              mount -o loop,ro /tmp/iso-extract/squash-out/LiveOS/rootfs.img \
+                /tmp/rootfs-mnt
+              cp /tmp/rootfs-mnt/var/log/azl-desktop-package-list.txt \
+                /workspace/live-result/final-package-list.txt
+              umount /tmp/rootfs-mnt
+              test -s /workspace/live-result/final-package-list.txt
+              wc -l /workspace/live-result/final-package-list.txt
+            '
+
+      # This job's own log - the disk-image job (below) uploads its own
+      # livemedia-disk-build.log/anaconda/* separately, since these are
+      # two independent jobs now and don't share a workspace.
+      - name: Upload build log (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-build-log
+          path: |
+            live-result/*.log
+            livemedia-build.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-iso
+          path: live-result/*.iso
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+
+      # Real resolved package list from the ISO that just built. Also kept
+      # as an artifact for download, and committed into findings/ so the
+      # repo stays current without a manual copy.
+      - name: Upload resolved package list artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-package-list
+          path: live-result/final-package-list.txt
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Commit live package list to findings/
+        if: success()
+        run: |
+          ./scripts/ci-commit-package-list.sh \
+            live-result/final-package-list.txt \
+            findings/live-package-list.txt \
+            "findings: refresh live package list from CI build"
+
+  # A bootable qcow2/VHDX of the same desktop, built the same way as the
+  # ISO above but with --make-disk instead of --make-iso and a
+  # partitioned/bootloader-enabled variant of the same kickstart.
+  # azurelinux-desktop-live.ks itself uses `bootloader --location=none`
+  # and a single unpartitioned `part / --size=16384` - correct for a live
+  # ISO (lorax's own grub templates own the boot process, no bootloader
+  # gets written to a target disk at all), but a disk image has to
+  # actually boot standalone in QEMU/Hyper-V with no ISO or lorax
+  # templates involved, so it needs a real EFI System Partition and an
+  # anaconda-written bootloader instead.
+  #
+  # This is its own job, not a later step in build-iso, on purpose - see
+  # the note at the top of this file. It only needs its own checkout of
+  # the kickstart directory, nothing the ISO job produces, so it runs in
+  # parallel with build-iso by default and can be skipped/run alone via
+  # the build_iso/build_disk_image inputs. This job only produces the
+  # base qcow2 - VHDX/VDI/VMDK conversion each happen in their own,
+  # separate, much faster job further down (build-vhdx/build-vdi/
+  # build-vmdk), so re-running just one of those conversions never has
+  # to redo this job's ~15-20 minute anaconda build.
+  build-disk-image:
+    needs: prepare-kernel-modules
+    if: ${{ always() && (inputs.build_disk_image || inputs.build_vhdx || inputs.build_vdi || inputs.build_vmdk) && (needs.prepare-kernel-modules.result == 'success' || needs.prepare-kernel-modules.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    # This build was unstable for a long time (see
+    # findings/gh-actions-live-iso-build.md, bugs #1 through #7) but is now
+    # confirmed working: a real UEFI/GPT qcow2 that genuinely boots in QEMU
+    # (scripts/qemu-test-disk-image.sh) with its root filesystem correctly
+    # growing to fill the full disk (azl-growroot.service), verified
+    # against two consecutive real CI builds, not just local simulation.
+    # Keeping job-level continue-on-error a while longer anyway, purely as
+    # a safety net - release-live-iso.yml calls this workflow with `uses:`,
+    # and a reusable workflow call is only reported as failed to the
+    # caller if one of ITS jobs fails outright, so this is what actually
+    # guarantees a disk-image regression never blocks an ISO-only release.
+    # Worth revisiting (dropping this) after a longer stretch of clean
+    # runs - see findings/gh-actions-live-iso-build.md for the current
+    # status before changing this.
+    continue-on-error: true
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+          tool-cache: false
+
+      - name: Show disk space
+        run: df -h /
+
+      - name: Pull Fedora 43 build image
+        run: docker pull fedora:43
+
+      # No --boot-drive= is set. That was tried first as --boot-drive=vda,
+      # assuming the virtio device name a real virt-install boot would use
+      # - wrong assumption, since --no-virt never creates a virtio device
+      # at all, it hands blivet the disk image directly under whatever
+      # name blivet itself discovers. "No match found for given boot
+      # drive vda" is the result of assuming a device name that will never
+      # exist here. Leaving --boot-drive= off lets anaconda pick the only
+      # disk that's actually present, which is exactly what a
+      # single-disk image needs.
+      #
+      # --no-virt is used here for the same reason the ISO build uses it -
+      # chroot/losetup-based, no nested KVM boot needed - matching this
+      # project's existing --no-virt dirinstall approach instead of a
+      # second, heavier nested-virtualization pass through a real anaconda
+      # boot.
+      #
+      # --disk-image is NOT the flag for this. That flag only points
+      # livemedia-creator at an already-existing image to reinstall onto,
+      # and it fails fast with "the disk image is missing" if the file
+      # isn't there yet, which is exactly the bug the first pass of this
+      # step hit. Building a fresh disk from a kickstart with --make-disk
+      # instead needs --image-name (just the output filename, dropped
+      # into --resultdir), and the size gets calculated automatically from
+      # the kickstart's own partition sizes plus a small pad - there's no
+      # --image-size flag to set it directly. See
+      # findings/gh-actions-live-iso-build.md for the failure and the fix.
+      #
+      # zerombr is required here even though it's never needed for the ISO
+      # build. A brand-new sparse disk-image file has no partition table
+      # at all - not corrupt, just absent - and in non-interactive
+      # kickstart mode anaconda can't stop and ask permission to
+      # initialize one. Without zerombr the "Installation Destination"
+      # spoke just comes back "Kickstart insufficient" with no other
+      # explanation. The ISO build never needs this because --dirinstall
+      # only loop-mounts a single blank filesystem, no partition table
+      # involved at all.
+      #
+      # Sixth attempt at this: hand-declaring /boot/efi and /boot as their
+      # own partitions (and dropping reqpart to avoid a "duplicate" one)
+      # was the wrong move, confirmed by reading anaconda's own storage.log
+      # line by line against current anaconda/blivet source. Every
+      # partition WAS created correctly and the bootloader's stage1 device
+      # resolved fine - the failure was still "You have not created a
+      # bootable partition." A research pass comparing this against
+      # lorax's own maintained, CI-tested `--make-disk` example
+      # (weldr/lorax:docs/fedora-minimal.ks) found the actual difference:
+      # that file never hand-declares /boot or /boot/efi at all. It just
+      # keeps plain `reqpart` (no --add-boot) and a single `part /`,
+      # trusting anaconda to create exactly whatever partition the
+      # platform needs on its own. Matching that pattern here instead -
+      # see findings/gh-actions-live-iso-build.md for the full trace.
+      #
+      # Went through a BIOS/MBR detour after that (masking /sys/firmware
+      # so anaconda's is_efi() check would report BIOS, matching a plain
+      # msdos-style disk) - that got the storage validation bug fully
+      # fixed, but it was fighting the runner's own firmware for no real
+      # benefit: GitHub-hosted runners boot UEFI, Azure's own current VM
+      # generation (Gen2) is UEFI, and it turned up a second problem
+      # (grub2-install re-detecting real EFI from inside anaconda's
+      # chroot regardless of our outer mask - see
+      # findings/gh-actions-live-iso-build.md, bug #6). Building a real
+      # UEFI/GPT disk instead - an actual EFI System Partition, no
+      # /sys/firmware masking needed at all - works with the runner
+      # instead of against it, and is both simpler and more correct for
+      # what these images are actually for.
+      #
+      # Not hand-declaring /boot/efi here, same reasoning as the
+      # abandoned sixth attempt above: `reqpart` alone already proved
+      # (while chasing bug #5) that it correctly auto-creates whatever
+      # platform-required partition anaconda actually needs - it made
+      # the biosboot partition appear on its own once EFI vs BIOS
+      # detection was correct. Trust it to do the same for a real ESP
+      # now that detection genuinely matches the runner's real UEFI
+      # firmware, instead of re-introducing the duplicate-partition
+      # problem a hand-declared /boot/efi caused last time.
+      #
+      # The AZL_GROWROOT_ENABLE_MARKER substitution below replaces a
+      # sentinel comment line, not an `/pattern/a` insert-after-
+      # tmp.mount rule (which is what this used at first) - that
+      # inserted `systemctl enable azl-growroot.service` too early,
+      # right after `systemctl enable tmp.mount`, well before the
+      # azl-growroot.service unit file itself is even written later on
+      # in the same %post - `systemctl enable` needs the unit file to
+      # already exist, so that ran and failed with "Failed to enable
+      # unit: Unit azl-growroot.service does not exist" (confirmed in
+      # anaconda/dbus.log from the CI run that first tried it - the
+      # unit shipped in the image but was never actually enabled, so it
+      # never ran and the root partition/filesystem never grew).
+      # Substituting the marker line, which sits right after the unit
+      # file is created, fixes the ordering.
+      - name: Build disk-image kickstart variant
+        if: success()
+        run: |
+          sed \
+            -e 's/^bootloader --location=none/bootloader/' \
+            -e 's/^part \/ --size=16384/part \/ --fstype=xfs --size=16384 --grow/' \
+            -e 's/^# AZL_GROWROOT_ENABLE_MARKER$/systemctl enable azl-growroot.service/' \
+            kickstart/azurelinux-desktop-live.ks > kickstart/azurelinux-desktop-live-disk.ks
+          cat >> kickstart/azurelinux-desktop-live-disk.ks <<'KSPOST'
+
+          # --make-disk produces a normal installed system, not a live-media
+          # environment. livesys-scripts therefore never creates the live ISO's
+          # liveuser account at boot, even though the shared kickstart's GDM
+          # configuration still autologins that account. Create it in the
+          # disk-image variant after the shared kickstart's %post sections run.
+          %post --log=/var/log/azl-disk-image-user-post.log
+          if ! id liveuser >/dev/null 2>&1; then
+              useradd --create-home --groups wheel liveuser
+              passwd -d liveuser
+          fi
+          if [ -x /usr/bin/pwsh ]; then
+              usermod --shell /usr/bin/pwsh liveuser
+          fi
+
+          # livesys-gnome writes its session state at live-media boot. A
+          # normal installed disk does not run that service, so provide the
+          # same desktop defaults through the persistent system dconf database.
+          cat > /etc/dconf/db/local.d/01-azl-desktop-favorites << 'DCONF'
+          [org/gnome/shell]
+          favorite-apps=['microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
+          welcome-dialog-last-shown-version='4294967295'
+
+          [org/gnome/desktop/background]
+          picture-uri='file:///usr/share/backgrounds/azurelinux/adwaita-l.jpg'
+          picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
+          picture-options='zoom'
+          DCONF
+          dconf update
+
+          # Apply the live session's GNOME Software behavior persistently.
+          # Software remains available on demand, but it does not launch or
+          # download updates in the background for the passwordless account.
+          cat >> /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override << 'GSETTINGS'
+          [org.gnome.software]
+          allow-updates=false
+          download-updates=false
+          GSETTINGS
+          rm -f /etc/xdg/autostart/org.gnome.Software.desktop
+          cat >> /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini << 'SEARCH'
+          DefaultDisabled=true
+          SEARCH
+          glib-compile-schemas /usr/share/glib-2.0/schemas
+
+          # livesys-gnome marks its ephemeral live account as initialized.
+          # The disk account is persistent, so create the same marker once.
+          install -d -o liveuser -g liveuser /home/liveuser/.config
+          touch /home/liveuser/.config/gnome-initial-setup-done
+          chown liveuser:liveuser /home/liveuser/.config/gnome-initial-setup-done
+
+          # --make-disk creates the initramfs before the shared kickstart
+          # finishes installing the custom theme. Rebuild it after all
+          # post-install configuration so the disk boots through Plymouth.
+          # plymouth-set-default-theme --rebuild-initrd runs `dracut -f`,
+          # which follows the build container's uname rather than the Azure
+          # kernel installed in this image.
+          if [ -x /usr/sbin/plymouth-set-default-theme ]; then
+              plymouth-set-default-theme azurelinux
+              for kernel_dir in /usr/lib/modules/*; do
+                  [ -d "$kernel_dir" ] || continue
+                  dracut --force --kver "${kernel_dir##*/}"
+              done
+          fi
+
+          # The privileged build container exposes the GitHub runner's
+          # block devices to Anaconda. Disable GRUB's OS probe before
+          # regenerating its config so the runner's Ubuntu installation
+          # cannot become boot-menu entries in this image.
+          cat >> /etc/default/grub << 'GRUBDEF'
+          GRUB_DISABLE_OS_PROBER=true
+          GRUB_DISTRIBUTOR="Azure Linux Desktop"
+          GRUB_TIMEOUT_STYLE=hidden
+          GRUB_TIMEOUT=1
+          GRUB_CMDLINE_LINUX="${GRUB_CMDLINE_LINUX:-} rhgb quiet"
+          GRUBDEF
+          grub2-mkconfig -o /boot/grub2/grub.cfg
+
+          # BLS entries use PRETTY_NAME from Azure Linux's own os-release,
+          # which correctly remains Azure Linux. Keep their title and
+          # Plymouth arguments aligned for the installed kernel and every
+          # kernel added later.
+          install -d /etc/kernel/install.d
+          cat > /etc/kernel/install.d/99-azl-desktop-title.install << 'TITLEHOOK'
+          #!/bin/sh
+          if [ "$1" = add ]; then
+              for entry in /boot/loader/entries/*-"$2".conf; do
+                  [ -f "$entry" ] || continue
+                  sed -i 's/^title .*/title Azure Linux Desktop/' "$entry"
+                  options=$(sed -n 's/^options //p' "$entry")
+                  case " $options " in *" rhgb "*) ;; *) options="$options rhgb" ;; esac
+                  case " $options " in *" quiet "*) ;; *) options="$options quiet" ;; esac
+                  sed -i "s|^options .*|options $options|" "$entry"
+              done
+          fi
+          TITLEHOOK
+          chmod 0755 /etc/kernel/install.d/99-azl-desktop-title.install
+          for entry in /boot/loader/entries/*.conf; do
+              [ -f "$entry" ] || continue
+              sed -i 's/^title .*/title Azure Linux Desktop/' "$entry"
+              options=$(sed -n 's/^options //p' "$entry")
+              case " $options " in *" rhgb "*) ;; *) options="$options rhgb" ;; esac
+              case " $options " in *" quiet "*) ;; *) options="$options quiet" ;; esac
+              sed -i "s|^options .*|options $options|" "$entry"
+          done
+          %end
+          KSPOST
+
+      - name: Build live disk image (qcow2)
+        if: success()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # blivet only trusts a filesystem as "mountable" (and therefore
+          # eligible to become storage.boot_device/stage2_device) if its
+          # type shows up in /proc/filesystems - and that's a kernel-global
+          # list read once at blivet's own import time
+          # (blivet/formats/fslib.py), shared straight into the privileged
+          # container from this runner's host kernel. The runner's Ubuntu
+          # kernel doesn't autoload xfs (our root fstype) until something
+          # asks the kernel to use it, so blivet was silently dropping our
+          # root partition out of storage.mountpoints and validation kept
+          # failing with "You have not created a bootable partition." -
+          # confirmed by tracing verify_bootloader all the way down through
+          # DeviceTree.mountpoints/FS.mountable/fsmount.py's is-mountable
+          # check, and reproduced locally (modprobe xfs is the difference
+          # between xfs missing and present in /proc/filesystems). Loading
+          # it here, before the container/anaconda ever start, is required
+          # - it has to land in /proc/filesystems before blivet imports.
+          sudo modprobe xfs
+          docker run --rm \
+            --privileged \
+            -v /dev:/dev \
+            --security-opt label=disable \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -e GITHUB_TOKEN \
+            -e GH_TOKEN \
+            --tmpfs /tmp:exec,size=8g \
+            fedora:43 \
+            bash -exo pipefail -c '
+              # Break shared mount propagation on the whole container tree
+              # before anaconda gets anywhere near it. --make-disk (unlike
+              # --make-iso in build-iso) hands off to anaconda through its
+              # own --image flag, and anaconda runs *that* under `unshare
+              # --mount --propagation unchanged`, bind-mounting /tmp and
+              # friends into the target root and unmounting them again once
+              # the install finishes. If the container mount tree is
+              # still shared (the privileged-docker default), that teardown
+              # unmount can fail with "umount of /tmp failed (32)" because
+              # the event tries to propagate back to a peer group anaconda
+              # never asked for. Making it rprivate first is the same fix
+              # any nested-mount-namespace tool (buildah, systemd-nspawn)
+              # needs in a privileged container - it does not touch what
+              # the ISO build does, which never goes through Anaconda.
+              # --image path and never hit this.
+              mount --make-rprivate /
+
+              dnf5 install -y \
+                lorax lorax-templates-generic lorax-lmc-novirt \
+                anaconda-core anaconda-install-env-deps \
+                qemu-img systemd-udev libguestfs-tools-c \
+                shim-x64 grub2-efi-x64-cdboot policycoreutils curl python3
+
+              mkdir -p /workspace/disk-result
+              /workspace/scripts/log-latest-vendor-packages.sh \
+                /workspace/disk-result/vendor-packages-latest.txt \
+                /tmp/dotnet-channel.env
+              cat /workspace/disk-result/vendor-packages-latest.txt
+
+              # Fedora 43 packaged anaconda-core still carries a real
+              # bug upstream already fixed - see
+              # scripts/patch-anaconda-efi-skip-bug.py for the full
+              # writeup and findings/gh-actions-live-iso-build.md for the
+              # CI trail. Patch it in place before livemedia-creator ever
+              # runs anaconda, rather than wait for Fedora to backport it.
+              python3 /workspace/scripts/patch-anaconda-efi-skip-bug.py
+
+              # The selected Azure Linux shim/GRUB family owns EFI/azurelinux,
+              # while the Fedora Anaconda profile defaults to EFI/fedora. Make
+              # Anaconda generate its stub beside the selected EFI binaries.
+              python3 /workspace/scripts/configure-anaconda-efi-vendor.py
+
+              # A partitioned disk image (unlike the ISO, which just
+              # loop-mounts one blank ext4 filesystem) needs its own
+              # kpartx-based partition activation to work, and kpartx needs
+              # a live udev to actually process the device-node events it
+              # triggers. This container has no init system and no udevd
+              # running at all by default, so start one by hand before
+              # anaconda ever touches the disk image, the same way any
+              # minimal container needs to if it is going to do real
+              # partition/device-mapper work rather than just loop-mounting
+              # a single plain filesystem.
+              /usr/lib/systemd/systemd-udevd --daemon
+              udevadm trigger
+              udevadm settle
+
+              livemedia-creator \
+                --make-disk \
+                --no-virt \
+                --resultdir /workspace/live-disk-result \
+                --image-name azurelinux-desktop-live.img \
+                --ks /workspace/kickstart/azurelinux-desktop-live-disk.ks \
+                --project "Azure Linux Desktop" \
+                --releasever 43 \
+                --logfile /workspace/livemedia-disk-build.log
+
+              # Anaconda install/cleanup (package %post scripts,
+              # dnf cache, journal, temp files it deletes on the way out)
+              # leaves non-zero leftovers in what is logically free space -
+              # qemu-img sparse detection and -c/zstd compression can
+              # only shrink data it can actually recognize as zero, so
+              # none of that leftover garbage compresses away on its own.
+              # Run virt-sparsify on the raw image before qemu-img produces
+              # its compressed qcow2. In-place sparsification of compressed
+              # qcow2 clusters reports success but can discard all guest data.
+              # GitHub-hosted runners have no KVM (see this file top-level
+              # notes on why nested virtualization is unavailable here), so
+              # libguestfs falls
+              # back to its own TCG appliance - slower than a KVM-backed
+              # run, but this job already carries a 180-minute timeout with
+              # plenty of headroom for it.
+              LIBGUESTFS_BACKEND=direct virt-sparsify --in-place \
+                /workspace/live-disk-result/azurelinux-desktop-live.img
+
+              qemu-img convert -O qcow2 -c -o compression_type=zstd \
+                /workspace/live-disk-result/azurelinux-desktop-live.img \
+                /workspace/live-disk-result/azurelinux-desktop-live.qcow2
+              qemu-img resize /workspace/live-disk-result/azurelinux-desktop-live.qcow2 64G
+              rm -f /workspace/live-disk-result/azurelinux-desktop-live.img
+            '
+
+      # anaconda writes program.log/storage.log/anaconda.log etc. into
+      # $GITHUB_WORKSPACE/anaconda/ as real root (the --privileged
+      # container's root is the host's real root, no user-namespace
+      # remapping here), so the actions/upload-artifact step - running as
+      # the unprivileged runner user - can't read them back. Confirmed by
+      # a real failure: "Error: EACCES: permission denied, open
+      # '.../anaconda/anaconda.log'" crashed the artifact-zipping step
+      # outright, which in turn skipped every later step in the job
+      # (including the ISO's own log upload, back when this was one job).
+      # Fixing ownership on the host, outside the container, before
+      # anything tries to read these files back - GitHub-hosted runners
+      # have passwordless sudo for exactly this kind of situation.
+      - name: Fix anaconda log ownership for artifact upload
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE/anaconda" "$GITHUB_WORKSPACE/live-disk-result" 2>/dev/null || true
+
+      - name: Show disk-image result directory
+        if: always()
+        run: |
+          ls -lah "$GITHUB_WORKSPACE/live-disk-result" || true
+          # lorax's novirt_install() copies anaconda's own detailed logs
+          # (anaconda.log, storage.log, program.log, packaging.log, etc.,
+          # everything under /tmp/*log inside the build container) into a
+          # directory named after the --logfile's own directory, so
+          # /workspace/livemedia-disk-build.log means these land in
+          # /workspace/anaconda/ - never checked or uploaded before now,
+          # so every failure so far was diagnosed from the abbreviated
+          # stdout the remote log connection prints, not anaconda's own
+          # full detail. Print it here and upload it below.
+          ls -lah "$GITHUB_WORKSPACE/anaconda" || true
+
+      - name: Upload qcow2 disk image artifact
+        if: success()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-qcow2
+          path: live-disk-result/azurelinux-desktop-live.qcow2
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: warn
+
+      # This job's own build log, separate from build-iso's - the two
+      # jobs run in independent workspaces now and don't share files.
+      - name: Upload build log (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-disk-build-log
+          path: |
+            live-disk-result/*.log
+            livemedia-disk-build.log
+            anaconda/*
+          if-no-files-found: warn
+          retention-days: 7
+
+  # VHDX/VDI/VMDK are each their own job, not steps tacked onto
+  # build-disk-image, so re-running just one conversion (e.g. "the VDI
+  # came out wrong, try again") never has to redo the ~15-20 minute
+  # anaconda build that job-disk-image, or wait on/rebuild the other two
+  # conversions. Each of these three jobs is otherwise identical in shape
+  # - download the qcow2 build-disk-image already produced and uploaded,
+  # `qemu-img convert` it into the target format, upload the result -
+  # plain steps on the bare ubuntu-24.04 runner, no privileged container
+  # or anaconda involved at all, so these normally finish in well under a
+  # minute once the qcow2 download itself completes.
+  #
+  # All three convert from the qcow2 (never the original raw .img, which
+  # this project doesn't produce as a durable artifact at all anymore -
+  # see the "Fix VHDX conversion to inherit the 64G resize" entry in
+  # findings/gh-actions-live-iso-build.md for why that distinction
+  # matters: qemu-img can't resize a vhdx/vdi/vmdk after the fact the way
+  # it can a qcow2, so the source has to already be the final 64G size
+  # before conversion, and the qcow2 already is by the time
+  # build-disk-image uploads it.
+  build-vhdx:
+    needs: build-disk-image
+    # always() is required when the needed job sets continue-on-error.
+    # Without it GHA skips this job even after a successful qcow2 build
+    # (release then fails with "Artifact not found: ...-live-vhdx").
+    if: ${{ always() && inputs.build_vhdx && needs.build-disk-image.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # VHDX conversion itself is simple and has been confirmed correct
+    # (64G virtual size, matches the qcow2) against two real CI builds -
+    # continue-on-error here is about the same reusable-workflow-call
+    # concern as build-disk-image's, not evidence this step is shaky.
+    continue-on-error: true
+    steps:
+      - name: Install qemu-img and 7-Zip
+        run: sudo apt-get update && sudo apt-get install -y qemu-utils 7zip
+
+      - name: Download qcow2 disk image
+        uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-live-qcow2
+          path: dist
+
+      - name: Convert qcow2 to VHDX (Hyper-V)
+        run: |
+          # qemu-img can't compress VHDX (-c is qcow2/qcow-only), so the
+          # only lever here is sparse-block granularity. The default
+          # block_size (0 = auto-calculate) lands on a large block for a
+          # disk this size - any block touched at all gets fully realized,
+          # even mostly-empty ones. Setting it down to 2M (min is 1M)
+          # keeps VHDX's dynamic-disk sparseness closer to what VMDK's
+          # much smaller default grain already gets for free. -S 4k tells
+          # qemu-img to treat any 4K-aligned run of zero bytes as a hole,
+          # tighter than its own default threshold.
+          qemu-img convert -O vhdx -o subformat=dynamic,block_size=2M -S 4k \
+            dist/azurelinux-desktop-live.qcow2 dist/azurelinux-desktop-live.vhdx
+
+      - name: Compress VHDX with 7z
+        run: |
+          # VHDX has no compressed container format of its own (unlike
+          # qcow2's -c/zstd), so a real generic compressor on top of the
+          # sparse-but-uncompressed result is a genuine size win, not a
+          # second pass over already-compressed data. -mx=9 is 7z's
+          # maximum compression level. cd into dist first so the archive
+          # stores the bare filename, not "dist/..." - Get-
+          # AzureLinuxDesktop.ps1 expects to find the disk image at
+          # the archive's top level after extraction.
+          # -bsp1 forces 7z's percent-progress output even though this
+          # isn't a real terminal, so the job log shows compression
+          # progress instead of going silent for the whole run.
+          cd dist
+          7z a -mx=9 -bsp1 azurelinux-desktop-live.vhdx.7z azurelinux-desktop-live.vhdx
+          rm -f azurelinux-desktop-live.vhdx
+
+      - name: Upload VHDX disk image artifact
+        if: success()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-vhdx
+          path: dist/azurelinux-desktop-live.vhdx.7z
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: warn
+
+  build-vdi:
+    needs: build-disk-image
+    if: ${{ always() && inputs.build_vdi && needs.build-disk-image.result == 'success' }}
+    runs-on: ubuntu-24.04
+    # Was 20 - a real run timed out at exactly 20:16 (VHDX/VMDK finished
+    # in 18-19 min, VDI's -mx=9 7z pass ran longer and got cut off by its
+    # own job timeout). 45 gives real headroom over the slowest observed
+    # run instead of trimming this margin-of-error away again.
+    timeout-minutes: 45
+    # VDI (VirtualBox) is new this session and NOT yet verified against a
+    # real CI build the way qcow2/VHDX are - can't test VirtualBox boot
+    # locally in this dev environment at all (no VirtualBox install here,
+    # by design - see findings/gh-actions-live-iso-build.md). Verified so
+    # far only that `qemu-img convert -O vdi` from an already-64G-resized
+    # qcow2 source produces a 64G-virtual-size VDI, same technique as the
+    # VHDX fix. continue-on-error stays on both for the reusable-workflow
+    # reason above and because this format specifically hasn't had a real
+    # CI run yet.
+    continue-on-error: true
+    steps:
+      - name: Install qemu-img and 7-Zip
+        run: sudo apt-get update && sudo apt-get install -y qemu-utils 7zip
+
+      - name: Download qcow2 disk image
+        uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-live-qcow2
+          path: dist
+
+      - name: Convert qcow2 to VDI (VirtualBox)
+        run: |
+          # VDI has no qemu-img compression option at all (only size/
+          # static), so -S is the only lever available here - treat any
+          # 4K-aligned run of zero bytes as a hole, tighter than the
+          # default threshold.
+          qemu-img convert -O vdi -S 4k dist/azurelinux-desktop-live.qcow2 dist/azurelinux-desktop-live.vdi
+
+      - name: Compress VDI with 7z
+        run: |
+          # Same reasoning as the VHDX step: VDI has no compressed
+          # container of its own, so 7z on top of the sparse-but-
+          # uncompressed result is a real win, not a second pass over
+          # already-compressed data. cd into dist first so the archive
+          # stores the bare filename, not "dist/...".
+          # -bsp1 forces 7z's percent-progress output even though this
+          # isn't a real terminal, so the job log shows compression
+          # progress instead of going silent for the whole run.
+          cd dist
+          7z a -mx=9 -bsp1 azurelinux-desktop-live.vdi.7z azurelinux-desktop-live.vdi
+          rm -f azurelinux-desktop-live.vdi
+
+      - name: Upload VDI disk image artifact
+        if: success()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-vdi
+          path: dist/azurelinux-desktop-live.vdi.7z
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: warn
+
+  build-vmdk:
+    needs: build-disk-image
+    if: ${{ always() && inputs.build_vmdk && needs.build-disk-image.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # VMDK (VMware Workstation/Player) is new this session and NOT yet
+    # verified against a real CI build, same caveat as VDI above - no
+    # VMware install in this dev environment either, so this can only be
+    # checked with `qemu-img info` on the converted file, not an actual
+    # boot. Default `qemu-img convert -O vmdk` subformat (monolithicSparse)
+    # is the broadly VMware-Workstation/Player-compatible one; not passing
+    # -o subformat= on purpose to stay with that default rather than guess
+    # at a more exotic option nothing here can actually test.
+    continue-on-error: true
+    steps:
+      - name: Install qemu-img and 7-Zip
+        run: sudo apt-get update && sudo apt-get install -y qemu-utils 7zip
+
+      - name: Download qcow2 disk image
+        uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-live-qcow2
+          path: dist
+
+      - name: Convert qcow2 to VMDK (VMware)
+        run: |
+          # Staying with the default monolithicSparse subformat on
+          # purpose (see the note above on VMware Workstation/Player
+          # compatibility) - not switching to streamOptimized, which
+          # would add real qemu-img-level compression but trades away
+          # that broad compatibility. -S 4k is the same sparse-threshold
+          # tightening used for the other two formats.
+          qemu-img convert -O vmdk -S 4k dist/azurelinux-desktop-live.qcow2 dist/azurelinux-desktop-live.vmdk
+
+      - name: Compress VMDK with 7z
+        run: |
+          # Same reasoning as VHDX/VDI: monolithicSparse has no built-in
+          # compression, so 7z on top is a real win here, not a second
+          # pass over already-compressed data. cd into dist first so the
+          # archive stores the bare filename, not "dist/...". -bsp1
+          # forces percent-progress output in the job log.
+          cd dist
+          7z a -mx=9 -bsp1 azurelinux-desktop-live.vmdk.7z azurelinux-desktop-live.vmdk
+          rm -f azurelinux-desktop-live.vmdk
+
+      - name: Upload VMDK disk image artifact
+        if: success()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-vmdk
+          path: dist/azurelinux-desktop-live.vmdk.7z
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: warn

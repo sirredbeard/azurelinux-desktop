@@ -1,0 +1,13 @@
+Validation run: installer runtime resolve preflight after Option B selection
+Date: 2026-07-22
+Script: scripts/test-installer-runtime-resolve.sh
+
+Result:
+- Dependency/download resolution completed successfully.
+- Transaction completed with 426/426 packages downloaded.
+- Exit status: success.
+
+Relevant excerpt:
+--------------------------------------------------------------------------------
+[426/426] Total                         100% |   7.0 MiB/s | 297.3 MiB |  00m43s
+Complete!

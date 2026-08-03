@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=PowerShell
+Comment=PowerShell - cross-platform automation and configuration tool/framework
+Exec=/usr/local/bin/azl-powershell-terminal
+Icon=/usr/share/pixmaps/powershell.png
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupNotify=true
+StartupWMClass=org.azurelinux.PowerShell

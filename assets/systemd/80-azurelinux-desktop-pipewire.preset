@@ -1,0 +1,6 @@
+# Azure Linux's user presets only enable D-Bus. Fedora GNOME needs
+# PipeWire sockets and WirePlumber in the user session for audio and
+# screen cast/record (xdg-desktop-portal + gnome-shell Screencast).
+enable pipewire.socket
+enable pipewire-pulse.socket
+enable wireplumber.service

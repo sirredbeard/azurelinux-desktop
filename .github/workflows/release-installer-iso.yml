@@ -1,0 +1,82 @@
+name: Release installer ISO
+
+# Called by nightly-release.yml and available for manual runs. Same pattern as
+# release-live-iso.yml: calls
+# build-installer-iso.yml as a reusable workflow, then publishes the
+# result as a GitHub Release tagged with the UTC date the release job
+# runs, YYYY.MM.DD. If the live and installer release workflows both run
+# on the same UTC day (the common case - they're usually built back to
+# back off the same set of fixes), softprops/action-gh-release upserts
+# to whichever release already exists under that day's tag instead of
+# creating a second one, so both ISOs end up in the same dated release
+# without any extra cross-workflow coordination - see release-live-
+# iso.yml's own comment block for the size-cap/split-file reasoning,
+# which applies here unchanged.
+
+on:
+  workflow_dispatch: {}
+  workflow_call: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-installer-iso.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Download built ISO
+        uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-install-iso
+          path: dist
+
+      - name: Compute release tag
+        id: tag
+        run: echo "tag=$(date -u +%Y.%m.%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Split ISO into release-sized parts
+        working-directory: dist
+        run: |
+          ISO=$(ls ./*.iso)
+          sha256sum "$ISO" > "$ISO.sha256"
+          # Same 1900M rationale as release-live-iso.yml: comfortably
+          # under GitHub's 2GiB per-asset cap, overhead included.
+          split -b 1900M -d -a 2 --additional-suffix=.part "$ISO" "$ISO.split."
+          rm -f "$ISO"
+          ls -la
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Azure Linux Desktop ${{ steps.tag.outputs.tag }}
+          files: |
+            dist/*.split.*
+            dist/*.sha256
+          # Deliberately no body/body_path/generate_release_notes here at
+          # all - not even the static .github/release-notes-template.md
+          # release-live-iso.yml's create-release job uses. That job is
+          # the one source of truth for this shared tag's notes; this
+          # step omitting body entirely means action-gh-release's own
+          # update logic (`body = workflowBody || existingReleaseBody`,
+          # softprops/action-gh-release src/github.ts) preserves whatever
+          # body is already on the release rather than clearing or
+          # duplicating it - so this workflow can run before or after
+          # release-live-iso.yml, any number of times, same day or not,
+          # and never touches the notes. If this step ever needs to set
+          # a body of its own, do not add generate_release_notes back -
+          # that's what caused the original duplicate "Full Changelog"
+          # text this whole comment block is here to prevent a repeat of.
+          # Same-day reruns of either the live or installer release
+          # workflow overwrite that day's existing assets in place under
+          # the shared date tag, rather than failing or duplicating
+          # assets under a suffixed name - matches release-live-iso.yml.

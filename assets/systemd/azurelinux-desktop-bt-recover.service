@@ -1,0 +1,17 @@
+[Unit]
+Description=Recover Intel Bluetooth USB after platform rfkill
+Documentation=file:///usr/share/doc/azurelinux-desktop/bluetooth-hci-timeout-thinkpad.md
+DefaultDependencies=no
+After=sysinit.target systemd-modules-load.service systemd-udev-settle.service
+Before=bluetooth.service
+Wants=systemd-udev-settle.service
+
+[Service]
+Type=oneshot
+# Settle USB + rfkill before the authorize cycle.
+ExecStartPre=/bin/sleep 2
+ExecStart=/usr/libexec/azurelinux-desktop-bt-usb-reset
+RemainAfterExit=yes
+
+[Install]
+WantedBy=basic.target

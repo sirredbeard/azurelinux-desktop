@@ -1,0 +1,2 @@
+# Keep Intel USB Bluetooth full-power during init (8087:* wireless).
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="8087", TEST=="power/control", ATTR{power/control}="on"

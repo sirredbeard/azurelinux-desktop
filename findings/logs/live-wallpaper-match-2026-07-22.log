@@ -1,0 +1,21 @@
+Validation run: live wallpaper candidate matching (on-device)
+Date: 2026-07-22
+Script: scripts/analyze-live-wallpaper-match.sh
+
+Inputs:
+- live ISO: /home/fedora/azl-work/release-verify-2026.07.22-round2-live/azurelinux-desktop-live.iso
+- screenshot: /home/fedora/azl-work/vnc-captures-20260722/live-before-super.png
+
+Result summary:
+- winner: adwaita-d.jxl
+- resolution: 1280x800
+- adwaita-d corr_mean: 0.0484111875
+- adwaita-d mae_mean: 23.6422239530
+- adwaita-l corr_mean: -0.0155432935
+- adwaita-l mae_mean: 50.9244579104
+
+Interpretation:
+- The captured live desktop frame matches dark Adwaita better than light
+  Adwaita across sampled patches.
+- Combined with runtime session checks, this confirms the live background is
+  still the generic dark Adwaita path in this iteration.
