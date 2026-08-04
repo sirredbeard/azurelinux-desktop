@@ -12,6 +12,7 @@ alternatives-1.33-4.azl4.x86_64
 anaconda-core-43.44-5.azl4.x86_64
 anaconda-install-env-deps-43.44-5.azl4.x86_64
 anaconda-tui-43.44-5.azl4.x86_64
+appstream-1.1.0-2.azl4.x86_64
 audit-libs-4.1.3-2.azl4.x86_64
 augeas-libs-1.14.2-0.6.azl4.x86_64
 authselect-1.6.2-2.azl4.x86_64
@@ -38,11 +39,14 @@ bluez-5.86-4.azl4.x86_64
 bluez-libs-5.86-4.azl4.x86_64
 boost-regex-1.83.0-18.azl4.x86_64
 btrfs-progs-6.19-2.azl4.x86_64
+bubblewrap-0.11.0-3.azl4.x86_64
 bzip2-libs-1.0.8-22.azl4.x86_64
 ca-certificates-2025.2.80_v9.0.304-1.1.azl4.noarch
 cairo-1.18.4-5.azl4.x86_64
+cairo-gobject-1.18.4-5.azl4.x86_64
 checkpolicy-3.9-3.azl4.x86_64
 chrony-4.8-4.azl4.x86_64
+composefs-libs-1.0.8-4.azl4.x86_64
 coreutils-9.7-8.azl4.x86_64
 coreutils-common-9.7-8.azl4.x86_64
 cpio-2.15-8.azl4.x86_64
@@ -64,6 +68,7 @@ dbus-common-1.16.0-7.azl4.noarch
 dbus-daemon-1.16.0-7.azl4.x86_64
 dbus-libs-1.16.0-7.azl4.x86_64
 dbus-tools-1.16.0-7.azl4.x86_64
+dconf-0.49.0-4.azl4.x86_64
 default-fonts-core-sans-4.2-6.azl4.noarch
 device-mapper-1.02.208-3.azl4.x86_64
 device-mapper-event-1.02.208-3.azl4.x86_64
@@ -93,6 +98,9 @@ file-5.46-9.azl4.x86_64
 file-libs-5.46-9.azl4.x86_64
 filesystem-3.18-52.azl4.x86_64
 findutils-4.10.0-7.azl4.x86_64
+flatpak-1.16.1-1.fc43.x86_64
+flatpak-selinux-1.16.1-1.fc43.noarch
+flatpak-session-helper-1.16.1-1.fc43.x86_64
 fmt-11.2.0-4.azl4.x86_64
 fontconfig-2.17.0-4.azl4.x86_64
 fonts-filesystem-2.0.5-24.azl4.noarch
@@ -100,12 +108,14 @@ freetype-2.13.3-4.azl4.x86_64
 fribidi-1.0.16-4.azl4.x86_64
 fuse-2.9.9-25.azl4.x86_64
 fuse-common-3.16.2-7.azl4.x86_64
+fuse3-3.16.2-7.azl4.x86_64
 fuse3-libs-3.16.2-7.azl4.x86_64
 gawk-5.3.2-3.azl4.x86_64
 gdb-17.1-4.azl4.x86_64
 gdb-headless-17.1-4.azl4.x86_64
 gdbm-1.23-11.azl4.x86_64
 gdbm-libs-1.23-11.azl4.x86_64
+gdk-pixbuf2-2.44.5-2.azl4.x86_64
 gettext-envsubst-0.25.1-3.azl4.x86_64
 gettext-libs-0.25.1-3.azl4.x86_64
 gettext-runtime-0.25.1-3.azl4.x86_64
@@ -114,6 +124,8 @@ glibc-2.42-11.azl4.x86_64
 glibc-common-2.42-11.azl4.x86_64
 glibc-langpack-en-2.42-11.azl4.x86_64
 glibc-minimal-langpack-2.42-11.azl4.x86_64
+glycin-libs-2.0.8-4.azl4.x86_64
+glycin-loaders-2.0.8-4.azl4.x86_64
 gmp-6.3.0-5.azl4.x86_64
 gnulib-l10n-20241231-2.azl4.noarch
 gnupg2-2.4.9-6.azl4.x86_64
@@ -173,6 +185,7 @@ kmod-34.2-3.azl4.x86_64
 kmod-libs-34.2-3.azl4.x86_64
 krb5-libs-1.22.2-3.azl4.x86_64
 langtable-0.0.70-2.azl4.noarch
+lcms2-2.16-7.azl4.x86_64
 libX11-1.8.12-3.azl4.x86_64
 libX11-common-1.8.12-3.azl4.noarch
 libXau-1.0.12-4.azl4.x86_64
@@ -227,6 +240,7 @@ libevent-2.1.12-17.azl4.x86_64
 libfdisk-2.41.3-10.azl4.x86_64
 libffi-3.5.2-2.azl4.x86_64
 libfsverity-1.6-4.azl4.x86_64
+libfyaml-0.8-9.azl4.x86_64
 libgcc-15.2.1-7.azl4.x86_64
 libgcrypt-1.11.1-6.azl4.x86_64
 libgomp-15.2.1-7.azl4.x86_64
@@ -267,6 +281,7 @@ libreport-filesystem-2.17.15-10.azl4.noarch
 libreport-plugin-bugzilla-2.17.15-10.azl4.x86_64
 libreport-plugin-reportuploader-2.17.15-10.azl4.x86_64
 libreport-web-2.17.15-10.azl4.x86_64
+librsvg2-2.61.0-8.azl4.x86_64
 libseccomp-2.6.0-5.azl4.x86_64
 libselinux-3.9-6.azl4.x86_64
 libselinux-utils-3.9-6.azl4.x86_64
@@ -278,6 +293,7 @@ libss-1.47.3-3.azl4.x86_64
 libssh-0.11.4-2.azl4.x86_64
 libssh-config-0.11.4-2.azl4.noarch
 libstdc++-15.2.1-7.azl4.x86_64
+libstemmer-3.0.1-9.azl4.x86_64
 libtasn1-4.20.0-3.azl4.x86_64
 libteam-1.32-13.azl4.x86_64
 libtextstyle-0.25.1-3.azl4.x86_64
@@ -290,10 +306,12 @@ libusb1-1.0.29-6.azl4.x86_64
 libutempter-1.2.1-20.azl4.x86_64
 libuuid-2.41.3-10.azl4.x86_64
 libverto-0.3.2-12.azl4.x86_64
+libwayland-client-1.24.0-2.azl4.x86_64
 libxcb-1.17.0-7.azl4.x86_64
 libxcrypt-4.5.2-3.azl4.x86_64
 libxkbcommon-1.11.0-1.azl4.x86_64
 libxml2-2.12.10-6.azl4.x86_64
+libxmlb-0.3.25-3.azl4.x86_64
 libyaml-0.2.5-20.azl4.x86_64
 libzstd-1.5.7-3.azl4.x86_64
 linux-firmware-whence-20260221-2.azl4.noarch
@@ -304,6 +322,7 @@ lvm2-dbusd-2.03.34-3.azl4.noarch
 lvm2-libs-2.03.34-3.azl4.x86_64
 lz4-libs-1.10.0-4.azl4.x86_64
 lzo-2.10-16.azl4.x86_64
+malcontent-libs-0.13.0-3.fc43.x86_64
 mdadm-4.3-10.azl4.x86_64
 mokutil-0.7.2-3.azl4.x86_64
 mpdecimal-4.0.1-3.azl4.x86_64
@@ -328,6 +347,7 @@ openldap-2.6.10-5.azl4.x86_64
 openssl-3.5.4-7.azl4.x86_64
 openssl-libs-3.5.4-7.azl4.x86_64
 os-prober-1.81-11.azl4.x86_64
+ostree-libs-2025.7-3.azl4.x86_64
 p11-kit-0.26.2-3.azl4.x86_64
 p11-kit-trust-0.26.2-3.azl4.x86_64
 pam-1.7.1-5.azl4.x86_64
@@ -416,6 +436,7 @@ selinux-policy-43.7-4.azl4.noarch
 selinux-policy-targeted-43.7-4.azl4.noarch
 setup-2.15.0-27.azl4.noarch
 shadow-utils-4.18.0-4.azl4.x86_64
+shared-mime-info-2.4-3.azl4.x86_64
 shim-x64-15.8-5.azl4.x86_64
 smartmontools-7.5-5.azl4.x86_64
 smartmontools-selinux-7.5-5.azl4.noarch
@@ -443,6 +464,7 @@ vim-data-9.1.2146-4.azl4.noarch
 vim-minimal-9.1.2146-4.azl4.x86_64
 volume_key-libs-0.3.12-29.azl4.x86_64
 which-2.23-4.azl4.x86_64
+xdg-dbus-proxy-0.1.6-5.azl4.x86_64
 xfsprogs-6.15.0-4.azl4.x86_64
 xkeyboard-config-2.46-1.azl4.noarch
 xml-common-0.6.3-68.azl4.noarch
