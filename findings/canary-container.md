@@ -91,7 +91,7 @@ builds do not ship a system update path that GNOME Software cannot use.
 
 ## Bug: canary test required awk (2026-08-04)
 
-**Status:** fixed in tree; re-run canary-test to confirm on Actions
+**Status:** resolved (Actions canary-test success on run 30948995292)
 
 **Evidence:** Actions run
 `30940687637` / job `92101184754` (`canary-test`).
