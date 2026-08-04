@@ -64,3 +64,24 @@ update path. Polkit `app-update` rule staged for images.
 - `findings/gnome-software-flatpak-empty.md`
 - `scripts/install-copilot-desktop-flatpak.sh`
 - `~/copilot-desktop-gtk/packaging/flatpak-gpg/`
+
+
+## GNOME Software error after enabling GPG (0.1.13)
+
+```
+While pulling appstream2/x86_64 from remote copilot-desktop-gtk:
+Commit …: GPG verification enabled, but no signatures found
+```
+
+**Cause:** `flatpak build-sign` only signed `app/*` commits. Pages had
+`summary.sig` and app `.commitmeta`, but **appstream2** tips only had
+`.commitmeta2` (`xa.reachable`), not GPG `.commitmeta`. Software refreshes
+appstream first and fails the whole UI.
+
+**Fix (copilot-desktop-gtk):** after `build-update-repo`, `ostree gpg-sign`
+every ref tip (app, appstream, appstream2, screenshots), resign summary,
+fail CI if any tip lacks `ostree.gpgsigs`. Ship as 0.1.14+.
+
+**Polkit note:** still required for unprivileged Deploy, but cannot replace
+GPG for system HTTPS remotes.
+
