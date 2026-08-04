@@ -72,7 +72,7 @@ Work large downloads under `~/azl-work`, not `/tmp`.
 
 * [`Get-AzureLinuxDesktop.ps1`](Get-AzureLinuxDesktop.ps1) - published assets from GitHub Releases.
 * [`resolve-release-tag.sh`](resolve-release-tag.sh) - one-release attach rule for CI uploads.
-* [`fetch-latest-thirdparty.sh`](fetch-latest-thirdparty.sh) / [`install-copilot-desktop-flatpak.sh`](install-copilot-desktop-flatpak.sh) / [`install-dotnet-sdk-tarball.sh`](install-dotnet-sdk-tarball.sh) / [`log-latest-vendor-packages.sh`](log-latest-vendor-packages.sh) - always-latest vendor side-loads.
+* [`fetch-latest-thirdparty.sh`](fetch-latest-thirdparty.sh) / [`install-copilot-desktop-flatpak.sh`](install-copilot-desktop-flatpak.sh) / [`prestage-copilot-flatpak-system.sh`](prestage-copilot-flatpak-system.sh) / [`install-dotnet-sdk-tarball.sh`](install-dotnet-sdk-tarball.sh) / [`log-latest-vendor-packages.sh`](log-latest-vendor-packages.sh) - always-latest vendor side-loads.
 * [`ci-commit-package-list.sh`](ci-commit-package-list.sh) - package list refresh commit.
 
 ### Image and container builds
