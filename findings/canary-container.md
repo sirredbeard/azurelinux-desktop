@@ -88,3 +88,26 @@ remote. After Pages signed the stream (0.1.15+),
 
 Unsigned or `--no-gpg-verify` remotes fail the canary on purpose so image
 builds do not ship a system update path that GNOME Software cannot use.
+
+## Bug: canary test required awk (2026-08-04)
+
+**Status:** fixed in tree; re-run canary-test to confirm on Actions
+
+**Evidence:** Actions run
+`30940687637` / job `92101184754` (`canary-test`).
+
+```
+/usr/local/bin/test-canary-container: line 141: awk: command not found
+```
+
+The gpg-verify assert used `awk` on `/var/lib/flatpak/repo/config`.
+The canary package set is intentional minimal (no `gawk`/`awk`).
+Live/installer images still get gawk via the full base set; only the
+canary test path hit this.
+
+**Fix:** parse the remote section in pure bash in
+`scripts/test-canary-container.sh`. Do not add gawk only for this check.
+
+**Key log:** `canary-container-logs` artifact,
+`copilot-flatpak-info.log` ends at flatpak list; script dies on awk
+before printing `OK: copilot-desktop-gtk gpg-verify=true`.

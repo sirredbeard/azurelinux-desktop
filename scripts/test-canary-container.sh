@@ -137,13 +137,28 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
     flatpak remotes --system --columns=name | grep -qx 'copilot-desktop-gtk'
     flatpak remotes --system --columns=name | grep -qx 'flathub'
     # Pages stream is GPG-signed; system remote must verify signatures.
+    # Pure bash: the canary image is minimal and does not ship gawk/awk.
     if [[ -f /var/lib/flatpak/repo/config ]]; then
-        awk '
-            $0 == "[remote \"copilot-desktop-gtk\"]" {insec=1; next}
-            /^\[/ {insec=0}
-            insec && $0 ~ /^gpg-verify=true/ {found=1}
-            END {exit found ? 0 : 1}
-        ' /var/lib/flatpak/repo/config
+        insec=0
+        found=0
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            if [[ "$line" == '[remote "copilot-desktop-gtk"]' ]]; then
+                insec=1
+                continue
+            fi
+            if [[ "$line" == \[* ]]; then
+                insec=0
+                continue
+            fi
+            if (( insec )) && [[ "$line" == gpg-verify=true || "$line" == gpg-verify=1 ]]; then
+                found=1
+                break
+            fi
+        done < /var/lib/flatpak/repo/config
+        if (( ! found )); then
+            echo 'error: copilot-desktop-gtk missing gpg-verify=true in /var/lib/flatpak/repo/config' >&2
+            exit 1
+        fi
         echo 'OK: copilot-desktop-gtk gpg-verify=true'
     else
         echo 'error: missing /var/lib/flatpak/repo/config' >&2
