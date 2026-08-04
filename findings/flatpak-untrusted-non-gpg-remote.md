@@ -85,3 +85,19 @@ fail CI if any tip lacks `ostree.gpgsigs`. Ship as 0.1.14+.
 **Polkit note:** still required for unprivileged Deploy, but cannot replace
 GPG for system HTTPS remotes.
 
+
+## 0.1.14: signatures published, Flatpak still failed
+
+Pages had `.commitmeta` with `ostree.gpgsigs` and `summary.sig`.
+`ostree pull --disable-static-deltas` verified Good signature.
+Default pulls (static deltas) and Flatpak install failed with the same
+"no signatures found" error.
+
+**Cause:** static deltas were generated **before** tips were signed.
+Delta pulls do not apply detached `.commitmeta`, so clients never see
+the GPG signatures even though HTTP objects exist.
+
+**Fix (0.1.15+):** sign every tip, **then** `build-update-repo
+--generate-static-deltas`, and CI proves a delta pull of app +
+appstream2 succeeds before Pages deploy.
+
