@@ -33,3 +33,30 @@ checks release assets against plan flags; it does not re-upload.
 
 In-flight runs that checked out the old workflows keep the old upload
 path until they finish.
+
+## Step order inside build jobs
+
+Publish the deliverable before bookkeeping:
+
+1. Upload ISO/qcow2 artifact (+ `gh release upload` when `release_tag` set)
+2. Upload build logs (`if: always()` so failures still get logs)
+3. Extract package list / verify payload / commit findings
+
+Installer: logs + fail-fast on KIWI failure first, then ISO publish, then
+payload verify.
+
+## Faster VHDX/VDI/VMDK 7z
+
+Cause of ~20+ min convert jobs: `7z a -mx=9` on ~11 GiB sparse disks.
+Ultra compression buys little extra size vs moderate levels and saturates
+the runner for a long time.
+
+Change: `7z a -t7z -m0=lzma2 -mx=3 -mmt=on -bsp1 …`
+
+* `-mx=3` — much faster; still real shrink for sparse VM disks  
+* `-mmt=on` — all cores (runners were showing Threads:4 with mx=9)  
+* Still `.7z` so `Get-AzureLinuxDesktop.ps1` is unchanged  
+
+If size ever becomes a problem, try `-mx=5` before going back to 9.
+Do not default convert formats on every focused debug run if you only
+need live ISO + qcow2.

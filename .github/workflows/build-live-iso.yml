@@ -190,6 +190,40 @@ jobs:
         if: always()
         run: ls -lah "$GITHUB_WORKSPACE/live-result" || true
 
+      # Deliverable first: artifact + release before package-list bookkeeping.
+      - name: Upload ISO artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-iso
+          path: live-result/*.iso
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Publish live ISO to GitHub Release
+        if: success() && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          isos=(live-result/*.iso)
+          test "${#isos[@]}" -ge 1
+          ./scripts/ci-upload-release-asset.sh "${{ inputs.release_tag }}" "${isos[0]}"
+
+      # always(): still get logs when the build failed (no ISO to publish).
+      - name: Upload build log (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-build-log
+          path: |
+            live-result/*.log
+            livemedia-build.log
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Extract real resolved package list from the built ISO
         if: success()
         run: |
@@ -219,44 +253,6 @@ jobs:
               wc -l /workspace/live-result/final-package-list.txt
             '
 
-      # This job's own log - the disk-image job (below) uploads its own
-      # livemedia-disk-build.log/anaconda/* separately, since these are
-      # two independent jobs now and don't share a workspace.
-      - name: Upload build log (always, even on failure)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: azurelinux-desktop-live-build-log
-          path: |
-            live-result/*.log
-            livemedia-build.log
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Upload ISO artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: azurelinux-desktop-live-iso
-          path: live-result/*.iso
-          compression-level: 0
-          retention-days: 7
-          if-no-files-found: error
-
-      # Publish as soon as this job finishes. Does not wait on disk/VM jobs.
-      - name: Publish live ISO to GitHub Release
-        if: success() && inputs.release_tag != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          isos=(live-result/*.iso)
-          test "${#isos[@]}" -ge 1
-          ./scripts/ci-upload-release-asset.sh "${{ inputs.release_tag }}" "${isos[0]}"
-
-      # Real resolved package list from the ISO that just built. Also kept
-      # as an artifact for download, and committed into findings/ so the
-      # repo stays current without a manual copy.
       - name: Upload resolved package list artifact
         if: success()
         uses: actions/upload-artifact@v4
@@ -810,19 +806,16 @@ jobs:
 
       - name: Compress VHDX with 7z
         run: |
-          # VHDX has no compressed container format of its own (unlike
-          # qcow2's -c/zstd), so a real generic compressor on top of the
-          # sparse-but-uncompressed result is a genuine size win, not a
-          # second pass over already-compressed data. -mx=9 is 7z's
-          # maximum compression level. cd into dist first so the archive
-          # stores the bare filename, not "dist/..." - Get-
-          # AzureLinuxDesktop.ps1 expects to find the disk image at
-          # the archive's top level after extraction.
-          # -bsp1 forces 7z's percent-progress output even though this
-          # isn't a real terminal, so the job log shows compression
-          # progress instead of going silent for the whole run.
+          # VHDX has no compressed container of its own (unlike qcow2
+          # -c/zstd), so 7z still helps. Do not use -mx=9: on ~11GiB
+          # sparse disks that was 20+ minutes per format with little
+          # extra shrink vs -mx=3. -mmt=on uses every runner core;
+          # -bsp1 keeps percent progress in the job log. cd into dist
+          # so the archive stores a bare filename for
+          # Get-AzureLinuxDesktop.ps1.
           cd dist
-          7z a -mx=9 -bsp1 azurelinux-desktop-live.vhdx.7z azurelinux-desktop-live.vhdx
+          7z a -t7z -m0=lzma2 -mx=3 -mmt=on -bsp1 \
+            azurelinux-desktop-live.vhdx.7z azurelinux-desktop-live.vhdx
           rm -f azurelinux-desktop-live.vhdx
 
       # Release path: 7z goes straight to the release. No Actions artifact
@@ -853,10 +846,8 @@ jobs:
     needs: build-disk-image
     if: ${{ always() && inputs.build_vdi && needs.build-disk-image.result == 'success' }}
     runs-on: ubuntu-24.04
-    # Was 20 - a real run timed out at exactly 20:16 (VHDX/VMDK finished
-    # in 18-19 min, VDI's -mx=9 7z pass ran longer and got cut off by its
-    # own job timeout). 45 gives real headroom over the slowest observed
-    # run instead of trimming this margin-of-error away again.
+    # Was 20 with -mx=9 (timed out). 45 stays as headroom; compress is
+    # now -mx=3 and should finish much faster.
     timeout-minutes: 45
     # VDI (VirtualBox) is new this session and NOT yet verified against a
     # real CI build the way qcow2/VHDX are - can't test VirtualBox boot
@@ -891,16 +882,11 @@ jobs:
 
       - name: Compress VDI with 7z
         run: |
-          # Same reasoning as the VHDX step: VDI has no compressed
-          # container of its own, so 7z on top of the sparse-but-
-          # uncompressed result is a real win, not a second pass over
-          # already-compressed data. cd into dist first so the archive
-          # stores the bare filename, not "dist/...".
-          # -bsp1 forces 7z's percent-progress output even though this
-          # isn't a real terminal, so the job log shows compression
-          # progress instead of going silent for the whole run.
+          # Same as VHDX: -mx=3 + -mmt=on, not -mx=9 (see findings/
+          # release-upload-in-build-job.md). Bare filename in archive.
           cd dist
-          7z a -mx=9 -bsp1 azurelinux-desktop-live.vdi.7z azurelinux-desktop-live.vdi
+          7z a -t7z -m0=lzma2 -mx=3 -mmt=on -bsp1 \
+            azurelinux-desktop-live.vdi.7z azurelinux-desktop-live.vdi
           rm -f azurelinux-desktop-live.vdi
 
       - name: Publish VDI 7z to GitHub Release
@@ -963,13 +949,10 @@ jobs:
 
       - name: Compress VMDK with 7z
         run: |
-          # Same reasoning as VHDX/VDI: monolithicSparse has no built-in
-          # compression, so 7z on top is a real win here, not a second
-          # pass over already-compressed data. cd into dist first so the
-          # archive stores the bare filename, not "dist/...". -bsp1
-          # forces percent-progress output in the job log.
+          # Same as VHDX/VDI: -mx=3 + -mmt=on (not -mx=9). Bare filename.
           cd dist
-          7z a -mx=9 -bsp1 azurelinux-desktop-live.vmdk.7z azurelinux-desktop-live.vmdk
+          7z a -t7z -m0=lzma2 -mx=3 -mmt=on -bsp1 \
+            azurelinux-desktop-live.vmdk.7z azurelinux-desktop-live.vmdk
           rm -f azurelinux-desktop-live.vmdk
 
       - name: Publish VMDK 7z to GitHub Release

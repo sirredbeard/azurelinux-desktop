@@ -226,6 +226,47 @@ jobs:
         if: always()
         run: ls -lah "$GITHUB_WORKSPACE/installer-result" || true
 
+      - name: Upload build log (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-install-build-log
+          path: |
+            kiwi-build.log
+            installer-failure-diagnostics.log
+            installer-result/*.log
+            installer-result/*.debug
+            installer-result/*.error
+            installer-result/*.changes
+            installer-result/*.packages
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Fail after diagnostics are uploaded
+        if: ${{ steps.kiwi-build.outcome == 'failure' }}
+        run: exit 1
+
+      # Deliverable first; verify/package-list bookkeeping after publish.
+      - name: Upload ISO artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-install-iso
+          path: installer-result/azurelinux-desktop-install.iso
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Publish installer ISO to GitHub Release
+        if: success() && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/ci-upload-release-asset.sh \
+            "${{ inputs.release_tag }}" \
+            installer-result/azurelinux-desktop-install.iso
+
       - name: Verify built installer payload
         if: success()
         run: |
@@ -299,45 +340,6 @@ jobs:
                 > /workspace/installer-result/final-package-list.txt
               umount /tmp/iso-extract/rootfs
             '
-
-      - name: Upload build log (always, even on failure)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: azurelinux-desktop-install-build-log
-          path: |
-            kiwi-build.log
-            installer-failure-diagnostics.log
-            installer-result/*.log
-            installer-result/*.debug
-            installer-result/*.error
-            installer-result/*.changes
-            installer-result/*.packages
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Fail after diagnostics are uploaded
-        if: ${{ steps.kiwi-build.outcome == 'failure' }}
-        run: exit 1
-
-      - name: Upload ISO artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: azurelinux-desktop-install-iso
-          path: installer-result/azurelinux-desktop-install.iso
-          compression-level: 0
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Publish installer ISO to GitHub Release
-        if: success() && inputs.release_tag != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          ./scripts/ci-upload-release-asset.sh \
-            "${{ inputs.release_tag }}" \
-            installer-result/azurelinux-desktop-install.iso
 
       - name: Upload final kickstart artifact
         if: success()
