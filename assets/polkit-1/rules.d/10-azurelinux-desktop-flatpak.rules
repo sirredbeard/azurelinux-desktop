@@ -1,0 +1,27 @@
+// Azure Linux Desktop: wheel + active local session can manage system Flatpaks
+// without a password. Upstream org.freedesktop.Flatpak.rules lists install/
+// uninstall/modify-repo but not app-update/runtime-update — GNOME Software
+// updates need those too.
+polkit.addRule(function(action, subject) {
+    var ids = [
+        "org.freedesktop.Flatpak.app-install",
+        "org.freedesktop.Flatpak.app-uninstall",
+        "org.freedesktop.Flatpak.app-update",
+        "org.freedesktop.Flatpak.runtime-install",
+        "org.freedesktop.Flatpak.runtime-uninstall",
+        "org.freedesktop.Flatpak.runtime-update",
+        "org.freedesktop.Flatpak.modify-repo",
+        "org.freedesktop.Flatpak.update-remote",
+        "org.freedesktop.Flatpak.configure",
+        "org.freedesktop.Flatpak.configure-remote",
+        "org.freedesktop.Flatpak.metadata-update",
+        "org.freedesktop.Flatpak.appstream-update",
+        "org.freedesktop.Flatpak.install-bundle"
+    ];
+    if (ids.indexOf(action.id) >= 0 &&
+        subject.active === true &&
+        subject.local === true &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+});

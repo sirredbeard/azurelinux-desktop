@@ -486,6 +486,14 @@ polkit.addRule(function(action, subject) {
     }
 });
 EOF
+# Flatpak system updates for active local wheel (includes app-update).
+if [ -f /run/install/repo/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules ]; then
+    install -m 0644 /run/install/repo/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules \
+        /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
+elif [ -f /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules ]; then
+    install -m 0644 /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules \
+        /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
+fi
 
 # GNOME Keyring auto-unlock fix - identical mechanism to the live ISO,
 # see kickstart/azurelinux-desktop-live.ks for the full root-cause

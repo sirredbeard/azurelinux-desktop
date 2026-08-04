@@ -1113,6 +1113,12 @@ polkit.addRule(function(action, subject) {
     }
 });
 EOF
+# Flatpak system updates (GNOME Software / flatpak update): upstream
+# org.freedesktop.Flatpak.rules covers install/uninstall/modify-repo but
+# not app-update/runtime-update. Signed remotes still need Deploy allowed
+# for active local wheel sessions — see findings/flatpak-untrusted-non-gpg-remote.md.
+install -m 0644 /workspace/assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules \
+    /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
 
 # Standard livemedia-creator housekeeping (same as lorax's own
 # fedora-livemedia.ks %post) - tmpfs for /tmp, drop the machine-id/

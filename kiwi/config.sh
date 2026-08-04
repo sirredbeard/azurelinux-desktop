@@ -560,6 +560,13 @@ fi
 
 # First-boot prepare override for the installed target tree. Also staged
 # by azl-install.ks.in; keep both paths so offline media and %post agree.
+if [ -f /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules ]; then
+    install -d -m 0755 /etc/polkit-1/rules.d
+    install -m 0644 \
+        /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules \
+        /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
+fi
+
 if [ -f /opt/azl-desktop-assets/bin/azl-first-boot-prepare ]; then
     install -d -m 0755 /usr/libexec/azurelinux-desktop \
         /usr/lib/systemd/system/selinux-autorelabel.service.d

@@ -1,61 +1,66 @@
-# Flatpak: untrusted non-GPG remote blocks user updates
+# Flatpak: untrusted non-GPG remote + polkit for system updates
 
-**Status:** Root cause confirmed. Fix is GPG-sign the Copilot Pages
-OSTree remote (copilot-desktop-gtk). Nested/installed systems need a
-signed Pages publish + remote re-add/import before unprivileged updates
-work in GNOME Software.
+**Status:** GPG signing shipped on Pages (0.1.13). Nested install verified
+update path. Polkit `app-update` rule staged for images.
 
 ## Observed (installed nested system, 2026-08-04)
 
-- GNOME Software offers Copilot 0.1.12, appears to update, shows Open,
-  then bounces back to Updatable (0.1.10 ↔ 0.1.12).
-- As the desktop user:
+- GNOME Software bounced Copilot versions; user `flatpak update` failed:
 
   ```
-  flatpak update
   Error: Can't pull from untrusted non-gpg verified remote
   ```
 
-- `sudo flatpak update` succeeds.
-- Live ISO earlier updates used **sudo** for the system remote as well
-  (same restriction); Flathub apps are fine (GPG-signed).
+- `sudo flatpak update` worked.
+- After enabling GPG on the remote, unprivileged update failed with:
 
-## Root cause
+  ```
+  Error: Flatpak system operation Deploy not allowed for user
+  ```
 
-System install under `/var/lib/flatpak` + non-root client uses
-`flatpak_dir_use_system_helper()`. Before calling the helper, Flatpak
-refuses to stage a network pull into a user-owned child repo when the
-remote has `gpg-verify=false`:
+  over **SSH** (not an active logind session). Upstream
+  `org.freedesktop.Flatpak.rules` allows install/uninstall/modify-repo for
+  active local **wheel**, but not `app-update` / `runtime-update`.
 
-```
-Can't pull from untrusted non-gpg verified remote
-```
+## Root causes (two layers)
 
-Root bypasses the helper and pulls directly, so sudo works. Polkit
-passwordless rules do **not** help: the check is client-side before D-Bus.
-
-GNOME Software maps `FLATPAK_ERROR_UNTRUSTED` to a generic failure and
-runs state-recover → version bounce in the UI.
-
-Pages metadata was unsigned on purpose (`stage-flatpak-pages.sh`).
+1. **Unsigned Pages remote:** non-root system installs use the system
+   helper; Flatpak refuses to stage HTTPS pulls when `gpg-verify=false`
+   (`FLATPAK_ERROR_UNTRUSTED`). Root skips the helper.
+2. **Polkit:** even with GPG, Deploy needs an allowed action. Stock rules
+   miss `org.freedesktop.Flatpak.app-update`. SSH never has
+   `subject.active`, so GUI/session testing is required for unprivileged
+   proof.
 
 ## Fix
 
-1. **copilot-desktop-gtk:** GPG-sign the OSTree repo at build time, embed
-   `GPGKey=` in `.flatpakrepo` / `.flatpakref`, CI secret
-   `FLATPAK_GPG_PRIVATE_KEY`. Public key in `packaging/flatpak-gpg/`.
-2. **azurelinux-desktop:** prestage prefers signed remote when `GPGKey=`
-   is present.
-3. **Existing installs** after signed Pages publish:
+1. **copilot-desktop-gtk:** GPG-sign OSTree; `GPGKey=` in
+   `.flatpakrepo` / `.flatpakref`; CI secret `FLATPAK_GPG_PRIVATE_KEY`.
+2. **Existing installs:**
 
    ```bash
-   sudo flatpak remote-delete --system copilot-desktop-gtk || true
-   sudo flatpak remote-add --system \
-     https://sirredbeard.github.io/copilot-desktop-gtk/copilot-desktop-gtk.flatpakrepo
-   flatpak update
+   curl -fsSL https://sirredbeard.github.io/copilot-desktop-gtk/flatpak-signing-key.asc \
+     -o /tmp/fp-key.asc
+   sudo flatpak remote-modify --system --gpg-import=/tmp/fp-key.asc copilot-desktop-gtk
+   sudo flatpak remote-modify --system --gpg-verify copilot-desktop-gtk
+   # ensure config has gpg-verify=true (not no-gpg-verify)
+   flatpak update   # from a logged-in desktop session as wheel
    ```
+
+3. **azurelinux-desktop:** `assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules`
+   grants active local wheel the full Flatpak action set including
+   `app-update`. Staged from live kickstart + installer kickstart.
+
+## Nested QA 2026-08-04
+
+- Pages 0.1.13 has `GPGKey=`.
+- Nested remote switched to `gpg-verify=true` + key import.
+- `sudo flatpak update` → **0.1.13**.
+- Unprivileged over SSH still denied Deploy (expected: not active).
+- Polkit rule installed on nested for GUI Software / terminal-in-session.
 
 ## Related
 
 - `findings/gnome-software-flatpak-empty.md`
 - `scripts/install-copilot-desktop-flatpak.sh`
+- `~/copilot-desktop-gtk/packaging/flatpak-gpg/`
