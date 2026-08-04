@@ -187,14 +187,19 @@ README for the full backstory.
   wipe prior GitHub releases/tags, mint a fresh UTC-date tag with
   `.github/release-notes-template.md`, detect/publish desktop kmods when
   needed, build live ISO + qcow2 + VHDX/VDI/VMDK + installer ISO, build
-  and test the canary container, upload split assets with
-  `gh release upload --clobber`. Manual dispatch exposes boolean flags
-  for `live_iso`, `installer_iso`, `qcow2`, `vhdx`, `vdi`, `vmdk`,
-  `canary`, `kmods`, and `replace_release`. Leave `replace_release` off
-  for focused rebuilds so `scripts/resolve-release-tag.sh` attaches to
-  the single current release and only clobbers the assets this run
-  built. Schedule always sets `replace_release`. There is no separate
-  build-only or canary-only workflow file, and no 3-day canary cron.
+  and test the canary container. Each finished product is hashed, split,
+  and attached to the release **inside** its build job via
+  `scripts/ci-upload-release-asset.sh` (pass `release_tag` from
+  `create-release`). No parent `upload-*` jobs — that used to wait on
+  the whole reusable call. Keep the qcow2 Actions artifact for convert
+  jobs; VHDX/VDI/VMDK are release-only when `release_tag` is set.
+  Manual dispatch exposes boolean flags for `live_iso`, `installer_iso`,
+  `qcow2`, `vhdx`, `vdi`, `vmdk`, `canary`, `kmods`, and
+  `replace_release`. Leave `replace_release` off for focused rebuilds so
+  `scripts/resolve-release-tag.sh` attaches to the single current
+  release and only clobbers the assets this run built. Schedule always
+  sets `replace_release`. There is no separate build-only or canary-only
+  workflow file, and no 3-day canary cron.
   `publish-desktop-kmods.yml` stays a hybrid on purpose: its own early
   kernel-drift schedule/dispatch plus `workflow_call` from `release.yml`
   when `kmods` is on. Do not fold it into `release.yml` only; kernel

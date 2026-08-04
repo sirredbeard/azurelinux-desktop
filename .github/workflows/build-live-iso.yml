@@ -20,6 +20,12 @@ name: Build live ISO and disk images (reusable)
 #   - Jobs: build-iso | build-disk-image (qcow2) | build-vhdx/vdi/vmdk.
 #     Disk kickstart is sed'd from kickstart/azurelinux-desktop-live.ks at
 #     build time (not committed). See kickstart/README.md.
+#   - When release_tag is set, each finished product is hashed, split, and
+#     gh release upload --clobber'd in that job (scripts/ci-upload-release-
+#     asset.sh). Callers must not run a second upload of the same asset.
+#     qcow2 stays an Actions artifact so convert jobs can download it.
+#     VHDX/VDI/VMDK are release-only when release_tag is set (no Actions
+#     artifact once the 7z is on the release).
 #   - Disk path stays anaconda on purpose. The old "not a bootable
 #     partition" failure was xfs/blivet + anaconda efibootmgr bugs, fixed by
 #     UEFI/GPT (not BIOS workarounds). Growroot expands root on first boot.
@@ -48,6 +54,11 @@ on:
       prepare_kernel_modules:
         type: boolean
         default: true
+      # Existing release tag. Empty = build only (Actions artifacts; no
+      # gh release upload). release.yml passes create-release's tag.
+      release_tag:
+        type: string
+        default: ""
 
 permissions:
   # write: commit findings/live-package-list.txt after a successful ISO build
@@ -230,6 +241,18 @@ jobs:
           compression-level: 0
           retention-days: 7
           if-no-files-found: error
+
+      # Publish as soon as this job finishes. Does not wait on disk/VM jobs.
+      - name: Publish live ISO to GitHub Release
+        if: success() && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          isos=(live-result/*.iso)
+          test "${#isos[@]}" -ge 1
+          ./scripts/ci-upload-release-asset.sh "${{ inputs.release_tag }}" "${isos[0]}"
 
       # Real resolved package list from the ISO that just built. Also kept
       # as an artifact for download, and committed into findings/ so the
@@ -689,6 +712,8 @@ jobs:
           # full detail. Print it here and upload it below.
           ls -lah "$GITHUB_WORKSPACE/anaconda" || true
 
+      # Always keep qcow2 as an Actions artifact: convert jobs (vhdx/vdi/
+      # vmdk) download it. Release publish is separate and can run now.
       - name: Upload qcow2 disk image artifact
         if: success()
         continue-on-error: true
@@ -699,6 +724,16 @@ jobs:
           compression-level: 0
           retention-days: 7
           if-no-files-found: warn
+
+      - name: Publish qcow2 to GitHub Release
+        if: success() && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/ci-upload-release-asset.sh \
+            "${{ inputs.release_tag }}" \
+            live-disk-result/azurelinux-desktop-live.qcow2
 
       # This job's own build log, separate from build-iso's - the two
       # jobs run in independent workspaces now and don't share files.
@@ -747,6 +782,9 @@ jobs:
     # concern as build-disk-image's, not evidence this step is shaky.
     continue-on-error: true
     steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
       - name: Install qemu-img and 7-Zip
         run: sudo apt-get update && sudo apt-get install -y qemu-utils 7zip
 
@@ -787,8 +825,21 @@ jobs:
           7z a -mx=9 -bsp1 azurelinux-desktop-live.vhdx.7z azurelinux-desktop-live.vhdx
           rm -f azurelinux-desktop-live.vhdx
 
+      # Release path: 7z goes straight to the release. No Actions artifact
+      # once published (qcow2 remains for this convert's input only).
+      - name: Publish VHDX 7z to GitHub Release
+        if: success() && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/ci-upload-release-asset.sh \
+            "${{ inputs.release_tag }}" \
+            dist/azurelinux-desktop-live.vhdx.7z
+
+      # Build-only path (no release_tag): keep an Actions artifact.
       - name: Upload VHDX disk image artifact
-        if: success()
+        if: success() && inputs.release_tag == ''
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -818,6 +869,9 @@ jobs:
     # CI run yet.
     continue-on-error: true
     steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
       - name: Install qemu-img and 7-Zip
         run: sudo apt-get update && sudo apt-get install -y qemu-utils 7zip
 
@@ -849,8 +903,18 @@ jobs:
           7z a -mx=9 -bsp1 azurelinux-desktop-live.vdi.7z azurelinux-desktop-live.vdi
           rm -f azurelinux-desktop-live.vdi
 
+      - name: Publish VDI 7z to GitHub Release
+        if: success() && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/ci-upload-release-asset.sh \
+            "${{ inputs.release_tag }}" \
+            dist/azurelinux-desktop-live.vdi.7z
+
       - name: Upload VDI disk image artifact
-        if: success()
+        if: success() && inputs.release_tag == ''
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -875,6 +939,9 @@ jobs:
     # at a more exotic option nothing here can actually test.
     continue-on-error: true
     steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
       - name: Install qemu-img and 7-Zip
         run: sudo apt-get update && sudo apt-get install -y qemu-utils 7zip
 
@@ -905,8 +972,18 @@ jobs:
           7z a -mx=9 -bsp1 azurelinux-desktop-live.vmdk.7z azurelinux-desktop-live.vmdk
           rm -f azurelinux-desktop-live.vmdk
 
+      - name: Publish VMDK 7z to GitHub Release
+        if: success() && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/ci-upload-release-asset.sh \
+            "${{ inputs.release_tag }}" \
+            dist/azurelinux-desktop-live.vmdk.7z
+
       - name: Upload VMDK disk image artifact
-        if: success()
+        if: success() && inputs.release_tag == ''
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:

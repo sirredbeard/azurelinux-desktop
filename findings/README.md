@@ -77,6 +77,7 @@ CI refreshes those on successful builds via
 | [`live-iso-installer-parity.md`](live-iso-installer-parity.md) | Parity matrix across deliverables |
 | [`canary-container.md`](canary-container.md) | Package-policy canary OCI image |
 | [`github-actions-build.md`](github-actions-build.md) | Actions graph, lorax/disk CI lessons |
+| [`release-upload-in-build-job.md`](release-upload-in-build-job.md) | In-job release upload; no parent upload-* wait on full reusable call |
 | [`kiwi-ng-installer-build.md`](kiwi-ng-installer-build.md) | Installer KIWI path |
 | [`anaconda-kickstart-patterns.md`](anaconda-kickstart-patterns.md) | Kickstart patterns that matter here |
 | [`anaconda-nvme-cli-offline-repo.md`](anaconda-nvme-cli-offline-repo.md) | Offline nvme-cli gap |

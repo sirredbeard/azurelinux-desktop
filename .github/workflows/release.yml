@@ -9,21 +9,26 @@ name: Release
 #     -> cleanup (only when replacing the release)
 #     -> create-release (when any GitHub Release asset is in scope)
 #     -> kmods (optional; Pages repo, kernel drift)
-#     -> build-live and build-installer in parallel after kmods
+#     -> build-live and build-installer after kmods + create-release
+#        (release_tag passed in; each product uploads as that job ends)
 #     -> canary build+test in parallel with the image builds
-#     -> per-asset upload jobs (each independent, each clobbers in place)
-#     -> finalize
+#     -> finalize (notes only; no second asset upload)
 #
 # Concurrency and failure isolation:
 # - Live ISO, installer ISO, and qcow2 build at the same time (installer
 #   is its own reusable call; live ISO and qcow2 are parallel jobs inside
 #   build-live-iso.yml).
-# - VHDX/VDI/VMDK convert from the finished qcow2 only. They stay 7z
-#   compressed the way build-live-iso.yml already does it.
-# - Canary failure must not block image uploads. Image failure must not
-#   block canary. Live ISO failure must not block qcow2/VM uploads when
-#   the disk build still produced artifacts. Each upload job stands alone
-#   with continue-on-error and only needs its own artifact.
+# - Each finished ISO/qcow2/7z is hashed, split, and attached to the
+#   release inside the build job (scripts/ci-upload-release-asset.sh).
+#   No parent upload-* jobs - avoids waiting on the whole reusable call
+#   and avoids double upload.
+# - qcow2 stays an Actions artifact so VHDX/VDI/VMDK can download it.
+#   Convert formats go to the release only (no Actions artifact when
+#   release_tag is set).
+# - Canary failure must not block image builds. Image failure must not
+#   block canary. Live ISO failure must not block qcow2/VM jobs when
+#   the disk build still produced artifacts (continue-on-error inside
+#   the reusable workflows).
 # - Package lists, build logs, and vendor snapshots stay in the reusable
 #   build workflows. Do not strip those when editing this file.
 #
@@ -237,15 +242,15 @@ jobs:
       && (needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
     uses: ./.github/workflows/publish-desktop-kmods.yml
 
-  # Job-level continue-on-error lives inside build-live-iso.yml (ISO vs
-  # disk). Upload jobs below only need the call not skipped/cancelled;
-  # each download fails soft if its artifact is missing.
+  # Builds wait on create-release so release_tag exists before the first
+  # product finishes. Upload is in-job inside the reusable workflows.
   build-live:
-    needs: [plan, kmods]
+    needs: [plan, kmods, create-release]
     if: |
       always()
       && needs.plan.outputs.need_live_build == 'true'
       && (needs.kmods.result == 'success' || needs.kmods.result == 'skipped')
+      && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
     uses: ./.github/workflows/build-live-iso.yml
     with:
       build_iso: ${{ needs.plan.outputs.live_iso == 'true' }}
@@ -254,16 +259,19 @@ jobs:
       build_vdi: ${{ needs.plan.outputs.vdi == 'true' }}
       build_vmdk: ${{ needs.plan.outputs.vmdk == 'true' }}
       prepare_kernel_modules: false
+      release_tag: ${{ needs.create-release.outputs.tag }}
 
   build-installer:
-    needs: [plan, kmods]
+    needs: [plan, kmods, create-release]
     if: |
       always()
       && needs.plan.outputs.installer_iso == 'true'
       && (needs.kmods.result == 'success' || needs.kmods.result == 'skipped')
+      && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
     uses: ./.github/workflows/build-installer-iso.yml
     with:
       prepare_kernel_modules: false
+      release_tag: ${{ needs.create-release.outputs.tag }}
 
   canary:
     needs: [plan, cleanup]
@@ -334,178 +342,14 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  upload-live-iso:
-    needs: [plan, create-release, build-live]
-    if: |
-      always()
-      && needs.plan.outputs.live_iso == 'true'
-      && needs.create-release.result == 'success'
-      && needs.build-live.result != 'skipped'
-      && needs.build-live.result != 'cancelled'
-    runs-on: ubuntu-24.04
-    continue-on-error: true
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: azurelinux-desktop-live-iso
-          path: dist
-      - working-directory: dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          f=$(ls ./*.iso)
-          sha256sum "$f" > "$f.sha256"
-          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
-          rm -f "$f"
-          gh release upload "${{ needs.create-release.outputs.tag }}" \
-            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
-
-  upload-qcow2:
-    needs: [plan, create-release, build-live]
-    if: |
-      always()
-      && needs.plan.outputs.qcow2 == 'true'
-      && needs.create-release.result == 'success'
-      && needs.build-live.result != 'skipped'
-      && needs.build-live.result != 'cancelled'
-    runs-on: ubuntu-24.04
-    continue-on-error: true
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: azurelinux-desktop-live-qcow2
-          path: dist
-      - working-directory: dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          f=$(ls ./*.qcow2)
-          sha256sum "$f" > "$f.sha256"
-          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
-          rm -f "$f"
-          gh release upload "${{ needs.create-release.outputs.tag }}" \
-            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
-
-  upload-vhdx:
-    needs: [plan, create-release, build-live]
-    if: |
-      always()
-      && needs.plan.outputs.vhdx == 'true'
-      && needs.create-release.result == 'success'
-      && needs.build-live.result != 'skipped'
-      && needs.build-live.result != 'cancelled'
-    runs-on: ubuntu-24.04
-    continue-on-error: true
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: azurelinux-desktop-live-vhdx
-          path: dist
-      - working-directory: dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          f=$(ls ./*.vhdx.7z)
-          sha256sum "$f" > "$f.sha256"
-          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
-          rm -f "$f"
-          gh release upload "${{ needs.create-release.outputs.tag }}" \
-            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
-
-  upload-vdi:
-    needs: [plan, create-release, build-live]
-    if: |
-      always()
-      && needs.plan.outputs.vdi == 'true'
-      && needs.create-release.result == 'success'
-      && needs.build-live.result != 'skipped'
-      && needs.build-live.result != 'cancelled'
-    runs-on: ubuntu-24.04
-    continue-on-error: true
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: azurelinux-desktop-live-vdi
-          path: dist
-      - working-directory: dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          f=$(ls ./*.vdi.7z)
-          sha256sum "$f" > "$f.sha256"
-          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
-          rm -f "$f"
-          gh release upload "${{ needs.create-release.outputs.tag }}" \
-            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
-
-  upload-vmdk:
-    needs: [plan, create-release, build-live]
-    if: |
-      always()
-      && needs.plan.outputs.vmdk == 'true'
-      && needs.create-release.result == 'success'
-      && needs.build-live.result != 'skipped'
-      && needs.build-live.result != 'cancelled'
-    runs-on: ubuntu-24.04
-    continue-on-error: true
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: azurelinux-desktop-live-vmdk
-          path: dist
-      - working-directory: dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          f=$(ls ./*.vmdk.7z)
-          sha256sum "$f" > "$f.sha256"
-          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
-          rm -f "$f"
-          gh release upload "${{ needs.create-release.outputs.tag }}" \
-            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
-
-  upload-installer:
-    needs: [plan, create-release, build-installer]
-    if: |
-      always()
-      && needs.plan.outputs.installer_iso == 'true'
-      && needs.create-release.result == 'success'
-      && needs.build-installer.result != 'skipped'
-      && needs.build-installer.result != 'cancelled'
-    runs-on: ubuntu-24.04
-    continue-on-error: true
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: azurelinux-desktop-install-iso
-          path: dist
-      - working-directory: dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          f=$(ls ./*.iso)
-          sha256sum "$f" > "$f.sha256"
-          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
-          rm -f "$f"
-          gh release upload "${{ needs.create-release.outputs.tag }}" \
-            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
-
+  # No parent upload-* jobs. Each build job publishes when its product is
+  # ready (release_tag + scripts/ci-upload-release-asset.sh).
   finalize:
     needs:
       - plan
       - create-release
-      - upload-live-iso
-      - upload-qcow2
-      - upload-vhdx
-      - upload-vdi
-      - upload-vmdk
-      - upload-installer
+      - build-live
+      - build-installer
       - canary
       - canary-test
       - kmods
@@ -516,29 +360,43 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.create-release.outputs.tag }}
           NEED_REL: ${{ needs.plan.outputs.need_github_release }}
+          WANT_LIVE: ${{ needs.plan.outputs.live_iso }}
+          WANT_QCOW2: ${{ needs.plan.outputs.qcow2 }}
+          WANT_VHDX: ${{ needs.plan.outputs.vhdx }}
+          WANT_VDI: ${{ needs.plan.outputs.vdi }}
+          WANT_VMDK: ${{ needs.plan.outputs.vmdk }}
+          WANT_INSTALL: ${{ needs.plan.outputs.installer_iso }}
         run: |
           set -euo pipefail
           echo "kmods=${{ needs.kmods.result }}"
           echo "canary=${{ needs.canary.result }}"
           echo "canary-test=${{ needs.canary-test.result }}"
-          echo "live-iso=${{ needs.upload-live-iso.result }}"
-          echo "qcow2=${{ needs.upload-qcow2.result }}"
-          echo "vhdx=${{ needs.upload-vhdx.result }}"
-          echo "vdi=${{ needs.upload-vdi.result }}"
-          echo "vmdk=${{ needs.upload-vmdk.result }}"
-          echo "installer=${{ needs.upload-installer.result }}"
+          echo "build-live=${{ needs.build-live.result }}"
+          echo "build-installer=${{ needs.build-installer.result }}"
           if [ "$NEED_REL" != "true" ] || [ -z "${TAG:-}" ]; then
             echo "No GitHub Release tag in this run; skip asset notes."
             exit 0
           fi
           assets=$(gh release view "$TAG" -R "${{ github.repository }}" --json assets --jq '.assets[].name' || true)
           missing=""
-          echo "$assets" | grep -q 'azurelinux-desktop-live\.iso\.split\.' || missing="$missing live-iso"
-          echo "$assets" | grep -q '\.qcow2\.split\.' || missing="$missing qcow2"
-          echo "$assets" | grep -q '\.vhdx\.7z\.split\.' || missing="$missing vhdx"
-          echo "$assets" | grep -q '\.vdi\.7z\.split\.' || missing="$missing vdi"
-          echo "$assets" | grep -q '\.vmdk\.7z\.split\.' || missing="$missing vmdk"
-          echo "$assets" | grep -qiE 'install.*\.iso\.split\.|azurelinux-desktop-install' || missing="$missing installer-iso"
+          if [ "$WANT_LIVE" = "true" ]; then
+            echo "$assets" | grep -q 'azurelinux-desktop-live\.iso\.split\.' || missing="$missing live-iso"
+          fi
+          if [ "$WANT_QCOW2" = "true" ]; then
+            echo "$assets" | grep -q '\.qcow2\.split\.' || missing="$missing qcow2"
+          fi
+          if [ "$WANT_VHDX" = "true" ]; then
+            echo "$assets" | grep -q '\.vhdx\.7z\.split\.' || missing="$missing vhdx"
+          fi
+          if [ "$WANT_VDI" = "true" ]; then
+            echo "$assets" | grep -q '\.vdi\.7z\.split\.' || missing="$missing vdi"
+          fi
+          if [ "$WANT_VMDK" = "true" ]; then
+            echo "$assets" | grep -q '\.vmdk\.7z\.split\.' || missing="$missing vmdk"
+          fi
+          if [ "$WANT_INSTALL" = "true" ]; then
+            echo "$assets" | grep -q 'azurelinux-desktop-install\.iso\.split\.' || missing="$missing installer-iso"
+          fi
           body=$(gh release view "$TAG" -R "${{ github.repository }}" --json body --jq '.body' || true)
           clean_body=$(printf '%s' "$body" | grep -v '^\*\*Note:\*\* the following artifact(s) did not make it into this release:' || true)
           if [ -n "$missing" ]; then
