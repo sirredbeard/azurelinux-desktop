@@ -575,6 +575,17 @@ if [ -f /opt/azl-desktop-assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; th
         /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
     rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop 2>/dev/null || true
 fi
+if [ -f /opt/azl-desktop-assets/gpg/signing-key.asc ]; then
+    install -d -m 0755 /usr/share/azurelinux-desktop/gpg
+    install -m 0644 \
+        /opt/azl-desktop-assets/gpg/signing-key.asc \
+        /usr/share/azurelinux-desktop/gpg/signing-key.asc
+elif [ -f /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
+    install -d -m 0755 /usr/share/azurelinux-desktop/gpg
+    install -m 0644 \
+        /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
+        /usr/share/azurelinux-desktop/gpg/signing-key.asc
+fi
 
 if [ -f /opt/azl-desktop-assets/bin/azl-first-boot-prepare ]; then
     install -d -m 0755 /usr/libexec/azurelinux-desktop \

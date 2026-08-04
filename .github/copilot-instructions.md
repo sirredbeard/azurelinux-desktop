@@ -365,10 +365,10 @@ One shared OpenPGP key covers:
 
 ### Key identity
 
-- UID: `copilot-desktop-gtk Flatpak (GitHub Pages Flatpak repo signing)`
-- Email: `flatpak-signing@sirredbeard.github.io`
-- Short id: see `packaging/rpm-gpg/keyid.txt`
-- Public file in-tree: `packaging/rpm-gpg/public.asc` and
+- UID: `Hayden Barnes (sirredbeard)`
+- Email: `gpg@sirredbeard.github.io`
+- Short id: see `packaging/gpg/keyid.txt`
+- Public file in-tree: `packaging/gpg/public.asc` and
   `assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop`
 
 ### Actions secrets (`sirredbeard/azurelinux-desktop`)
@@ -377,19 +377,20 @@ Same names and material as `copilot-desktop-gtk`:
 
 | Secret | Purpose |
 | --- | --- |
-| `FLATPAK_GPG_PRIVATE_KEY` | Armored private key (CI signing) |
-| `FLATPAK_GPG_PUBLIC_KEY` | Armored public key |
-| `FLATPAK_GPG_KEY_ID` | Short key id |
+| `GPG_PRIVATE_KEY` | Armored private key (CI signing) |
+| `GPG_PUBLIC_KEY` | Armored public key |
+| `GPG_KEY_ID` | Short key id |
 
 `gh secret list -R sirredbeard/azurelinux-desktop` shows names only.
 GitHub never returns values. Keep a private offline backup. Detail:
-`packaging/rpm-gpg/README.md`.
+`packaging/gpg/README.md`.
 
 ### Workflows and clients
 
 - `publish-desktop-kmods.yml` runs `scripts/sign-desktop-rpms.sh` on every
   RPM in the staged tree **before** `createrepo_c`, then publishes
   `RPM-GPG-KEY-azurelinux-desktop` at the Pages site root.
+- Images also seed `/usr/share/azurelinux-desktop/gpg/signing-key.asc` (same public key).
 - Image `.repo` files use `gpgcheck=1` and
   `gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop`
   (live kickstart, installer `post-install.sh`, canary).

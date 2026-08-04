@@ -151,6 +151,31 @@ handoff. Early KMS mitigates; does not fully eliminate.
 Short animated phase in QEMU is usually fast boot reaching the "done" state.
 Open tracking: `plymouth-animation-duration.md`.
 
+### Systemd unit names under the logo (live ISO / VM)
+
+**Status:** Fix staged in theme (needs rebuild to verify)
+
+**Observed (2026.08.04 live ISO in QEMU):** logo and dark background correct, but
+the line under the logo cycled through unit names (`plymouth-switch-root.service`,
+`systemd-udev-settle.service`, `gdm.service`, …) instead of only the glowing-dot
+throbber. Looks like "details" mode; it is not.
+
+**Root cause:** `assets/plymouth/azurelinux/azurelinux.script` registered
+`Plymouth.SetUpdateStatusFunction` and forwarded every status string into the
+same `Image.Text` path used for deliberate messages. systemd/Plymouth feed
+**starting unit names** through update-status on every boot. That path was added
+so first-boot disk expand could show text, but growroot already uses
+`plymouth display-message`, which hits `SetMessageFunction` only.
+
+**Fix:** keep `SetMessageFunction` for growroot's
+`Expanding disk and finishing setup…` text. Remove `SetUpdateStatusFunction` so
+live ISO, qcow2, and other VM images stay animation-only. Installed first boot
+still gets the growroot line via `display-message`. Theme is shared from
+`assets/plymouth/azurelinux/` into live kickstart and installer KIWI paths.
+
+**Not caused by:** missing `rhgb quiet` (live GRUB has both), serial console
+(graphical theme loaded), or a wrong theme name (`Theme=azurelinux`).
+
 ## Verification commands
 
 ```bash

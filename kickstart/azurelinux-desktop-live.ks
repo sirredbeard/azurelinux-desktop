@@ -617,6 +617,19 @@ else
         -o /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
 fi
 rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop 2>/dev/null || true
+
+# Project signing public key (Flatpak remote trust helper + human path).
+install -d -m 0755 /usr/share/azurelinux-desktop/gpg
+if [ -f /workspace/assets/gpg/signing-key.asc ]; then
+    install -m 0644 /workspace/assets/gpg/signing-key.asc \
+        /usr/share/azurelinux-desktop/gpg/signing-key.asc
+elif [ -f /root/assets/gpg/signing-key.asc ]; then
+    install -m 0644 /root/assets/gpg/signing-key.asc \
+        /usr/share/azurelinux-desktop/gpg/signing-key.asc
+elif [ -f /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
+    install -m 0644 /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
+        /usr/share/azurelinux-desktop/gpg/signing-key.asc
+fi
 cat > /etc/yum.repos.d/azl-desktop-kmods.repo << 'EOF'
 [azl-desktop-kmods]
 name=Azure Linux Desktop kernel modules

@@ -39,6 +39,14 @@ fi
 if [ -s /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
     rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop 2>/dev/null || true
 fi
+install -d -m 0755 /usr/share/azurelinux-desktop/gpg
+if [ -f /opt/azl-desktop-assets/gpg/signing-key.asc ]; then
+    install -m 0644 /opt/azl-desktop-assets/gpg/signing-key.asc \
+        /usr/share/azurelinux-desktop/gpg/signing-key.asc
+elif [ -s /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
+    install -m 0644 /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
+        /usr/share/azurelinux-desktop/gpg/signing-key.asc
+fi
 cat > /etc/yum.repos.d/azl-desktop-kmods.repo << 'REPO'
 [azl-desktop-kmods]
 name=Azure Linux Desktop kernel modules

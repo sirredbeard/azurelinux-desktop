@@ -43,7 +43,7 @@ echo "signing ${#RPMS[@]} RPM(s) with key $GPG_KEY_ID"
 rpmsign --addsign "${RPMS[@]}"
 
 # Import pubkey so --checksig can validate on this host.
-PUB_ASC="${ROOT}/packaging/rpm-gpg/public.asc"
+PUB_ASC="${ROOT}/packaging/gpg/public.asc"
 if [[ ! -s "$PUB_ASC" ]]; then
   mkdir -p "${ROOT}/dist"
   gpg --homedir "$GPG_HOME" --armor --export "$GPG_KEY_ID" > "${ROOT}/dist/RPM-GPG-KEY-azurelinux-desktop"

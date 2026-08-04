@@ -356,8 +356,8 @@ jobs:
       - name: Merge prior repo, createrepo, write indexes
         env:
           KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
-          FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
-          FLATPAK_GPG_KEY_ID: ${{ secrets.FLATPAK_GPG_KEY_ID }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
         run: |
           set -euo pipefail
           mkdir -p site/repo
@@ -445,26 +445,26 @@ jobs:
 
           # Sign every RPM (including merged priors + rebuilt policy) with the
           # shared project OpenPGP key before createrepo. Same key as Copilot
-          # Flatpak Pages (secrets FLATPAK_GPG_*). Sign inside Fedora: Ubuntu
+          # Flatpak Pages (secrets GPG_*). Sign inside Fedora: Ubuntu
           # runners often lack a working rpm-sign stack.
-          if [[ -z "${FLATPAK_GPG_PRIVATE_KEY:-}" ]]; then
-            echo "error: FLATPAK_GPG_PRIVATE_KEY secret required to sign kmod RPMs" >&2
+          if [[ -z "${GPG_PRIVATE_KEY:-}" ]]; then
+            echo "error: GPG_PRIVATE_KEY secret required to sign kmod RPMs" >&2
             exit 1
           fi
           chmod +x scripts/rpm-gpg-import.sh scripts/sign-desktop-rpms.sh
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/workspace" \
-            -e FLATPAK_GPG_PRIVATE_KEY \
-            -e FLATPAK_GPG_KEY_ID \
+            -e GPG_PRIVATE_KEY \
+            -e GPG_KEY_ID \
             -w /workspace \
             registry.fedoraproject.org/fedora:43 \
             bash -euo pipefail -c '
               dnf5 install -y -q rpm-sign gnupg2
               ./scripts/sign-desktop-rpms.sh site/repo
             '
-          install -m 0644 packaging/rpm-gpg/public.asc \
+          install -m 0644 packaging/gpg/public.asc \
             site/RPM-GPG-KEY-azurelinux-desktop
-          install -m 0644 packaging/rpm-gpg/public.asc \
+          install -m 0644 packaging/gpg/public.asc \
             site/repo/RPM-GPG-KEY-azurelinux-desktop
 
           createrepo_c site/repo

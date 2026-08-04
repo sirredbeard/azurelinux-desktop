@@ -134,6 +134,14 @@ if [ -f "$REPO_ROOT/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop" ]; then
     install -m 0644 "$REPO_ROOT/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop" \
         "$ROOTFS/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
 fi
+mkdir -p "$ROOTFS/usr/share/azurelinux-desktop/gpg"
+if [ -f "$REPO_ROOT/assets/gpg/signing-key.asc" ]; then
+    install -m 0644 "$REPO_ROOT/assets/gpg/signing-key.asc" \
+        "$ROOTFS/usr/share/azurelinux-desktop/gpg/signing-key.asc"
+elif [ -f "$ROOTFS/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop" ]; then
+    install -m 0644 "$ROOTFS/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop" \
+        "$ROOTFS/usr/share/azurelinux-desktop/gpg/signing-key.asc"
+fi
 mkdir -p "$REPO_DIR"
 cp "$REPO_FILE" "$REPO_DIR/azl-canary.repo"
 

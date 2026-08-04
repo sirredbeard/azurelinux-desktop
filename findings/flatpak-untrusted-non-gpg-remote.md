@@ -38,7 +38,7 @@ an active local wheel session (not SSH).
 ## Fix
 
 1. **copilot-desktop-gtk:** GPG-sign OSTree; `GPGKey=` in
-   `.flatpakrepo` / `.flatpakref`; CI secret `FLATPAK_GPG_PRIVATE_KEY`.
+   `.flatpakrepo` / `.flatpakref`; CI secret `GPG_PRIVATE_KEY`.
 2. **Existing installs:**
 
    ```bash
@@ -69,7 +69,7 @@ an active local wheel session (not SSH).
 
 - `findings/gnome-software-flatpak-empty.md`
 - `scripts/install-copilot-desktop-flatpak.sh`
-- `~/copilot-desktop-gtk/packaging/flatpak-gpg/`
+- ``copilot-desktop-gtk/packaging/gpg/` (public) + Actions `GPG_*` secrets`
 - Template twin: `github-pages-flatpak-repo` (sign-then-delta scripts)
 
 
@@ -150,5 +150,24 @@ Live/installer do not install a dedicated Flatpak public key under
 `install-copilot-desktop-flatpak.sh` / prestage pulls the signed Pages
 `.flatpakref` (`GPGKey=`). The system remote then has `gpg-verify=true`.
 The same OpenPGP material is reused to **RPM-sign** desktop kmods (see
-`packaging/rpm-gpg/` and `out-of-tree-usb-kmods-pages.md`).
+`packaging/gpg/` and `out-of-tree-usb-kmods-pages.md`).
 
+
+
+## Key rotation 2026-08-04
+
+Rotated to a shared project key used for both Flatpak OSTree and desktop
+kmod RPMs.
+
+- UID: Hayden Barnes (sirredbeard) <gpg@sirredbeard.github.io>
+- Short id: `8DA5774C35DA9BF9`
+- Fingerprint: `09DCEFE2212F7881EE2058088DA5774C35DA9BF9`
+- Actions secrets (both `copilot-desktop-gtk` and `azurelinux-desktop`):
+  `GPG_PRIVATE_KEY`, `GPG_PUBLIC_KEY`, `GPG_KEY_ID` (old `FLATPAK_GPG_*` removed)
+- Public on Pages: `signing-key.asc` and `flatpak-signing-key.asc`
+- Images seed:
+  - `/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop`
+  - `/usr/share/azurelinux-desktop/gpg/signing-key.asc`
+- After rotation: republish Flatpak Pages (new release) and kmod Pages
+  (`publish-desktop-kmods.yml` with `republish=true`) before shipping images
+  that enforce `gpgcheck=1` / Flatpak `gpg-verify=true`.
