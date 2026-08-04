@@ -132,7 +132,7 @@ All [scripts](scripts/), [kickstart files](kickstart/), and
 
 ### Desktop hardware modules
 
-Azure Linux 4.0 turns several desktop drivers off in the stock cloud kernel. Fine for many VMs. Rough on a laptop: no USB keyboard/mouse path, a USB stick cannot present the live or installer root, Intel Wi-Fi never binds, ALSA/HDA never loads, Bluetooth has no kernel stack, UVC cameras stay dark, Type-C/UCSI docking hooks are missing, and ThinkPad platform keys/LEDs need `thinkpad_acpi`. aarch64 already has more of this in-tree. On x86_64, `cfg80211`/`mac80211` and parts of media/videobuf2 stay as modules; the vendor pieces under `CONFIG_WLAN`, `CONFIG_SOUND`, `CONFIG_BT`, `CONFIG_MEDIA_USB_SUPPORT`, `CONFIG_TYPEC`, and `CONFIG_THINKPAD_ACPI` are what this project rebuilds out of tree.
+Azure Linux 4.0 turns several desktop drivers off in the stock cloud kernel. Fine for many VMs. Rough on a laptop: no USB keyboard/mouse path, a USB stick cannot present the live or installer root, Intel Wi-Fi never binds, ALSA/HDA never loads, Bluetooth has no kernel stack, UVC cameras stay dark, Type-C/UCSI docking hooks are missing, and ThinkPad platform keys/LEDs need `thinkpad_acpi`. aarch64 already has more of this in-tree. On x86_64, `cfg80211`/`mac80211` and parts of media/videobuf2 stay as modules; `CONFIG_WLAN`, `CONFIG_SOUND`, `CONFIG_BT`, `CONFIG_MEDIA_USB_SUPPORT`, `CONFIG_TYPEC`, and `CONFIG_THINKPAD_ACPI` are what this project builds out of tree.
 
 This project builds out-of-tree modules against each exact Azure `kernel-devel` release and publishes a small DNF repo hosted by [GitHub Pages](https://sirredbeard.github.io/azurelinux-desktop/repo/):
 
@@ -155,7 +155,7 @@ This project builds out-of-tree modules against each exact Azure `kernel-devel` 
 Userspace/firmware stay on Azure packages where they exist:
 `iwlwifi-*-firmware`, `intel-audio-firmware`, `alsa-ucm`, `bluez`, `NetworkManager-bluetooth`.
 
-Build and publish:
+Build and publish workflows:
 
 * [`.github/workflows/publish-desktop-kmods.yml`](.github/workflows/publish-desktop-kmods.yml)
 * [`scripts/build-desktop-kmods.sh`](scripts/build-desktop-kmods.sh)
@@ -193,9 +193,9 @@ Swap `-Live` for whichever you want:
 | `-VirtualBox` | Live desktop, pre-built VDI for VirtualBox |
 | `-VMWare` | Live desktop, pre-built VMDK for VMware |
 
-Don't have [PowerShell](https://github.com/PowerShell/PowerShell)? [Get it](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell).
+Don't have [PowerShell](https://github.com/PowerShell/PowerShell)? [Get it](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell)!
 
-Every asset runs well over GitHub's 2 GiB per-asset cap on releases, so it ships as split parts plus a `.sha256` manifest, and VHDX/VDI/VMDK also ship 7z-compressed on top (qemu-img only compresses qcow2 natively). The script handles all of that for you - downloading every part, reassembling, verifying, and decompressing, using [`aria2c`](https://aria2.github.io/) if it's on PATH for faster downloads, falling back to `Invoke-WebRequest` otherwise. `-OutputDirectory <path>` and `-KeepParts` combine with any of the flags above. 
+Build artifacts run over GitHub's 2 GiB cap on releases, so it ships as split parts plus a `.sha256` manifest, and VHDX/VDI/VMDK also ship 7z-compressed on top (qemu-img only compresses qcow2 natively). The script handles all of that for you: downloading every part, reassembling, verifying, and decompressing, using [`aria2c`](https://aria2.github.io/) if it's on PATH for faster downloads, falling back to `Invoke-WebRequest` otherwise. `-OutputDirectory <path>` and `-KeepParts` combine with any of the flags above. 
 
 See [`scripts/Get-AzureLinuxDesktop.ps1`](scripts/Get-AzureLinuxDesktop.ps1) for the full flag reference, more example invocations, and why assets are packaged this way.
 
@@ -214,37 +214,25 @@ sha256sum -c azurelinux-desktop-live.vhdx.7z.sha256
 7z x azurelinux-desktop-live.vhdx.7z
 ```
 
-[`scripts/qemu-test-live-iso.sh`](scripts/qemu-test-live-iso.sh) boots the reassembled live ISO with `-cpu host`, a QEMU USB tablet, and a real GTK window, so you can actually watch the desktop and test pointer input instead of squinting at serial output. The USB tablet is deliberate: it exercises the image's project-provided `usbhid` module rather than QEMU's default PS/2 mouse path. Set `AZL_QEMU_INPUT_DEVICE` to `usb-mouse`, `virtio-tablet`, or `virtio-mouse` to try another input path.
+[`scripts/qemu-test-live-iso.sh`](scripts/qemu-test-live-iso.sh) boots the reassembled live ISO with `-cpu host`, a QEMU USB tablet, and a real GTK window, so you can actually watch the desktop and test pointer input instead of squinting at serial output. The USB tablet is deliberate: it exercises the image's project-provided `usbhid` module rather than QEMU's default PS/2 mouse path.
 
-```bash
-./scripts/qemu-test-live-iso.sh /path/to/azurelinux-desktop-live.iso
-```
 
 ### Using the installer ISO
 
-The installer is **text-mode Anaconda**, same as Microsoft's own Azure
-Linux installer media. It is not a graphical desktop installer.
+The installer is **text-mode Anaconda**, same as Microsoft's own Azure Linux installer media. It is not a graphical desktop installer.
 
 What you will see:
 
 1. Boot the ISO. A small live environment comes up.
 2. You set an **administrator username and password** first.
 3. Anaconda then launches for the rest of the install.
-4. **Storage starts incomplete on purpose.** Disk partitioning is left to
-   Anaconda's interactive TUI. You pick the target disk, layout, and
-   optional encryption yourself. There is no autopart kickstart that
-   silently wipes a disk for you.
-5. Language, time zone, and similar spokes ship with defaults. Change them
-   if you care. Storage is the spoke that blocks **begin installation**
-   until you finish it.
-6. The package payload installs from the offline repo on the ISO. No
-   network is required for that step.
+4. **Storage starts incomplete on purpose.** Disk partitioning is left to Anaconda's interactive TUI. You pick the target disk, layout, and optional encryption yourself. There is no autopart kickstart that silently wipes a disk for you.
+5. Language, time zone, and similar spokes ship with defaults. Change them if you care. Storage is the spoke that blocks **begin installation** until you finish it.
+6. The package payload installs from the offline repo on the ISO. No network is required for that step.
 
-After install, reboot into the new system and sign in with the admin
-account you created.
+After install, reboot into the new system and sign in with the admin account you created.
 
-[`scripts/qemu-test-install-iso.sh`](scripts/qemu-test-install-iso.sh) boots
-the installer ISO in QEMU with a persistent qcow2 target disk:
+[`scripts/qemu-test-install-iso.sh`](scripts/qemu-test-install-iso.sh) boots the installer ISO in QEMU with a persistent qcow2 target disk:
 
 ```bash
 ./scripts/qemu-test-install-iso.sh /path/to/azurelinux-desktop-install.iso
@@ -256,27 +244,19 @@ the installer ISO in QEMU with a persistent qcow2 target disk:
 ./scripts/qemu-test-disk-image.sh /path/to/azurelinux-desktop-live.qcow2
 ```
 
-The `-Kvm`/`-Hyperv`/`-VirtualBox`/`-VMWare` disk images all skip the install step entirely - boot the qcow2 straight in QEMU/KVM, attach the VHDX to a Hyper-V Generation 2 VM, attach the VDI to a VirtualBox VM, or attach the VMDK to a VMware Workstation/Player VM (all UEFI-only, same as the installed system itself), and you're at the desktop with no Anaconda run needed. All four start from the same grown qcow2. VHDX, VDI, and VMDK are produced with `qemu-img convert` only. This project boot-tests the qcow2 path. The other three formats are not boot-tested here yet (no Hyper-V, VirtualBox, or VMware in this environment on purpose), so treat them as best-effort container conversions until someone runs them on the real hypervisor.
+The `-Kvm`/`-Hyperv`/`-VirtualBox`/`-VMWare` disk images all skip the install step entirely, boot the qcow2 straight in QEMU/KVM, attach the VHDX to a Hyper-V Generation 2 VM, attach the VDI to a VirtualBox VM, or attach the VMDK to a VMware Workstation/Player VM (UEFI), and you're at the desktop with no Anaconda run needed. All four start from the same grown qcow2. VHDX, VDI, and VMDK are produced with `qemu-img convert` only. This project boot-tests the qcow2 path. The other three formats are not boot-tested here yet (no Hyper-V, VirtualBox, or VMware in this environment on purpose), so treat them as best-effort container conversions until someone runs them on the real hypervisor.
 
-Real hardware follows the same media path once you burn or flash the live or
-installer ISO. Dual-boot on bare metal is already being used for development;
-treat a full-disk install as destructive and unforgiving.
+Real hardware follows the same media path once you burn or flash the live or installer ISO. Dual-boot on bare metal is already being used for development; treat a full-disk install as destructive and unforgiving.
 
 ### Default accounts
 
-The live ISO and pre-built disk images autologin as Fedora-style `liveuser`
-(no password, passwordless `sudo`). Nothing to type. They are throwaway test
-images.
+The live ISO and pre-built disk images autologin as Fedora-style `liveuser` (no password, passwordless `sudo`). Nothing to type. They are throwaway test images.
 
-On the installer ISO, there is no fixed account. You set the administrator
-username and password in the text installer before the payload runs.
+On the installer ISO, there is no fixed account. You set the administrator username and password in the text installer before the payload runs.
 
 ## Where do I get help
 
-This is a one-person experiment, not a supported project. Open an issue if
-something here is wrong, or if you have found a fix to one of the open
-conflicts. I would genuinely like to know. Do not expect support running this
-on your own hardware.
+This is a one-person experiment, not a supported project. Open an issue if something here is wrong, or if you have found a fix to one of the open conflicts. I would genuinely like to know. Do not expect support running this on your own hardware.
 
 ## License
 
