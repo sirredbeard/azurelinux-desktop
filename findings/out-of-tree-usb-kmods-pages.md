@@ -117,6 +117,68 @@ Rough flow for each new Azure kernel:
 The workflow runs on a short timer and on demand. Azure kernel publishes
 are irregular; polling beats pretending there is a calendar.
 
+## Detect gate: why prepare/build/package/publish often skip
+
+Workflow: [`.github/workflows/publish-desktop-kmods.yml`](../.github/workflows/publish-desktop-kmods.yml).
+Hybrid on purpose: own schedule/path-push/dispatch **and**
+`workflow_call` from [`release.yml`](../.github/workflows/release.yml)
+when the release `kmods` flag is on.
+
+**detect always runs** (when the workflow is invoked). Later jobs are
+gated:
+
+```yaml
+# prepare (and everything after it)
+if: ${{ needs.detect.outputs.build_required == 'true' }}
+```
+
+So when `build_required=false`, GitHub marks **prepare**, **build-family**,
+**package**, and **publish** as **skipped**. The reusable workflow still
+reports success; release continues. That is intentional, not a stuck
+job.
+
+### What detect does (short job, sparse log)
+
+1. Query Azure Linux base for the latest `kernel` NEVRA (`dnf5 repoquery`
+   inside `mcr.microsoft.com/azurelinux-beta/base/core:4.0`).
+2. Download Pages `manifest.txt`
+   (`https://sirredbeard.github.io/azurelinux-desktop/repo/manifest.txt`).
+3. For that kernel release string, check that every required RPM name is
+   listed: policy + usbhid + usb-storage + iwlwifi + sound + bluetooth +
+   uvc + thinkpad + typec (`${base}-${krel}.rpm` exact lines).
+4. Set `build_required` and the family matrix outputs. No full checkout,
+   no compile. A few seconds and a thin log is normal.
+
+### When `build_required` becomes true
+
+| Trigger | Rebuild? |
+| --- | --- |
+| `push` to kmod scripts or this workflow file | **Always** |
+| `republish=true` (workflow_dispatch or `workflow_call` input) | **Always** |
+| Any required RPM missing from Pages for the current kernel | **Yes** |
+| Schedule or release call, `republish=false`, full set already on Pages | **No** (`build_required=false`) |
+
+`release.yml` calls the reusable workflow with default **`republish=false`**.
+So a full ISO release often shows **kmods / detect** success and the
+rest skipped when Pages already matches upstream kernel. That does not
+mean kmods were forgotten; it means the DNF repo is already complete.
+
+### How to force a rebuild
+
+* Dispatch **Desktop kmod repo** (or pass through release) with
+  **`republish=true`**, or
+* Change a path under `scripts/build-desktop-kmods.sh`,
+  `scripts/generate-kmod-repo-index.sh`, or
+  `publish-desktop-kmods.yml` so a `push` rebuild fires, or
+* Wait until Azure ships a newer kernel and the manifest check fails.
+
+### Example
+
+Release run `30906725177` (2026-08-04): detect saw
+`EVENT_NAME=workflow_dispatch`, `REPUBLISH=false`, Pages already had the
+full `6.18.31-1.9.azl4` set → `build_required=false` → prepare and below
+skipped. Live/installer/disk jobs still proceeded after kmods finished.
+
 ## Policy package (no orphans)
 
 Azure enables module versioning. An old `usbhid.ko` or `iwlwifi.ko`
