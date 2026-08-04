@@ -136,6 +136,19 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
         | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
     flatpak remotes --system --columns=name | grep -qx 'copilot-desktop-gtk'
     flatpak remotes --system --columns=name | grep -qx 'flathub'
+    # Pages stream is GPG-signed; system remote must verify signatures.
+    if [[ -f /var/lib/flatpak/repo/config ]]; then
+        awk '
+            $0 == "[remote \"copilot-desktop-gtk\"]" {insec=1; next}
+            /^\[/ {insec=0}
+            insec && $0 ~ /^gpg-verify=true/ {found=1}
+            END {exit found ? 0 : 1}
+        ' /var/lib/flatpak/repo/config
+        echo 'OK: copilot-desktop-gtk gpg-verify=true'
+    else
+        echo 'error: missing /var/lib/flatpak/repo/config' >&2
+        exit 1
+    fi
 } | tee "$LOG_DIR/copilot-flatpak-info.log"
 
 # Pages OSTree must be reachable for updates (not just present on disk).

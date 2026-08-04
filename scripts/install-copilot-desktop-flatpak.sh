@@ -21,6 +21,10 @@
 #         finished image; using the user CLI avoids needing a privileged
 #         ostree "bare" repo init inside build containers. Layout matches
 #         what GNOME and `flatpak --system` read from /var/lib/flatpak.
+#
+# Trust:  Pages stream is GPG-signed (0.1.15+). Assert remote gpg-verify=true
+#         after install. Non-root system updates also need the image polkit
+#         rule (assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules).
 
 set -euo pipefail
 
@@ -48,7 +52,9 @@ export FLATPAK_USER_CACHE_DIR="${ROOTFS}/var/tmp/flatpak-cache"
 mkdir -p "$FLATPAK_USER_DIR" "$FLATPAK_USER_CACHE_DIR"
 
 APP_ID="com.github.sirredbeard.copilot-desktop-gtk"
+REMOTE_NAME="copilot-desktop-gtk"
 FLATPAKREF_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${APP_ID}.flatpakref"
+REPO_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${REMOTE_NAME}.flatpakrepo"
 RUNTIME_REF="org.gnome.Platform//50"
 
 echo "=== Installing Copilot Flatpak into ${FLATPAK_USER_DIR} ==="
@@ -64,27 +70,79 @@ fi
 # Platform mid-transaction on a half-populated image root.
 flatpak install --user --noninteractive -y flathub "$RUNTIME_REF"
 
-# flatpakref registers SuggestRemoteName=copilot-desktop-gtk and pulls the
-# app from the Pages OSTree. Pages repo is unsigned; flatpakref install
-# still works for GitHub Pages hosts the same way the project README shows.
+# flatpakref registers SuggestRemoteName=copilot-desktop-gtk, embeds GPGKey=
+# when Pages is signed, and pulls the app from the Pages OSTree.
 flatpak install --user --noninteractive -y --from "$FLATPAKREF_URL"
 
 flatpak info --user "$APP_ID" >/dev/null
 flatpak list --user --app --columns=application,origin | grep -F "$APP_ID"
 
-if ! flatpak remotes --user --columns=name | grep -qx 'copilot-desktop-gtk'; then
+if ! flatpak remotes --user --columns=name | grep -qx "$REMOTE_NAME"; then
     # Belt-and-suspenders: if a future flatpakref path skipped remote
-    # registration, add the Pages remote. Prefer GPG from .flatpakrepo
-    # (signed Pages stream); only fall back to --no-gpg-verify for legacy.
-    REPO_URL="https://sirredbeard.github.io/copilot-desktop-gtk/copilot-desktop-gtk.flatpakrepo"
+    # registration, add the Pages remote. Prefer GPG from .flatpakrepo;
+    # only fall back to --no-gpg-verify for a legacy unsigned stream.
     if curl -fsSL "$REPO_URL" | grep -q '^GPGKey='; then
-        flatpak remote-add --user --if-not-exists             copilot-desktop-gtk "$REPO_URL"
+        flatpak remote-add --user --if-not-exists "$REMOTE_NAME" "$REPO_URL"
     else
-        flatpak remote-add --user --if-not-exists --no-gpg-verify             copilot-desktop-gtk "$REPO_URL"
+        echo "warning: Pages .flatpakrepo has no GPGKey=; adding --no-gpg-verify" >&2
+        flatpak remote-add --user --if-not-exists --no-gpg-verify \
+            "$REMOTE_NAME" "$REPO_URL"
     fi
 fi
 
-flatpak remotes --user --columns=name | grep -qx 'copilot-desktop-gtk'
+flatpak remotes --user --columns=name | grep -qx "$REMOTE_NAME"
+
+# Require GPG on the Pages remote when the published .flatpakrepo carries a key.
+# Non-root system updates and GNOME Software need gpg-verify=true.
+if curl -fsSL "$REPO_URL" | grep -q '^GPGKey='; then
+    gpg_state="$(flatpak remotes --user --show-details 2>/dev/null \
+        | awk -v r="$REMOTE_NAME" '
+            $0 ~ "^" r " " || $1 == r {hit=1}
+            hit && /gpg-verify/ {print; exit}
+        ' || true)"
+    # Prefer config file under the install root (stable across flatpak versions).
+    remote_cfg=""
+    for cand in \
+        "${FLATPAK_USER_DIR}/repo/config" \
+        "${ROOTFS}/var/lib/flatpak/repo/config"; do
+        if [[ -f "$cand" ]]; then remote_cfg="$cand"; break; fi
+    done
+    if [[ -n "$remote_cfg" ]]; then
+        # Section is [remote "copilot-desktop-gtk"]
+        if ! awk -v name="$REMOTE_NAME" '
+            $0 == "[remote \"" name "\"]" {insec=1; next}
+            /^\[/ {insec=0}
+            insec && $0 ~ /^gpg-verify=true/ {found=1}
+            END {exit found ? 0 : 1}
+        ' "$remote_cfg"; then
+            # Some installs store no-gpg-verify=true instead of gpg-verify=false.
+            if awk -v name="$REMOTE_NAME" '
+                $0 == "[remote \"" name "\"]" {insec=1; next}
+                /^\[/ {insec=0}
+                insec && ($0 ~ /^gpg-verify=false/ || $0 ~ /^gpg-verify=0/ || $0 ~ /^no-gpg-verify=true/) {bad=1}
+                END {exit bad ? 0 : 1}
+            ' "$remote_cfg"; then
+                echo "error: remote $REMOTE_NAME is not GPG-verified in $remote_cfg" >&2
+                awk -v name="$REMOTE_NAME" '
+                    $0 == "[remote \"" name "\"]" {insec=1}
+                    insec {print}
+                    insec && /^\[/ && $0 != "[remote \"" name "\"]" {exit}
+                ' "$remote_cfg" >&2 || true
+                exit 1
+            fi
+            # If neither gpg-verify=true nor an explicit disable is present,
+            # Flatpak defaults to verify when GPGKey was imported; require true.
+            echo "error: remote $REMOTE_NAME missing gpg-verify=true in $remote_cfg" >&2
+            exit 1
+        fi
+        echo "OK: $REMOTE_NAME gpg-verify=true ($remote_cfg)"
+    else
+        echo "warning: no flatpak repo config under $FLATPAK_USER_DIR; skip gpg assert" >&2
+        echo "remote details: ${gpg_state:-unknown}"
+    fi
+else
+    echo "warning: live Pages .flatpakrepo has no GPGKey=; skip gpg-verify assert" >&2
+fi
 
 # Exported launcher id used in GNOME Shell favorite-apps lists.
 if [[ ! -f "${FLATPAK_USER_DIR}/exports/share/applications/${APP_ID}.desktop" ]]; then

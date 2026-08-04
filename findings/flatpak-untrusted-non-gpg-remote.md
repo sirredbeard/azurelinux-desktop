@@ -1,7 +1,10 @@
 # Flatpak: untrusted non-GPG remote + polkit for system updates
 
-**Status:** GPG signing shipped on Pages (0.1.13). Nested install verified
-update path. Polkit `app-update` rule staged for images.
+**Status:** Resolved for product path as of Copilot Flatpak **0.1.15**
+(Pages GPG + sign-before-deltas) and azurelinux-desktop polkit rule
+`assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules`. Nested hostpart
+QA: Software catalog pull clean after 0.1.15; unprivileged Deploy still needs
+an active local wheel session (not SSH).
 
 ## Observed (installed nested system, 2026-08-04)
 
@@ -50,6 +53,9 @@ update path. Polkit `app-update` rule staged for images.
 3. **azurelinux-desktop:** `assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules`
    grants active local wheel the full Flatpak action set including
    `app-update`. Staged from live kickstart + installer kickstart.
+4. **Install path:** `scripts/install-copilot-desktop-flatpak.sh` prefers
+   GPG from the live `.flatpakrepo` and asserts `gpg-verify=true` when
+   `GPGKey=` is published. Canary checks the same on the system remote.
 
 ## Nested QA 2026-08-04
 
@@ -64,6 +70,7 @@ update path. Polkit `app-update` rule staged for images.
 - `findings/gnome-software-flatpak-empty.md`
 - `scripts/install-copilot-desktop-flatpak.sh`
 - `~/copilot-desktop-gtk/packaging/flatpak-gpg/`
+- Template twin: `github-pages-flatpak-repo` (sign-then-delta scripts)
 
 
 ## GNOME Software error after enabling GPG (0.1.13)
@@ -101,3 +108,9 @@ the GPG signatures even though HTTP objects exist.
 --generate-static-deltas`, and CI proves a delta pull of app +
 appstream2 succeeds before Pages deploy.
 
+## Product decision
+
+Prefer GPG on the Pages remote for system installs. Polkit alone is not
+enough for Flatpak trust on HTTPS system remotes. Keep both: GPG for
+trust, polkit `app-update` for unprivileged Deploy in an active local
+wheel session.
