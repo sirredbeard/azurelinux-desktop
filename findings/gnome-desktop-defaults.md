@@ -52,6 +52,15 @@ The project configures GNOME with dark mode, custom wallpaper, a specific dock f
 - **`.desktop` files must be mode 644.** Mode 600 (from umask 077 in the Fedora 43 build container with `cp -v`) causes GNOME Shell to silently drop the entry from the dash. See `anaconda-kickstart-patterns.md`.
 - **Microsoft Copilot Flatpak:** installed system-wide at image build via `scripts/install-copilot-desktop-flatpak.sh` (`org.gnome.Platform//50` from Flathub + app from the project's GitHub Pages remote). Live/qcow use `%post --nochroot` network; installer stages the OSTree under `/opt/azl-offline-extras/flatpak-system` and copies it into the target so offline install still gets the app and update remote.
 
+### Microsoft Copilot hardware key
+
+- **What the key sends:** firmware chord `KEY_LEFTMETA` + `KEY_LEFTSHIFT` + `KEY_F23` (scancode `0x6e`). Not a lone keycode. Newer xkeyboard-config maps it to `XF86Assistant`; GNOME has no built-in handler.
+- **Binding:** system dconf custom shortcut under `org.gnome.settings-daemon.plugins.media-keys`:
+  - path: `/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/`
+  - `binding='<Shift><Super>F23'`
+  - `command='flatpak run com.github.sirredbeard.copilot-desktop-gtk'`
+- **Where written:** live `00-dark-mode` dconf, installer `00-azl-desktop-defaults`, disk-image `01-azl-desktop-favorites` (build-live-iso disk kickstart variant). User-overridable in Settings.
+
 ### GNOME Software: polkit and update suppression
 
 - **Polkit rule for DNF5 authorization.** `/etc/polkit-1/rules.d/49-azl-desktop-packagekit.rules` must permit both `org.rpm.dnf.v0.*` (DNF5, what this image uses) and `org.freedesktop.packagekit.*` (PackageKit namespace, which GNOME Software also queries). Without this, GNOME Software shows an "Authentication Required" dialog after login for `liveuser` (who has no password).

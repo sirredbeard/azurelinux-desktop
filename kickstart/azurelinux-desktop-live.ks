@@ -688,6 +688,18 @@ gtk-theme='Adwaita-dark'
 picture-uri='file:///usr/share/backgrounds/azurelinux/adwaita-l.jpg'
 picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
 picture-options='zoom'
+
+# Microsoft Copilot hardware key: firmware emits LeftMeta+LeftShift+F23
+# (KEY_F23). Bind that chord to the Microsoft Copilot GTK Flatpak. Newer
+# xkeyboard-config maps the same chord to XF86Assistant; the Super+Shift+F23
+# form works across older stacks without that mapping.
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+name='Microsoft Copilot'
+command='flatpak run com.github.sirredbeard.copilot-desktop-gtk'
+binding='<Shift><Super>F23'
 EOF
 cat > /etc/dconf/profile/user << 'EOF'
 user-db:user

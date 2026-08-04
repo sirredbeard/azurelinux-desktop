@@ -324,6 +324,15 @@ picture-options='zoom'
 [org/gnome/shell]
 favorite-apps=['com.github.sirredbeard.copilot-desktop-gtk.desktop', 'microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
 welcome-dialog-last-shown-version='4294967295'
+
+# Microsoft Copilot hardware key (LeftMeta+LeftShift+F23) → Copilot GTK Flatpak.
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+name='Microsoft Copilot'
+command='flatpak run com.github.sirredbeard.copilot-desktop-gtk'
+binding='<Shift><Super>F23'
 EOF
 cat > /etc/dconf/profile/user << 'EOF'
 user-db:user
