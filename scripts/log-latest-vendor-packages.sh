@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Print the latest available NEVRAs for Microsoft/GitHub yum packages
-# this project installs from third-party repos. Run at the start of ISO
-# builds so the log shows what "latest" meant that day. Exit 1 if any
-# required yum package cannot be resolved.
+# log-latest-vendor-packages.sh
 #
-# .NET SDK is NOT from yum: preview/RC 11.x is side-loaded from Microsoft's
-# linux-x64 tarball via scripts/fetch-latest-thirdparty.sh (releases.json /
-# download page / aka.ms). This logger only records the resolved SDK version
-# when network is available; it does not install packages named dotnet-sdk-*.
+# Purpose: Print latest Microsoft/GitHub yum NEVRAs and the resolved .NET 11
+#   SDK version into the CI log for the release snapshot.
+# Usage:   ./scripts/log-latest-vendor-packages.sh
+# Needs:   dnf/curl network to vendor feeds.
+# CI:      Yes. release / build logging steps.
+
 set -euo pipefail
 
 OUT="${1:-/dev/stdout}"

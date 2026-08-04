@@ -1,21 +1,11 @@
 #!/usr/bin/env bash
-# Interactive boot and app validation for Azure Linux Desktop live ISO.
-# Boots the ISO in QEMU, watches Plymouth, then drives GNOME via keyboard/mouse
-# to verify key apps launch and Flatpak works.
+# validate-interactive.sh
 #
-# Usage: validate-interactive.sh <path-to-live.iso> [work-dir]
-#
-# Requires: qemu-system-x86_64, OVMF (/usr/share/edk2/ovmf/),
-#           socat, ImageMagick (convert), python3-pillow
-#
-# What it checks:
-#   - Plymouth shows AZL logo, no console text noise
-#   - GNOME shell comes up in dark mode
-#   - Dock has correct 5 apps (Edge, VSCode, PowerShell, GitHub, Copilot/Nautilus)
-#   - Activities search finds: Terminal, Edit, .NET, PowerShell
-#   - Terminal launches into PowerShell as default shell (PowerShell 7.x)
-#   - Flatpak install from Flathub works (org.gnome.Sudoku as test)
-#   - Sudoku launches after install
+# Purpose: Interactive QA driver (prompts / checklist) around QEMU boots.
+# Usage:   ./scripts/validate-interactive.sh
+# Needs:   qemu helpers; human at the keyboard.
+# CI:      No.
+
 set -euo pipefail
 
 ISO="${1:?Usage: $0 <live.iso> [work-dir]}"

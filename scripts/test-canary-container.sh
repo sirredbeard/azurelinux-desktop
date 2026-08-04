@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
-# Exercise the published canary container as a package-source canary.
+# test-canary-container.sh
+#
+# Purpose: Policy tests against a canary OCI image: DNF update, Azure vs
+#   Fedora origins, project tools, preinstalled Microsoft Copilot Flatpak
+#   plus Pages remote reachability, sample Flatpak, Plymouth package policy.
+# Usage:   ./scripts/test-canary-container.sh IMAGE_REF
+# Needs:   podman/docker; network for some checks.
+# CI:      Yes. release.yml canary job.
+
 set -euo pipefail
 
 LOG_DIR="${AZL_CANARY_TEST_LOG_DIR:-${AZL_HYBRID_TEST_LOG_DIR:-/logs}}"
@@ -119,6 +127,29 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
     timeout 20 edit --version </dev/null || echo 'edit --version timed out or failed'
 } | tee "$LOG_DIR/software-versions.log"
 
+# Microsoft Copilot GTK Flatpak must already be on the image from the
+# canary build (system install + Pages remote). Fail hard if missing.
+{
+    echo '=== Copilot desktop Flatpak (preinstalled) ==='
+    flatpak info --system com.github.sirredbeard.copilot-desktop-gtk
+    flatpak list --system --app --columns=application,version,origin \
+        | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
+    flatpak remotes --system --columns=name | grep -qx 'copilot-desktop-gtk'
+    flatpak remotes --system --columns=name | grep -qx 'flathub'
+} | tee "$LOG_DIR/copilot-flatpak-info.log"
+
+# Pages OSTree must be reachable for updates (not just present on disk).
+{
+    echo '=== Copilot Flatpak remote reachability ==='
+    curl -fsSL --retry 3 --retry-all-errors -o /dev/null \
+        https://sirredbeard.github.io/copilot-desktop-gtk/repo/config
+    curl -fsSL --retry 3 --retry-all-errors -o /dev/null \
+        https://sirredbeard.github.io/copilot-desktop-gtk/com.github.sirredbeard.copilot-desktop-gtk.flatpakref
+    # remote-ls talks to the registered remote over the network.
+    flatpak remote-ls --system copilot-desktop-gtk \
+        | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
+} | tee "$LOG_DIR/copilot-flatpak-remote.log"
+
 flatpak remote-add --system --if-not-exists flathub \
     https://dl.flathub.org/repo/flathub.flatpakrepo
 if flatpak install --system --noninteractive -y flathub \
@@ -127,6 +158,6 @@ if flatpak install --system --noninteractive -y flathub \
     flatpak list --system --app --columns=application,version,origin \
         | tee "$LOG_DIR/flatpak-versions.log"
 else
-    echo "WARN: flatpak install failed in canary container test environment; keeping repo-origin checks as authoritative for this run." \
+    echo "WARN: sample Flatpak install failed in canary container test environment; Copilot preinstall checks above remain authoritative." \
         | tee "$LOG_DIR/flatpak-install-warning.log"
 fi

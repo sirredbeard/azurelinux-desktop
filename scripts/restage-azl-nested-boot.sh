@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# After a nested install/reinstall on the host container partition, copy
-# the Azure Linux kernel/initrd onto Fedora /boot and refresh the host
-# GRUB drop-in so root=UUID matches the new nested root filesystem.
+# restage-azl-nested-boot.sh
 #
-# Usage:
-#   ./scripts/restage-azl-nested-boot.sh
-#   AZL_NESTED_PART=/dev/nvme0n1p4 ./scripts/restage-azl-nested-boot.sh
-#
-# Requires: kpartx, pkexec/root. Uses kpartx only (never partx --delete).
+# Purpose: After host dual-boot changes, restage nested boot bits, dracut
+#   50azl-nested-partx, and GRUB stubs on the nested root.
+# Usage:   ./scripts/restage-azl-nested-boot.sh
+# Needs:   root; host partition mounted or mountable; assets/dracut module.
+# CI:      No.
 
 set -euo pipefail
 

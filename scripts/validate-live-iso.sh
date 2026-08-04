@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Filesystem validation for the Azure Linux Desktop live ISO.
-# Extracts the ISO -> squashfs -> rootfs.img and checks each expected fix.
-# Reports pass/fail immediately after each check; exits non-zero on any failure.
+# validate-live-iso.sh
 #
-# Usage: validate-live-iso.sh <path-to-live.iso> [work-dir]
-#
-# work-dir defaults to a temp directory under ~/azl-work/iso-validate-<date>.
+# Purpose: Higher-level live ISO validation (structure + selected content).
+# Usage:   ./scripts/validate-live-iso.sh LIVE.iso
+# Needs:   iso tools; may call filesystem helpers.
+# CI:      No.
+
 set -euo pipefail
 
 ISO="${1:?Usage: $0 <live.iso> [work-dir]}"

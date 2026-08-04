@@ -75,7 +75,7 @@ ls -la "$EFI_VENDOR/" 2>/dev/null
 
 # When Fedora's shim/grub RPMs install to EFI/fedora/ but our NVRAM entry
 # will point to EFI/azurelinux/, copy the binaries across so the boot
-# entry resolves. This covers the hybrid Fedora-on-AZL package mix.
+# entry resolves. This covers the Fedora-on-Azure-Linux package mix.
 if [ "$EFI_VENDOR_NAME" = "azurelinux" ]; then
     FEDORA_EFI="$SYSROOT/boot/efi/EFI/fedora"
     for f in shimx64.efi shimaa64.efi shim.efi grubx64.efi grubaa64.efi mmx64.efi; do
@@ -151,22 +151,39 @@ GRUBCFG
 echo "--- /boot/grub2/grub.cfg ---"
 cat "$SYSROOT/boot/grub2/grub.cfg"
 
-# --- Create EFI stub grub.cfg ---
-if [ -n "$BOOT_UUID" ]; then
-    cat > "$EFI_VENDOR/grub.cfg" << STUBCFG
-search --no-floppy --root-dev-only --fs-uuid --set=dev ${BOOT_UUID}
-set prefix=(\$dev)/grub2
-export \$prefix
-configfile \$prefix/grub.cfg
-STUBCFG
-fi
-
 # --- Detect architecture for EFI binary names ---
 EFI_ARCH=$(uname -m)
 case "$EFI_ARCH" in
     x86_64)  SHIM_EFI="shimx64.efi"; GRUB_EFI="grubx64.efi"; BOOT_EFI="BOOTX64.EFI" ;;
     aarch64) SHIM_EFI="shimaa64.efi"; GRUB_EFI="grubaa64.efi"; BOOT_EFI="BOOTAA64.EFI" ;;
 esac
+
+# --- Create EFI stub grub.cfg on every vendor path we ship ---
+# Fedora's signed grubx64.efi / shim fallback often loads EFI/fedora/grub.cfg
+# even when the NVRAM path or removable BOOTX64 path is azurelinux/BOOT.
+# Anaconda leaves a package-time UUID there that does not match the final
+# /boot filesystem, which drops the user at a bare "grub>" prompt.
+write_efi_stub_cfg() {
+    local dest="$1"
+    [ -n "$BOOT_UUID" ] || return 0
+    mkdir -p "$(dirname "$dest")"
+    cat > "$dest" << STUBCFG
+search --no-floppy --root-dev-only --fs-uuid --set=dev ${BOOT_UUID}
+set prefix=(\$dev)/grub2
+export \$prefix
+configfile \$prefix/grub.cfg
+STUBCFG
+    echo "EFI stub: $dest -> boot UUID $BOOT_UUID"
+}
+
+if [ -n "$BOOT_UUID" ]; then
+    write_efi_stub_cfg "$EFI_VENDOR/grub.cfg"
+    write_efi_stub_cfg "$SYSROOT/boot/efi/EFI/BOOT/grub.cfg"
+    # Keep Fedora path in lockstep when those RPMs are present.
+    if [ -d "$SYSROOT/boot/efi/EFI/fedora" ] || [ -f "$SYSROOT/boot/efi/EFI/fedora/$GRUB_EFI" ]; then
+        write_efi_stub_cfg "$SYSROOT/boot/efi/EFI/fedora/grub.cfg"
+    fi
+fi
 
 # --- Copy EFI binaries + grub.cfg to fallback boot path ---
 mkdir -p "$SYSROOT/boot/efi/EFI/BOOT"

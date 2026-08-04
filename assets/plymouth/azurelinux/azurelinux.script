@@ -85,8 +85,43 @@ fun refresh_callback() {
 }
 Plymouth.SetRefreshFunction(refresh_callback);
 
+# One status line under the dots. Used for first-boot prepare ("expanding
+# disk… reboot once more") and any other deliberate plymouth message.
+# Ordinary dracut/systemd chatter still looks fine as a short line; we do
+# not dump multi-line fixfiles output here.
+message_sprite = NULL;
+message_text = "";
+
+fun place_message(img) {
+    if (message_sprite == NULL) {
+        message_sprite = Sprite();
+    }
+    message_sprite.SetImage(img);
+    message_sprite.SetX(Math.Int((Window.GetWidth() - img.GetWidth()) / 2));
+    message_sprite.SetY(Math.Int(Window.GetHeight() / 2 + logo.image.GetHeight() / 2 + 40));
+    message_sprite.SetOpacity(1);
+}
+
 fun message_callback(text) {
-    # Swallow boot messages instead of drawing them - that's the whole
-    # point of this theme (hide dracut/systemd noise behind the splash).
+    message_text = text;
+    if (text == "" || text == NULL) {
+        if (message_sprite != NULL) {
+            message_sprite.SetOpacity(0);
+        }
+        return;
+    }
+    # Light gray on the dark splash. Image.Text needs plymouth-plugin-label
+    # and a font; if either is missing, keep the splash without crashing.
+    img = NULL;
+    img = Image.Text(text, 0.85, 0.85, 0.88);
+    if (img == NULL) {
+        return;
+    }
+    place_message(img);
 }
 Plymouth.SetMessageFunction(message_callback);
+
+fun update_status_callback(text) {
+    message_callback(text);
+}
+Plymouth.SetUpdateStatusFunction(update_status_callback);

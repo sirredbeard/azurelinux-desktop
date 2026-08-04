@@ -89,15 +89,15 @@ Azure Linux’s desktop-bound kernel is still a cloud/server cut. From
 There is **no** `kernel/sound/` tree and **no**
 `kernel/drivers/bluetooth/` tree in the installed module set. This is
 not a packaging miss of `kernel-modules-extra`; the options are off in
-the upstream AZL kernel build.
+the upstream Azure Linux kernel build.
 
 `# CONFIG_USB_STORAGE is not set` is the same class of problem we
 already solved for stick boots and Wi-Fi: ship OOT modules built
-against the AZL kernel, do not fork the whole kernel package.
+against the Azure Linux kernel, do not fork the whole kernel package.
 
 ## Nested AZL: softer / userspace gaps
 
-Useful on Fedora for this machine, missing or thinner on AZL install:
+Useful on Fedora for this machine, missing or thinner on Azure Linux install:
 
 * `NetworkManager-bluetooth`, `NetworkManager-wwan`
 * full `ModemManager` service package (only `ModemManager-glib` +
@@ -110,7 +110,7 @@ Useful on Fedora for this machine, missing or thinner on AZL install:
   power-profiles-daemon instead, which is fine)
 * optional: `v4l-utils`, full CUPS client stack, sane scanners
 
-Firmware version skew only: host `linux-firmware` `20260622` vs AZL
+Firmware version skew only: host `linux-firmware` `20260622` vs Azure Linux
 `20260221`. For 8260 Wi-Fi/BT the needed blobs are present on AZL;
 newer host firmware is not the main story.
 
@@ -139,7 +139,7 @@ newer host firmware is not the main story.
    sound, Bluetooth, UVC, USB-C, and ThinkPad platform drivers: AZL
    turns the kconfig off.
 
-2. **OOT kmod pipeline is the right shape** (build against AZL kernel
+2. **OOT kmod pipeline is the right shape** (build against Azure Linux kernel
    headers, publish to project Pages repo, pull from kickstarts, keep
    canary aligned). Next candidates for this machine, in rough
    priority:
@@ -154,8 +154,8 @@ newer host firmware is not the main story.
    6. **WWAN (optional):** `qcserial`, `cdc_mbim`, plus ModemManager
       package if WWAN matters.
 
-3. **Do not enable these by rebuilding the full AZL kernel in-tree**
-   unless upstream changes. Policy stays: stock AZL kernel RPM + our
+3. **Do not enable these by rebuilding the full Azure Linux kernel in-tree**
+   unless upstream changes. Policy stays: stock Azure Linux kernel RPM + our
    supplemental modules + firmware packages.
 
 4. **Userspace is ahead of the kernel in several places.** BlueZ,

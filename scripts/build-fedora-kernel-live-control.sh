@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-# Build a disposable Azure live-root control that boots a Fedora kernel.
+# build-fedora-kernel-live-control.sh
+#
+# Purpose: One-off control live build that pulls a Fedora kernel set for
+#   comparison against Azure Linux kernel behavior. Not a release path.
+# Usage:   ./scripts/build-fedora-kernel-live-control.sh
+# Needs:   Same class of tooling as a local live ISO experiment.
+# CI:      No. Diagnostic only.
+
 set -euo pipefail
 
 INPUT_ISO="${1:?usage: $0 /path/to/azure-live.iso /path/to/output.iso}"

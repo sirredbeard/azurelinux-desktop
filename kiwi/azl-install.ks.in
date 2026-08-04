@@ -91,6 +91,36 @@ if [ -d "$ASSETS" ]; then
     install -d -m 0755 /mnt/sysroot/usr/share/backgrounds/azurelinux
     install -m 0644 "$ASSETS/wallpapers/adwaita-l.jpg" /mnt/sysroot/usr/share/backgrounds/azurelinux/adwaita-l.jpg
     install -m 0644 "$ASSETS/wallpapers/adwaita-d.jpg" /mnt/sysroot/usr/share/backgrounds/azurelinux/adwaita-d.jpg
+    # BT recover + PipeWire user preset + udev power rules must land on the
+    # installed target. config.sh only stages them into the installer ISO
+    # rootfs; without this block the chrooted enable below is a no-op.
+    if [ -f "$ASSETS/bluetooth/azurelinux-desktop-bt-usb-reset" ]; then
+        install -d -m 0755 /mnt/sysroot/usr/libexec \
+            /mnt/sysroot/usr/lib/systemd/system \
+            /mnt/sysroot/usr/lib/systemd/user-preset \
+            /mnt/sysroot/etc/udev/rules.d
+        install -m 0755 "$ASSETS/bluetooth/azurelinux-desktop-bt-usb-reset" \
+            /mnt/sysroot/usr/libexec/azurelinux-desktop-bt-usb-reset
+        install -m 0644 "$ASSETS/systemd/azurelinux-desktop-bt-recover.service" \
+            /mnt/sysroot/usr/lib/systemd/system/azurelinux-desktop-bt-recover.service
+        install -m 0644 "$ASSETS/systemd/azurelinux-desktop-bt-recover-late.service" \
+            /mnt/sysroot/usr/lib/systemd/system/azurelinux-desktop-bt-recover-late.service
+        install -m 0644 "$ASSETS/systemd/80-azurelinux-desktop-pipewire.preset" \
+            /mnt/sysroot/usr/lib/systemd/user-preset/80-azurelinux-desktop-pipewire.preset
+        if [ -f "$ASSETS/udev/80-azurelinux-desktop-bt-power.rules" ]; then
+            install -m 0644 "$ASSETS/udev/80-azurelinux-desktop-bt-power.rules" \
+                /mnt/sysroot/etc/udev/rules.d/80-azurelinux-desktop-bt-power.rules
+        fi
+    fi
+    # First-boot prepare: keep Plymouth up during SELinux relabel / disk grow.
+    if [ -f "$ASSETS/bin/azl-first-boot-prepare" ]; then
+        install -d -m 0755 /mnt/sysroot/usr/libexec/azurelinux-desktop \
+            /mnt/sysroot/usr/lib/systemd/system/selinux-autorelabel.service.d
+        install -m 0755 "$ASSETS/bin/azl-first-boot-prepare" \
+            /mnt/sysroot/usr/libexec/azurelinux-desktop/azl-first-boot-prepare
+        install -m 0644 "$ASSETS/systemd/selinux-autorelabel.service.d/10-azurelinux-desktop.conf" \
+            /mnt/sysroot/usr/lib/systemd/system/selinux-autorelabel.service.d/10-azurelinux-desktop.conf
+    fi
 else
     echo "WARNING: $ASSETS not found in install environment - branding/launcher assets skipped" >&2
 fi
@@ -107,6 +137,16 @@ if [ -s "$EXTRAS"/flathub.flatpakrepo ]; then
 fi
 if [ -s "$EXTRAS"/thirdparty-versions.txt ]; then
     install -m 0644 "$EXTRAS"/thirdparty-versions.txt /mnt/sysroot/root/thirdparty/thirdparty-versions.txt
+fi
+# Microsoft Copilot GTK Flatpak OSTree (pre-populated at image-build time
+# so the target install stays offline). Copy the whole system Flatpak
+# dir; remotes + Platform//50 + app land together.
+if [ -d "$EXTRAS/flatpak-system" ] && [ -f "$EXTRAS/flatpak-system/repo/config" ]; then
+    mkdir -p /mnt/sysroot/var/lib/flatpak
+    cp -a "$EXTRAS/flatpak-system"/. /mnt/sysroot/var/lib/flatpak/
+else
+    echo "error: staged Copilot Flatpak tree missing under $EXTRAS/flatpak-system" >&2
+    exit 1
 fi
 %end
 
@@ -282,7 +322,7 @@ picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
 picture-options='zoom'
 
 [org/gnome/shell]
-favorite-apps=['microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
+favorite-apps=['com.github.sirredbeard.copilot-desktop-gtk.desktop', 'microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
 welcome-dialog-last-shown-version='4294967295'
 EOF
 cat > /etc/dconf/profile/user << 'EOF'

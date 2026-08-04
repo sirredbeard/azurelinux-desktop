@@ -8,15 +8,12 @@ Workflow surface (keep this small):
 
 | Workflow | Role |
 | --- | --- |
-| `nightly-release.yml` | Flat full release: cleanup → kmods once → parallel live/installer/canary builds → parallel uploads |
-| `release-live-iso.yml` | Manual focused live ISO + disk formats |
-| `release-installer-iso.yml` | Manual focused installer ISO |
-| `canary-container.yml` | Build, push, and test the GHCR canary (also every 3 days) |
-| `publish-desktop-kmods.yml` | GitHub Pages DNF kmod repo |
-| `build-live-iso.yml` | Reusable only (no dispatch) |
-| `build-installer-iso.yml` | Reusable only (no dispatch) |
+| `release.yml` | Only human-facing publication path. Schedule = full wipe + all artifacts + canary test. Manual flags select live ISO, installer ISO, qcow2, VHDX, VDI, VMDK, canary, kmods, and optional `replace_release`. |
+| `publish-desktop-kmods.yml` | GitHub Pages DNF kmod repo. Own nightly kernel-drift check; also called from `release.yml`. |
+| `build-live-iso.yml` | Reusable only (called by `release.yml`) |
+| `build-installer-iso.yml` | Reusable only (called by `release.yml`) |
 
-Removed: `preflight-non-gui.yml`, separate `test-container.yml`, nested nightly→release→build chains that exploded the Actions graph. Local package-policy scripts under `scripts/` remain for ad-hoc checks. Builds run inside a Fedora stable container on `ubuntu-24.04` with `--privileged` Docker where needed.
+Removed separate entry points: `nightly-release.yml`, `release-live-iso.yml`, `release-installer-iso.yml`, `canary-container.yml`, and any build-only dispatch path. Canary is no longer on a 3-day schedule; it builds and tests as part of `release.yml`. Local package-policy scripts under `scripts/` remain for ad-hoc checks. Builds run inside a Fedora stable container on `ubuntu-24.04` with `--privileged` Docker where needed.
 
 ## Workflow structure
 
@@ -26,7 +23,7 @@ Removed: `preflight-non-gui.yml`, separate `test-container.yml`, nested nightly�
 - Installs lorax/anaconda/livemedia-creator, checks out to `/workspace`, runs `livemedia-creator --no-virt` against `kickstart/azurelinux-desktop-live.ks`.
 - `build-disk-image` job runs `livemedia-creator --make-disk --no-virt`; produces only the qcow2.
 - `build-vhdx`, `build-vdi`, `build-vmdk`: independent jobs, each `needs: build-disk-image`, each downloads the qcow2 artifact and runs `qemu-img convert`. None touches Fedora container or Anaconda.
-- Each format has its own `workflow_dispatch` toggle.
+- Each format is selected by flags on `release.yml` (passed into this reusable workflow).
 
 ### Installer ISO (`build-installer-iso.yml`)
 
@@ -36,15 +33,41 @@ Removed: `preflight-non-gui.yml`, separate `test-container.yml`, nested nightly�
 
 ### Release workflows and artifacts
 
-- **Use release workflows for testable artifacts.** Release workflows (`release-live-iso.yml`, `release-installer-iso.yml`) publish to GitHub Releases; `Get-AzureLinuxDesktop.ps1` downloads directly. Build-only workflows produce Actions artifacts that require auth headers and zip extraction.
-- **Download build-only artifacts:** `aria2c -x 16 --header="Authorization: Bearer <token>"` against `https://api.github.com/repos/sirredbeard/azurelinux-desktop/actions/artifacts/<id>/zip`.
-- **Download released artifacts:** `scripts/Get-AzureLinuxDesktop.ps1 -Live` or `-Install`.
-- `nightly-release.yml`: deletes all preceding GitHub releases, tags, and hybrid GHCR versions first, then calls all publication paths. One current set of artifacts.
-- UTC-date tags (`$(date -u +%Y.%m.%d)`). Same-day rebuilds upsert into the same release via `softprops/action-gh-release@v2` with `overwrite_files: true`.
+- **One workflow:** `release.yml` is the only human-facing publication
+  path. Schedule wipes prior releases, mints a UTC-date tag, applies
+  `.github/release-notes-template.md`, builds the full set, and uploads.
+  Manual dispatch uses the same file with per-artifact flags plus optional
+  `replace_release`.
+- **No build-only dispatch.** `build-live-iso.yml` and
+  `build-installer-iso.yml` are reusable only. Mid-run Actions artifacts
+  still exist for debugging a job.
+- **Download released artifacts:** `scripts/Get-AzureLinuxDesktop.ps1 -Live`
+  or `-Install` (uses `/releases/latest`).
+- **Download mid-run Actions artifacts:** `aria2c -x 16` with
+  `--header="Authorization: Bearer $(gh auth token)"` against
+  `https://api.github.com/repos/sirredbeard/azurelinux-desktop/actions/artifacts/<id>/zip`.
+- **Concurrency:** live ISO, installer ISO, and qcow2 build in parallel.
+  VHDX/VDI/VMDK convert from qcow2 afterward and stay 7z-compressed.
+  Canary build+test runs beside the image builds. Each upload job is
+  independent with `continue-on-error`. A canary miss must not block the
+  installer; a live ISO miss must not block qcow2/VM uploads when those
+  artifacts still exist.
+- **Focused attach rule:** with `replace_release` off, `release.yml` calls
+  `scripts/resolve-release-tag.sh`, prefers the latest existing release, and
+  only creates a dated tag plus notes when none exists. Asset uploads use
+  `gh release upload --clobber`.
+- **Why the attach rule exists:** a manual installer dispatch finished at
+  2026-08-04T02:13Z (still 2026-08-03 evening US EDT). It used `date -u`,
+  created empty-notes release `2026.08.04` with only installer parts, and
+  left live/disks on `2026.08.03`. `/releases/latest` became incomplete.
+  Fix: one workflow, one current release, focused runs clobber in place.
+  After deleting a mistaken newer tag, re-mark the surviving release with
+  `gh release edit TAG --latest` if `/releases/latest` 404s. New creates
+  set `make_latest: true`.
 
 ### Preflight workflow
 
-- Package-policy canary is `canary-container.yml` (GHCR publish + test). Local equivalents: `scripts/test-container-repos.sh`, `scripts/podman-test-azl4-fedora.sh`, `scripts/test-installer-runtime-resolve.sh`, `scripts/test-canary-container-local.sh`.
+- Package-policy canary is built and tested inside `release.yml` (GHCR publish + test). Local equivalents: `scripts/test-container-repos.sh`, `scripts/podman-test-azl4-fedora.sh`, `scripts/test-installer-runtime-resolve.sh`, `scripts/test-canary-container-local.sh`.
 
 ## Known bugs and lessons from the build chain
 
@@ -87,7 +110,15 @@ Two independent gates:
 - *Gate 1: EFI-vs-BIOS misdetection.* `blivet.arch.is_efi()` checks `os.path.exists("/sys/firmware/efi")`. The privileged container shares the GitHub runner's UEFI kernel — this path exists. A BIOS/MBR kickstart layout then fails the bootloader check.
 - *Gate 2: xfs module not loaded.* `blivet.FS.mountable` checks `/proc/filesystems`, snapshotted at blivet **import time**. The Ubuntu runner kernel never autoloads xfs; xfs isn't in `/proc/filesystems` at import; the root partition is not mountable; `boot_device` is `None`.
 - Fix: `sudo modprobe xfs` on the runner before the container starts. Then: switch to UEFI/GPT (runner is UEFI, Azure Gen2 VMs are UEFI — BIOS was never the right target). This also resolves bug 6.
-- Logs: `logs/live-disk-image-build-failure-2026-07-18.log`, `logs/live-disk-image-build-failure-5b-2026-07-18.log`, `logs/live-disk-image-storage-log-run29638688163.log`.
+Evidence:
+```
+The disk image /workspace/live-disk-result/azurelinux-desktop-live.img is missing.
+...
+You have not created a bootable partition.
+Installation Destination (Kickstart insufficient)
+The following mandatory spokes are not completed:
+Installation Destination.
+```
 
 **Bug 6 — `grub2-install` refuses BIOS install inside EFI chroot.** Resolved by the UEFI/GPT switch above. `EFIGRUB.install()` only calls `efibootmgr()`, which no-ops for image installs.
 
@@ -98,7 +129,12 @@ Two independent gates:
 The Anaconda profile defaulted to `efi_dir = fedora` even though AZL shim/grub place binaries in `EFI/azurelinux`. Fix: `scripts/configure-anaconda-efi-vendor.py` changes the profile setting with an exact-source guard.
 
 **Bug 9 — `virt-sparsify --in-place` on compressed qcow2 erased guest data.**
-Running sparsify after converting to compressed qcow2 left a tiny virtual disk with all-zero allocation. Fix: sparsify the **raw image** first (`LIBGUESTFS_BACKEND=direct virt-sparsify --in-place`), then convert to compressed zstd qcow2, then resize. Log: `logs/local-disk-image-efi-and-sparsify-2026-07-20.log`.
+Running sparsify after converting to compressed qcow2 left a tiny virtual disk with all-zero allocation. Fix: sparsify the **raw image** first (`LIBGUESTFS_BACKEND=direct virt-sparsify --in-place`), then convert to compressed zstd qcow2, then resize. Confirmed sequence:
+```
+virt-sparsify --in-place .../azurelinux-desktop-live.img
+qemu-img convert -O qcow2 -c -o compression_type=zstd ...img ...qcow2
+qemu-img resize ...qcow2 64G
+```
 
 ### growroot service ordering bug
 
@@ -169,20 +205,15 @@ so the bot commit does not re-trigger an ISO build.
 ## CI hygiene
 
 - Only re-run the specific build (ISO vs disk images, and within disk images the specific format) that actually needs iterating. Cancel premature runs immediately.
-- Delete failed/cancelled runs after their relevant log excerpt is retained in `findings/logs/`. Actions list stays useful.
+- Delete failed/cancelled runs after the useful failure lines are copied into the matching `findings/*.md` topic file. Actions list stays useful.
 - Nightly publishes live ISO, qcow2, VHDX, VDI, VMDK, installer ISO, and canary. For iterative debugging outside nightly, build only the formats you need. Derivative convert jobs must actually run (see `always()` note above) or release upload fails looking for missing artifacts.
 - Canary uses its own concurrency group (`azurelinux-desktop-canary`), never the kmod Pages group.
-- Canary GHCR path: `ghcr.io/sirredbeard/azurelinux-desktop/canary`. Schedule: every 3 days plus nightly and manual.
-- Nightly calls `build-live-iso.yml` **once** with all format flags (ISO and disk jobs already parallel inside that workflow). Do not call it twice for ISO vs disk; that was the spaghetti graph.
+- Canary GHCR path: `ghcr.io/sirredbeard/azurelinux-desktop/canary`. Built and tested from `release.yml` (full schedule or canary flag). No separate 3-day schedule.
+- `release.yml` calls `build-live-iso.yml` **once** with the selected format flags (ISO and disk jobs already parallel inside that workflow). Do not call it twice for ISO vs disk; that was the spaghetti graph.
 
 ## References
 
-- `logs/live-disk-image-build-failure-2026-07-18.log` — bug 1 disk-image wrong flag
-- `logs/live-disk-image-build-failure-5b-2026-07-18.log` — bug 5 storage log
-- `logs/live-disk-image-storage-log-run29638688163.log` — blivet EFI/xfs debug
-- `logs/disk-build-run-29641568473-storage-log-excerpt.log` — storage debug excerpt
-- `logs/local-disk-image-efi-and-sparsify-2026-07-20.log` — bug 9 sparsify sequence
-- `logs/gha-run29625540225-installer-first-success.log` — first successful installer build
+Key failure signatures are inlined under the bug sections above (missing disk image path, bootable partition / Installation Destination, sparsify-before-convert sequence). First successful installer path later confirmed via KIWI Result files + published ISO.
 - `kiwi-ng-installer-build.md` — KIWI-specific build chain
 - `live-iso-installer-parity.md` — artifact parity, format conversion rules
 - `asset-download-details.md` — superseded; download script flag reference preserved

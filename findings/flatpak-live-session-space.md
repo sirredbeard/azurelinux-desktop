@@ -6,7 +6,14 @@
 
 In a live ISO session, Flatpak refused installs with roughly ~495 MiB free
 even on a VM with several GiB of RAM. Example debug log:
-`findings/logs/flatpak-live-space-debug.log`.
+live session evidence:
+```
+/proc/cmdline: rd.live.overlay.overlayfs=1 rd.live.image quiet rhgb
+df -h /: LiveOS_rootfs  783M  345M  438M  45%  /
+/var/lib/flatpak/repo/config: min-free-space-size=500MB
+Available: 438 MB < 500 MB guard → install blocked
+GNOME Platform runtime: ~410 MB download
+```
 
 ## Root cause (confirmed 2026-07-22)
 
@@ -101,7 +108,6 @@ cat /proc/cmdline
 
 ## References
 
-- `findings/logs/flatpak-live-space-debug.log`
 - dracut `modules.d/70dmsquash-live/dmsquash-live-root.sh`
 - weldr/lorax `creator.py`, `imgutils.py`
 - Flatpak issues 3187 / 3188 (free-space checks)

@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Build simple HTML directory listings for the desktop kmod Pages site.
-# Usage: generate-kmod-repo-index.sh SITE_DIR
-# Expects SITE_DIR/repo/*.rpm and SITE_DIR/repo/manifest.txt already present.
+# generate-kmod-repo-index.sh
+#
+# Purpose: Build the DNF repo metadata / index tree for GitHub Pages kmods.
+# Usage:   ./scripts/generate-kmod-repo-index.sh (inputs from kmod build dir)
+# Needs:   createrepo_c or equivalent tooling in the publish job.
+# CI:      Yes. publish-desktop-kmods.yml package/publish jobs.
+
 set -euo pipefail
 
 SITE_DIR="${1:?usage: $0 SITE_DIR}"

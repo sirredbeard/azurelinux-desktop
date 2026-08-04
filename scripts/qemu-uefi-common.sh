@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Shared UEFI/OVMF helpers for the headless QEMU test scripts. Sourced by
-# the scripts that need real OVMF firmware and a scratch VARS file.
+# qemu-uefi-common.sh
+#
+# Purpose: Shared UEFI/OVMF, firmware, and audio helper functions sourced by
+#   the other qemu-*.sh scripts. Not meant to be run standalone.
+# Usage:   source ./scripts/qemu-uefi-common.sh
+# Needs:   qemu-system-x86_64, edk2/OVMF firmware packages on the host.
+# CI:      No (library for local QEMU scripts).
 
 azl_find_ovmf() {
     local candidate_dir
@@ -97,4 +102,27 @@ azl_qemu_accel_args() {
     else
         printf '%s\n' "-accel" "tcg,thread=multi" "-cpu" "max"
     fi
+}
+
+azl_qemu_audio_args() {
+    if [ -n "${AZL_QEMU_AUDIO_DISABLE:-}" ]; then
+        return 0
+    fi
+
+    local runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    local backend
+
+    if [ -n "${AZL_QEMU_AUDIO_BACKEND:-}" ]; then
+        backend="$AZL_QEMU_AUDIO_BACKEND"
+    elif [ -S "$runtime_dir/pipewire-0" ]; then
+        backend="pipewire"
+    elif [ -S "$runtime_dir/pulse/native" ]; then
+        backend="pa"
+    elif [ -d /dev/snd ]; then
+        backend="alsa"
+    else
+        return 0
+    fi
+
+    printf '%s\n' "-audiodev" "${backend},id=audio0" "-device" "ich9-intel-hda" "-device" "hda-duplex,audiodev=audio0"
 }

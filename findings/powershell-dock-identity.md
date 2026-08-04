@@ -73,7 +73,7 @@ Changed files:
 
 - `assets/dbus/org.azurelinux.PowerShell.service` (new)
 - `assets/bin/azl-powershell-terminal`
-- live, live-disk, and installer kickstart templates
+- live kickstart (disk images inherit it) and installer templates
 
 dconf lock for `favorite-apps` is **not** required for a fresh installed
 user. System-db default + `dconf update` is enough for new accounts. A lock
@@ -112,4 +112,4 @@ In a running Wayland session:
 - GNOME Shell `shell-window-tracker.c`, `shell-app-system.c`
 - `gnome-desktop-defaults.md`
 - `anaconda-kickstart-patterns.md` (asset modes)
-- Logs: `logs/live-iso-vnc-behavior-2026-07-22.log`
+- On-device VNC check (2026-07-22): Super-key frame diff ~45% changed pixels; session responded.

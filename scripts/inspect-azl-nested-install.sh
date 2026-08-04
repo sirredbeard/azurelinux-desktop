@@ -1,17 +1,11 @@
 #!/usr/bin/env bash
-# Mount the nested Azure Linux Desktop install that lives inside a host
-# partition (default /dev/nvme0n1p4) and print/copy journals for failure
-# analysis from the working Fedora host.
+# inspect-azl-nested-install.sh
 #
-# Usage:
-#   ./scripts/inspect-azl-nested-install.sh              # mount + show journal
-#   ./scripts/inspect-azl-nested-install.sh --mount-only
-#   ./scripts/inspect-azl-nested-install.sh --umount
-#   ./scripts/inspect-azl-nested-install.sh --copy-logs ~/azl-work/azl-boot-logs
-#
-# Requires: kpartx, root (pkexec/sudo).
-# Uses kpartx only — never partx --delete on the container partition
-# (that can drop the host partition node from the live table).
+# Purpose: Mount or unmount the nested dual-boot Azure Linux root and dump
+#   journals without a full QEMU boot.
+# Usage:   ./scripts/inspect-azl-nested-install.sh [--mount-only|--umount|--copy-logs DIR]
+# Needs:   root or sudo; host partition env vars (see findings/dual-boot-*).
+# CI:      No. Host dual-boot maintenance.
 
 set -euo pipefail
 

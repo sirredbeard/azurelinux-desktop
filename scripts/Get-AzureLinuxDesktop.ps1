@@ -1,9 +1,13 @@
 <#
 .SYNOPSIS
+    Local download helper (not run inside GitHub Actions).
+
+.SYNOPSIS
     Downloads the latest azurelinux-desktop release assets - the live
     ISO, the installer ISO, or a bootable qcow2/VHDX/VDI/VMDK disk image
     of the live desktop - reassembles any split parts, and verifies the
-    result against the published sha256 manifest.
+    result against the published sha256 manifest. Local dogfood only;
+    not invoked inside GitHub Actions.
 
 .DESCRIPTION
     GitHub Releases caps a single asset at 2GiB. Every asset this project
@@ -73,7 +77,7 @@
     with no install step. Implies the live image; not valid with
     -Install. This project doesn't run VirtualBox itself, so this
     format is converted from the same qcow2 as the others but hasn't
-    been boot-tested here - see findings/gh-actions-live-iso-build.md.
+    been boot-tested here - see findings/github-actions-build.md.
     Ships 7z-compressed; this script decompresses it for you and
     requires a 7-Zip of some kind to do so (see .DESCRIPTION).
 
@@ -84,7 +88,7 @@
     image; not valid with -Install. This project doesn't run VMware
     itself, so this format is converted from the same qcow2 as the
     others but hasn't been boot-tested here - see
-    findings/gh-actions-live-iso-build.md. Ships 7z-compressed; this
+    findings/github-actions-build.md. Ships 7z-compressed; this
     script decompresses it for you and requires a 7-Zip of some kind to
     do so (see .DESCRIPTION).
 

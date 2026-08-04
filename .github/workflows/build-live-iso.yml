@@ -1,85 +1,33 @@
 name: Build live ISO and disk images (reusable)
 
-# Manual-only for now (workflow_dispatch) - this is a proof-of-concept build
-# that just produces a downloadable artifact, not a release pipeline yet.
-# See findings/live-iso-and-bare-metal.md for the local build history this
-# is based on (lorax + livemedia-creator --no-virt, confirmed working
-# locally, boots to a real GNOME 49 desktop in QEMU).
+# Reusable workflow. Called only from release.yml (not human-dispatched).
+# Live ISO: lorax + livemedia-creator --make-iso inside fedora:43.
+# Disk images: livemedia-creator --make-disk (UEFI/GPT), then qemu-img
+# convert for VHDX/VDI/VMDK from the resized qcow2.
 #
-# Architecture notes (see findings/github-actions-research.md for the full
-# research write-up this is based on):
-#   - runs-on is a bare ubuntu-24.04 VM, NOT a `container:` job directive.
-#     Disk-cleanup actions need Ubuntu paths/apt before any Fedora container
-#     exists, and `container:` doesn't reliably give the same privileged
-#     access as a plain `docker run --privileged` step does.
-#   - The actual build happens inside `docker run --privileged -v /dev:/dev
-#     fedora:43 ...` - matches the exact package set already proven to work
-#     on this project's local Fedora 45 dev host (lorax, lorax-lmc-novirt,
-#     anaconda-core/-live, xorriso, squashfs-tools).
-#   - Pinned to fedora:43 (current stable), not the rolling fedora:45
-#     "Prerelease" image - see the matching note in build-installer-
-#     iso.yml and findings/gh-actions-installer-iso-build.md for the
-#     glibc/coreutils/rpm mid-transaction churn this avoids.
-#   - lorax's LiveOS/rootfs.img is a plain (non-partitioned) ext4 image, so
-#     plain `losetup` inside a --privileged container is enough - no
-#     `losetup -P`/partition-scanning needed, which is the part that's
-#     genuinely broken on GitHub-hosted runners. This is why this build is
-#     feasible here even though Azure Linux's own Image Customizer/imagegen
-#     CI (which DOES need partitioned loop devices for VHDX work) requires
-#     self-hosted runners instead - confirmed via microsoft/azure-linux-
-#     image-tools's own workflow YAML and docs.
-#   - Artifact upload uses compression-level: 0 (the ISO is already
-#     mksquashfs-compressed; re-zipping it just burns CPU minutes for
-#     nothing) and a short retention (this is a throwaway proof-of-concept
-#     build, not something we want piling up in artifact storage). Storage
-#     quota isn't a real constraint here anyway - this repo is public, and
-#     GitHub Actions artifact storage for public repos isn't billed against
-#     the 500MB(Free)/2GB(Team) private-repo caps that would otherwise be
-#     blown through by a single ~2.7GB ISO.
-
-#   - build-iso and build-disk-image are separate jobs, not steps in one
-#     job, and the disk-image side is itself split further:
-#     build-disk-image (the slow anaconda/livemedia-creator step, produces
-#     the base qcow2) feeds three independent, fast conversion jobs -
-#     build-vhdx, build-vdi, build-vmdk - each just a `qemu-img convert`
-#     on a plain ubuntu-24.04 runner, no container/anaconda involved at
-#     all. Confirmed from lorax's own source
-#     (pylorax/installer.py:novirt_install()) that --make-iso and
-#     --make-disk are independent code paths that share no state or
-#     output - the disk-image kickstart variant is sed'd from the
-#     original kickstart in the repo checkout, not from anything the ISO
-#     step produces. Splitting the conversions out from the base qcow2
-#     build means iterating on, say, just the VHDX conversion never has
-#     to re-run the ~15-20 minute anaconda build, and never has to build
-#     VDI/VMDK either, if all you changed was the VHDX step. The
-#     build_iso/build_disk_image/build_vhdx/build_vdi/build_vmdk inputs
-#     below let you pick exactly which of these five outputs a given run
-#     actually needs.
-#
-#   - The disk image still goes through livemedia-creator --make-disk
-#     (anaconda), on purpose - this project would rather fix anaconda in
-#     place than take on a second, independently-maintained build tool
-#     just for disk images, so it stays as close to Azure Linux's and
-#     Fedora's own tooling as it can. The "You have not created a bootable
-#     partition." failure that used to block this turned out to be a real
-#     xfs-module/blivet-mountability bug (bug #5) plus a real anaconda-
-#     core packaging bug in Fedora 43's efibootmgr() skip path (bug #7) -
-#     not a platform-detection mismatch to work around. This build makes
-#     a genuine UEFI/GPT disk image (real EFI System Partition, real
-#     anaconda-written bootloader) matching how GitHub-hosted runners and
-#     Azure's own current-generation VMs actually boot, not a BIOS/MBR
-#     image with /sys/firmware masked to fake BIOS detection (that
-#     approach was tried and abandoned - see findings/gh-actions-live-iso-
-#     build.md, bugs #5 through #7, for the full trace and why UEFI ended
-#     up being simpler and more correct than fighting the runner's own
-#     firmware). The disk image is confirmed to genuinely boot via UEFI/
-#     OVMF in QEMU (scripts/qemu-test-disk-image.sh) and its root
-#     partition/filesystem grow to fill the full 64G disk on first real
-#     boot (azl-growroot.service) - both verified against real CI builds,
-#     not just local simulation.
+# Architecture:
+#   - runs-on is a bare ubuntu-24.04 VM, not a container: job. Disk cleanup
+#     needs Ubuntu paths/apt first; privileged docker run matches local
+#     Fedora tooling better than Actions container: jobs.
+#   - Build runs in docker run --privileged -v /dev:/dev fedora:43 with
+#     lorax, lorax-lmc-novirt, anaconda, xorriso, squashfs-tools.
+#   - Pin fedora:43 (stable). Rolling rawhide-style images can churn glibc
+#     mid-transaction and break the workspace bind mount.
+#   - LiveOS/rootfs.img is a plain ext4 image, so plain losetup works. No
+#     losetup -P. That is why this path works on GitHub-hosted runners while
+#     Azure Linux Image Customizer (partitioned loops) needs self-hosted.
+#   - Artifact upload uses compression-level: 0 (ISO already compressed).
+#   - Jobs: build-iso | build-disk-image (qcow2) | build-vhdx/vdi/vmdk.
+#     Disk kickstart is sed'd from kickstart/azurelinux-desktop-live.ks at
+#     build time (not committed). See kickstart/README.md.
+#   - Disk path stays anaconda on purpose. The old "not a bootable
+#     partition" failure was xfs/blivet + anaconda efibootmgr bugs, fixed by
+#     UEFI/GPT (not BIOS workarounds). Growroot expands root on first boot.
+#     QEMU UEFI smoke: scripts/qemu-test-disk-image.sh.
+#   - CI lessons: findings/github-actions-build.md
 
 on:
-  # Reusable only. Dispatch release-live-iso.yml (or nightly) to build.
+  # Reusable only. Dispatch release.yml to build and publish.
   workflow_call:
     inputs:
       build_iso:
@@ -117,6 +65,9 @@ jobs:
     if: ${{ always() && inputs.build_iso && (needs.prepare-kernel-modules.result == 'success' || needs.prepare-kernel-modules.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    # Keep disk/VM converts alive if the live ISO job dies. release.yml
+    # upload jobs each look for their own artifact.
+    continue-on-error: true
 
     steps:
       - name: Check out repo
@@ -165,7 +116,8 @@ jobs:
                 lorax lorax-templates-generic lorax-lmc-novirt \
                 anaconda-core anaconda-install-env-deps anaconda-live \
                 squashfs-tools xorriso dosfstools shim-x64 \
-                grub2-efi-x64-cdboot policycoreutils curl python3
+                grub2-efi-x64-cdboot policycoreutils curl python3 \
+                flatpak
 
               # Vendor snapshot goes under build-meta, not live-result.
               # livemedia-creator refuses a pre-existing --resultdir
@@ -320,18 +272,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     # This build was unstable for a long time (see
-    # findings/gh-actions-live-iso-build.md, bugs #1 through #7) but is now
+    # findings/github-actions-build.md, bugs #1 through #7) but is now
     # confirmed working: a real UEFI/GPT qcow2 that genuinely boots in QEMU
     # (scripts/qemu-test-disk-image.sh) with its root filesystem correctly
     # growing to fill the full disk (azl-growroot.service), verified
     # against two consecutive real CI builds, not just local simulation.
     # Keeping job-level continue-on-error a while longer anyway, purely as
-    # a safety net - release-live-iso.yml calls this workflow with `uses:`,
+    # a safety net - release.yml calls this workflow with `uses:`,
     # and a reusable workflow call is only reported as failed to the
     # caller if one of ITS jobs fails outright, so this is what actually
     # guarantees a disk-image regression never blocks an ISO-only release.
     # Worth revisiting (dropping this) after a longer stretch of clean
-    # runs - see findings/gh-actions-live-iso-build.md for the current
+    # runs - see findings/github-actions-build.md for the current
     # status before changing this.
     continue-on-error: true
 
@@ -381,7 +333,7 @@ jobs:
       # into --resultdir), and the size gets calculated automatically from
       # the kickstart's own partition sizes plus a small pad - there's no
       # --image-size flag to set it directly. See
-      # findings/gh-actions-live-iso-build.md for the failure and the fix.
+      # findings/github-actions-build.md for the failure and the fix.
       #
       # zerombr is required here even though it's never needed for the ISO
       # build. A brand-new sparse disk-image file has no partition table
@@ -406,7 +358,7 @@ jobs:
       # keeps plain `reqpart` (no --add-boot) and a single `part /`,
       # trusting anaconda to create exactly whatever partition the
       # platform needs on its own. Matching that pattern here instead -
-      # see findings/gh-actions-live-iso-build.md for the full trace.
+      # see findings/github-actions-build.md for the full trace.
       #
       # Went through a BIOS/MBR detour after that (masking /sys/firmware
       # so anaconda's is_efi() check would report BIOS, matching a plain
@@ -416,7 +368,7 @@ jobs:
       # generation (Gen2) is UEFI, and it turned up a second problem
       # (grub2-install re-detecting real EFI from inside anaconda's
       # chroot regardless of our outer mask - see
-      # findings/gh-actions-live-iso-build.md, bug #6). Building a real
+      # findings/github-actions-build.md, bug #6). Building a real
       # UEFI/GPT disk instead - an actual EFI System Partition, no
       # /sys/firmware masking needed at all - works with the runner
       # instead of against it, and is both simpler and more correct for
@@ -475,7 +427,7 @@ jobs:
           # same desktop defaults through the persistent system dconf database.
           cat > /etc/dconf/db/local.d/01-azl-desktop-favorites << 'DCONF'
           [org/gnome/shell]
-          favorite-apps=['microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
+          favorite-apps=['com.github.sirredbeard.copilot-desktop-gtk.desktop', 'microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
           welcome-dialog-last-shown-version='4294967295'
 
           [org/gnome/desktop/background]
@@ -617,7 +569,8 @@ jobs:
                 lorax lorax-templates-generic lorax-lmc-novirt \
                 anaconda-core anaconda-install-env-deps \
                 qemu-img systemd-udev libguestfs-tools-c \
-                shim-x64 grub2-efi-x64-cdboot policycoreutils curl python3
+                shim-x64 grub2-efi-x64-cdboot policycoreutils curl python3 \
+                flatpak
 
               mkdir -p /workspace/disk-result
               /workspace/scripts/log-latest-vendor-packages.sh \
@@ -628,7 +581,7 @@ jobs:
               # Fedora 43 packaged anaconda-core still carries a real
               # bug upstream already fixed - see
               # scripts/patch-anaconda-efi-skip-bug.py for the full
-              # writeup and findings/gh-actions-live-iso-build.md for the
+              # writeup and findings/github-actions-build.md for the
               # CI trail. Patch it in place before livemedia-creator ever
               # runs anaconda, rather than wait for Fedora to backport it.
               python3 /workspace/scripts/patch-anaconda-efi-skip-bug.py
@@ -757,7 +710,7 @@ jobs:
   # All three convert from the qcow2 (never the original raw .img, which
   # this project doesn't produce as a durable artifact at all anymore -
   # see the "Fix VHDX conversion to inherit the 64G resize" entry in
-  # findings/gh-actions-live-iso-build.md for why that distinction
+  # findings/github-actions-build.md for why that distinction
   # matters: qemu-img can't resize a vhdx/vdi/vmdk after the fact the way
   # it can a qcow2, so the source has to already be the final 64G size
   # before conversion, and the qcow2 already is by the time
@@ -839,7 +792,7 @@ jobs:
     # VDI (VirtualBox) is new this session and NOT yet verified against a
     # real CI build the way qcow2/VHDX are - can't test VirtualBox boot
     # locally in this dev environment at all (no VirtualBox install here,
-    # by design - see findings/gh-actions-live-iso-build.md). Verified so
+    # by design - see findings/github-actions-build.md). Verified so
     # far only that `qemu-img convert -O vdi` from an already-64G-resized
     # qcow2 source produces a 64G-virtual-size VDI, same technique as the
     # VHDX fix. continue-on-error stays on both for the reusable-workflow

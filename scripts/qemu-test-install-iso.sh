@@ -1,31 +1,11 @@
 #!/usr/bin/env bash
-# Boot a built azurelinux-desktop-install.iso in QEMU for manual install
-# testing, with a real GTK window (not -nographic/VNC) so the Anaconda
-# install and first-boot desktop can actually be looked at, plus a QEMU
-# monitor socket for scripted checks alongside just watching the window
-# directly. Companion to scripts/qemu-test-live-iso.sh - see that script
-# for the notes on -cpu host, RAM sizing, and screendump captures being
-# unreliable in this environment; they apply here too and are not
-# repeated below.
+# qemu-test-install-iso.sh
 #
-# Usage:
-#   ./scripts/qemu-test-install-iso.sh /path/to/azurelinux-desktop-install.iso [name] [ram_mb] [disk_gb]
-#
-# Unlike the live ISO (which boots and runs entirely from the -cdrom
-# device), the installer ISO's whole point is to install onto a real
-# disk, so this script always creates/reuses a persistent, expandable
-# qcow2 disk (30G by default) under $AZL_QEMU_WORKDIR (default
-# $HOME/azl-work) and boots off the CD-ROM first so Anaconda can
-# partition and install onto that disk. Attached via virtio-blk
-# (-drive if=virtio), the standard low-overhead paravirtualized block
-# transport for a QEMU target disk - not virtiofs, which is a shared-
-# directory/filesystem passthrough mechanism (virtiofsd + a memory
-# backend), not a block device, so Anaconda has nothing to partition
-# or install a bootloader onto if the "disk" were virtiofs instead.
-# Re-run the same script with the same $NAME afterward (with -boot d
-# dropped, see the boot-from-disk invocation printed at the end) to boot
-# the freshly installed system instead of the installer media again.
-# WARNING: writes the target disk image. Do not point this at a disk you care about without a backup.
+# Purpose: Boot the installer ISO against a persistent qcow2. DESTRUCTIVE
+#   to the target disk image contents.
+# Usage:   ./scripts/qemu-test-install-iso.sh INSTALL.iso TARGET.qcow2
+# Needs:   qemu, OVMF.
+# CI:      No.
 
 set -euo pipefail
 

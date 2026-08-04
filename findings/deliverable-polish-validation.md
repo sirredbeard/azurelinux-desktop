@@ -11,8 +11,8 @@ session notes so they are not lost.
 - `scripts/podman-test-azl4-fedora.sh` → pass (`azl4=643 fc43=513 total=1171`)
 - `scripts/test-installer-runtime-resolve.sh` → pass (`426/426`)
 - `scripts/test-canary-container-local.sh` → pass
-- Evidence: `findings/logs/preflight-iteration-2026-07-22.log`
-- Workflow: `.github/workflows/preflight-non-gui.yml`
+- Evidence (preflight 2026-07-22): `test-container-repos` PASS; `podman-test-azl4-fedora` PASS azl4=643 fc43=513 total=1171; installer runtime resolve 426/426 Complete; canary local PASS after flatpak hardening; local kiwi bind-mount blocker expected.
+- Workflow: `.github/workflows/release.yml (canary jobs; historical note)`
 
 ## Squash merge and nightly
 
@@ -23,9 +23,9 @@ session notes so they are not lost.
 
 Post-nightly workflow fixes:
 
-- `8333016`: `nightly-release.yml` - disabled vmdk/vhdx/vdi download when
+- `8333016`: `release.yml` (was nightly-release.yml) - disabled vmdk/vhdx/vdi download when
   those formats were not built.
-- `ab4deca`: `build-container.yml` - removed racing `prepare-kernel-modules`
+- `ab4deca`: `release.yml` canary jobs - removed racing `prepare-kernel-modules`
   step that cancelled canary container builds.
 
 ## Fix tracker summary (all resolved in this batch)
@@ -143,7 +143,6 @@ No new regressions. Release treated as shippable for this batch.
 ## References
 
 - Individual issue files listed in `findings/README.md`
-- `logs/preflight-iteration-2026-07-22.log`
-- `logs/live-wallpaper-match-2026-07-22.log`
-- `logs/live-boot-ocr-2026-07-22.log`
+Wallpaper match (2026-07-22): winner `adwaita-d`, corr_mean≈0.048 vs light negative; still generic dark Adwaita that iteration.
+Boot OCR: t8/t20/t40 = 0 chars; t80 only desktop UI text ("Type to search").
 - `qemu-gnome-interactive-testing.md`

@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Configure Anaconda's EFI vendor directory for an image build."""
+"""configure-anaconda-efi-vendor.py
+
+Purpose: Point Anaconda EFI vendor path helpers at EFI/azurelinux where the
+  build needs Fedora-signed shim/grub under the Azure Linux NVRAM path.
+Usage:   python3 scripts/configure-anaconda-efi-vendor.py (see CI step)
+Needs:   Python 3; run inside the Fedora build container with anaconda tree.
+CI:      Yes. build-live-iso.yml disk/ISO path.
+"""
 
 import argparse
 from pathlib import Path

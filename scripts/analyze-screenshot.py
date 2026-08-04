@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""
-Screenshot analyzer for Azure Linux Desktop boot validation.
-Classifies a screenshot and reports what boot stage it likely shows.
-Used by validate-boot-behavior.sh at each checkpoint.
+"""analyze-screenshot.py
 
-Usage: analyze-screenshot.py <image-path> [label]
-
-Prints a one-line classification and supporting metrics.
-Exit 0 always - caller decides whether to fail based on content.
+Purpose: Pixel stats and simple diffs for QEMU/VNC boot screenshots.
+Usage:   python3 scripts/analyze-screenshot.py --help (see argparse below)
+Needs:   Python 3; Pillow if you use image ops the script imports.
+CI:      No. Local boot / wallpaper helpers call this.
 """
+
 import sys
 import os
 from pathlib import Path

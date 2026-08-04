@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Build the installer ISO locally with the same privileged Fedora container
-# shape used by CI. Pass an empty target directory under ~/azl-work.
+# test-installer-kiwi-build.sh
+#
+# Purpose: Local KIWI installer description smoke. Host/container limits may
+#   block a full ISO; Actions remains authoritative for installer artifacts.
+# Usage:   ./scripts/test-installer-kiwi-build.sh
+# Needs:   kiwi-ng, root/container privileges.
+# CI:      No.
+
 set -euo pipefail
 
 TARGET="${1:?usage: $0 /path/under/azl-work/target-directory}"

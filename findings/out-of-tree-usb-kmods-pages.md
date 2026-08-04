@@ -35,7 +35,7 @@ Related deep dives:
 * [`wifi-missing-on-bare-metal.md`](wifi-missing-on-bare-metal.md) - Intel
   Wi-Fi / `CONFIG_WLAN`, firmware vs driver gap
 * [`intel-laptop-host-vs-azl-drivers.md`](intel-laptop-host-vs-azl-drivers.md)
-  - host Fedora vs nested AZL scorecard
+  - host Fedora vs nested Azure Linux scorecard
 * [`plan-close-desktop-driver-gaps.md`](plan-close-desktop-driver-gaps.md) -
   waves 1–5 execution plan
 
@@ -151,7 +151,7 @@ Before adding another out-of-tree module, check:
 3. Official Azure Linux ISO initrd (`lsinitrd` / cpio list) - if upstream
    already ships it, do not build a twin.
 4. Whether a simple package from Azure or Fedora provides the `.ko`
-   (for USB storage/HID on AZL 4.0 x86_64: nothing does).
+   (for USB storage/HID on Azure Linux 4.0 x86_64: nothing does).
 
 Issue #5's "Microsoft ISO has the same gap" claim was re-checked against
 a fresh official 4.0 x86_64 ISO. Still only `xhci-plat-hcd` in that

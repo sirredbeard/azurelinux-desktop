@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Compare a live-session screenshot against candidate GNOME wallpapers inside a
-# live ISO using local, on-device numeric image analysis.
+# analyze-live-wallpaper-match.sh
+#
+# Purpose: On-device numeric match of a live-session screenshot against
+#   wallpaper candidates inside a live ISO (no cloud vision).
+# Usage:   ./scripts/analyze-live-wallpaper-match.sh LIVE.iso SHOT.png [report.txt]
+# Needs:   bash, python3, mount tools; read-only ISO + PNG.
+# CI:      No. Local polish / wallpaper checks only.
+
 set -euo pipefail
 
 LIVE_ISO="${1:?usage: $0 /path/to/live.iso /path/to/screenshot.png [output_report.txt]}"

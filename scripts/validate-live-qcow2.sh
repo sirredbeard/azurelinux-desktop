@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Filesystem validation for the Azure Linux Desktop live qcow2 disk image.
-# Uses qemu-nbd to expose the image, mounts it, and runs the same checks
-# as validate-live-iso.sh against the live rootfs.
+# validate-live-qcow2.sh
 #
-# Requires: qemu-nbd (qemu-img package), sudo for mount/modprobe.
-# Usage: validate-live-qcow2.sh <path-to.qcow2> [work-dir]
+# Purpose: Validate a live desktop qcow2 (partitions, EFI, staged files)
+#   without necessarily booting the GUI.
+# Usage:   ./scripts/validate-live-qcow2.sh IMAGE.qcow2
+# Needs:   qemu-nbd or libguestfs-class tools; root often required.
+# CI:      No.
+
 set -euo pipefail
 
 QCOW2="${1:?Usage: $0 <live.qcow2> [work-dir]}"

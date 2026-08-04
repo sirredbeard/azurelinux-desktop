@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Filesystem validation for the Azure Linux Desktop live ISO.
-# Extracts the ISO squashfs, mounts the nested rootfs.img, and checks key files.
+# validate-live-iso-filesystem.sh
 #
-# Both the live ISO and installer ISO use a nested layout:
-#   LiveOS/squashfs.img → LiveOS/rootfs.img (ext4)
-# This script handles both by mounting the inner ext4 when present.
-# Requires sudo for the loop mount of rootfs.img.
-#
-# Usage: validate-live-iso-filesystem.sh <path-to-live.iso> [work-dir]
+# Purpose: Mount a live ISO root and check staged assets, dconf, plymouth,
+#   and other polish paths on the filesystem.
+# Usage:   ./scripts/validate-live-iso-filesystem.sh LIVE.iso
+# Needs:   root/mount, squashfs tools.
+# CI:      No.
+
 set -euo pipefail
 
 ISO="${1:?Usage: $0 <live.iso> [work-dir]}"

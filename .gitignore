@@ -10,3 +10,8 @@
 *.ovmf-vars.fd
 *-overlay.qcow2
 .tmp/*
+# Generated at build time from azurelinux-desktop-live.ks (see kickstart/README.md)
+kickstart/azurelinux-desktop-live-disk.ks
+
+__pycache__/
+*.py[cod]

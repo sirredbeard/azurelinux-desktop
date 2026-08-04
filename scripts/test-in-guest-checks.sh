@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Runs inside the dedicated test image's first boot, as a oneshot systemd
-# service with journal+console output so the host-side QEMU wrapper can read
-# the results from the serial log. This is intentionally self-contained and
-# defensive - if any step fails, print a clear marker and shut the VM down.
+# test-in-guest-checks.sh
+#
+# Purpose: Checks intended to run inside a booted guest (SSH or console).
+# Usage:   ./scripts/test-in-guest-checks.sh
+# Needs:   Guest shell; packages under test installed.
+# CI:      No. Local guest QA.
 
 set -euo pipefail
 

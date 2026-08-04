@@ -1,25 +1,13 @@
 #!/usr/bin/env bash
-# Fetch the current GitHub/Microsoft side-load assets that have no yum repo.
+# fetch-latest-thirdparty.sh
 #
-# Always resolves the *latest* release (no pinned version numbers). Used by:
-#   - kickstart %post --nochroot (live + disk images)
-#   - kiwi/config.sh (installer offline extras)
-#   - scripts/build-canary-container.sh (canary)
-#
-# Usage:
-#   fetch-latest-thirdparty.sh DEST_DIR
-#
-# Env:
-#   GITHUB_TOKEN / GH_TOKEN  optional; raises API rate limits in CI
-#   CURL_RETRIES             default 5
-#
-# Writes into DEST_DIR:
-#   github-copilot.rpm
-#   copilot-linux-x64.tar.gz
-#   copilot-SHA256SUMS.txt
-#   edit.tar.gz
-#   flathub.flatpakrepo          (best-effort; missing is non-fatal)
-#   thirdparty-versions.txt     (resolved URLs/tags for the build log)
+# Purpose: Resolve and download latest Copilot GUI RPM, Copilot CLI tarball,
+#   microsoft/edit, Flathub .flatpakrepo, and .NET 11 SDK tarball. Fails if
+#   latest cannot be resolved. No pinned versions in kickstarts.
+# Usage:   ./scripts/fetch-latest-thirdparty.sh DEST_DIR
+# Needs:   curl, jq optional; GITHUB_TOKEN/GH_TOKEN helps API limits.
+# CI:      Yes. Live/installer builds and assets.tar packaging.
+
 set -euo pipefail
 
 DEST="${1:?usage: $0 DEST_DIR}"

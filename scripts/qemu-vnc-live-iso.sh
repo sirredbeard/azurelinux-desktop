@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# Boot a live ISO through QEMU's localhost-only VNC backend with the same
-# UEFI, KVM, q35, and selectable input setup used by the Azure disk VNC test.
-# This is suitable for a control image as well as Azure Linux Desktop.
+# qemu-vnc-live-iso.sh
 #
-# Usage:
-#   ./scripts/qemu-vnc-live-iso.sh /path/to/live.iso [vnc_display]
-#   AZL_QEMU_INPUT_DEVICE=virtio-tablet ./scripts/qemu-vnc-live-iso.sh /path/to/live.iso
-#
-# Connect from the same host with:
-#   vncviewer 127.0.0.1:<5900 + vnc_display>
+# Purpose: Boot a live ISO with VNC for screenshot / OCR polish checks.
+# Usage:   ./scripts/qemu-vnc-live-iso.sh LIVE.iso [display]
+# Needs:   qemu, OVMF, free VNC display.
+# CI:      No.
+
 set -euo pipefail
 
 ISO="${1:?usage: $0 /path/to/live.iso [vnc_display]}"

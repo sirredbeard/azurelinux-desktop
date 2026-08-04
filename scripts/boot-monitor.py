@@ -1,26 +1,10 @@
 #!/usr/bin/env python3
-"""
-Delta-based boot monitor for Azure Linux Desktop live ISO.
+"""boot-monitor.py
 
-Takes a screenshot via QEMU monitor socket every INTERVAL seconds,
-computes mean absolute pixel delta vs the previous saved frame, and
-saves only frames that exceed THRESHOLD percent change. Exits after
-DURATION seconds. Saved keyframes are named:
-
-    key_<sequence>_<frame>.png
-
-Usage:
-    boot-monitor.py <monitor.sock> <output-dir> [interval] [threshold] [duration]
-
-Defaults: interval=1.5s  threshold=3.0%  duration=240s
-
-Notes:
-- Requires: socat, Pillow (python3-pillow)
-- QEMU must be launched with -monitor unix:<sock>,server,nowait
-- The ⚠ CONSOLE TEXT flag triggers if >0.5% of the left strip has
-  brightness >180 — catches dracut/kernel error lines immediately.
-- The ⚠ CURSOR flag checks only rows 40-80 of the leftmost 12px to
-  avoid false positives from the GNOME Activities pill button at (0,0).
+Purpose: Watch a serial log or console stream for boot markers and timeouts.
+Usage:   python3 scripts/boot-monitor.py --help
+Needs:   Python 3.
+CI:      No. Local smoke / interactive boot helpers.
 """
 
 import sys

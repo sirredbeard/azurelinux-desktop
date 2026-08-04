@@ -1,24 +1,12 @@
 #!/usr/bin/env bash
-# Build Azure Linux out-of-tree desktop kmod RPMs for one exact kernel release.
+# build-desktop-kmods.sh
 #
-# Produces policy + sibling kmod RPMs that must move together:
-#   azurelinux-desktop-policy
-#   azurelinux-desktop-usbhid-kmod
-#   azurelinux-desktop-usb-storage-kmod
-#   azurelinux-desktop-iwlwifi-kmod
-#   azurelinux-desktop-sound-kmod
-#   azurelinux-desktop-bluetooth-kmod
-#   azurelinux-desktop-uvc-kmod
-#   azurelinux-desktop-thinkpad-kmod
-#   azurelinux-desktop-typec-kmod
-#
-# Stock AZL 4.0 x86_64 cloud kernel leaves USB HID/storage, WLAN, SOUND,
-# BT, MEDIA_USB, TYPEC, and THINKPAD_ACPI off. Build matching OOT modules
-# from the CBL-Mariner source tarball against exact kernel-devel.
-#
-# Stages (DESKTOP_KMOD_STAGE or $3): all | prepare | usbhid | usb-storage |
-# iwlwifi | sound | bluetooth | uvc | thinkpad | typec | package
-# Set DESKTOP_KMOD_WORKDIR to reuse source across CI steps.
+# Purpose: Build out-of-tree desktop kmod RPMs (USB, BT, sound, Wi-Fi, ...)
+#   against a given Azure Linux kernel inside an Azure Linux container.
+# Usage:   See header flags inside; usually run via publish-desktop-kmods.yml.
+# Needs:   container runtime, kernel-devel matching target kernel, rpmbuild.
+# CI:      Yes. publish-desktop-kmods.yml family matrix.
+
 set -euo pipefail
 
 AZL_BASE_URL="${AZL_BASE_URL:-https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64}"

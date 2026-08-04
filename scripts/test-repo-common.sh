@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Shared repo-policy helpers for the fast podman check and the in-guest
-# upgrade/origin checks. The package lists are intentionally small and
-# curated; the repo definitions themselves are always parsed from the real
-# kickstart so the policy stays tied to the source of truth.
+# test-repo-common.sh
+#
+# Purpose: Shared helpers for repo-origin and priority tests. Sourced by
+#   test-container-repos.sh and related scripts.
+# Usage:   source ./scripts/test-repo-common.sh
+# Needs:   bash; dnf inside the test container.
+# CI:      Indirect (library for CI/local repo tests).
 
 azl_repo_expected_family() {
     case "$1" in
@@ -167,7 +170,7 @@ azl_combined_install_packages() {
 # from an azl-* repo is expected to resolve from fedora (that is the
 # whole point of excluding it there); a package excluded from a
 # fedora43* repo is expected to resolve from azl. Repos outside the
-# azl/fedora hybrid split (ms-prod, vscode, edge-canary, rpmfusion-*,
+# Azure Linux / Fedora repo split (ms-prod, vscode, edge-canary, rpmfusion-*,
 # etc.) are skipped - their excludepkgs entries (e.g. ms-prod's
 # aznfs/mdatp) are outright removals, not a family assertion. Emits
 # "pkg family" pairs, one per line.

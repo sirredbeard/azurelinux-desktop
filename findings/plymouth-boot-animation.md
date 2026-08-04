@@ -72,14 +72,14 @@ the boot initramfs even when they exist on the rootfs.
 `plymouth-set-default-theme azurelinux` fails with
 `azurelinux.plymouth does not exist` if theme files are not already under
 `/usr/share/plymouth/themes/azurelinux/`. Copy `.plymouth`, `.script`, logo
-PNG, and dot PNGs first. Log: `logs/installer-release-runtime-plymouth-29890385508.log`.
+PNG, and dot PNGs first. Failure signature: `azurelinux.plymouth does not exist` from `config.sh`.
 
 ### KIWI boot initramfs path
 
 Installer ISOs store the boot initramfs at `/boot/x86_64/loader/initrd`, not
 Lorax's `/images/pxeboot/initrd.img`. Validators that use the Lorax path miss
 the installer's initramfs. Log:
-`logs/installer-release-kiwi-initramfs-path-29891158562.log`.
+`/images/pxeboot/initrd.img` (Lorax) is wrong; use `/boot/x86_64/loader/initrd`.
 
 ### early-kms.conf missing or incomplete
 
@@ -123,6 +123,11 @@ systemd/SELinux text and may need a reboot. Fix Plymouth activation first;
 do not treat relabel alone as a theme packaging failure. On-disk checks often
 already showed `Theme=azurelinux` and theme files inside the installed
 initramfs while the splash still failed at runtime.
+
+Stock `selinux-autorelabel` also calls `plymouth --quit` even when the
+graphical splash is healthy, then prints fixfiles to the console. Covered by
+`assets/bin/azl-first-boot-prepare` and a systemd drop-in — see
+`first-boot-plymouth-relabel.md`.
 
 ### Pre-Plymouth firmware/GRUB text
 
@@ -200,8 +205,7 @@ journalctl -b | grep -i plymouth
 
 ## References
 
-- `logs/installer-release-runtime-plymouth-29890385508.log` — theme not staged before selection
-- `logs/installer-release-kiwi-initramfs-path-29891158562.log` — wrong initramfs path in verification
+Theme-not-staged and wrong initrd path signatures are inlined above.
 - `uefi-bdsdxe-text-before-plymouth.md` — GRUB gfxterm / pre-Plymouth firmware text
 - `plymouth-animation-duration.md` — open note on short QEMU animation
 - `deliverable-polish-validation.md` - AQ runs that confirmed splash

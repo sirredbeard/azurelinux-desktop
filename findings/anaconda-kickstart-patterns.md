@@ -4,7 +4,7 @@
 
 ## Context
 
-Two kickstart paths coexist: the live ISO/qcow2 path uses `livemedia-creator --no-virt` (Lorax/Anaconda dirinstall), and the installer ISO path uses KIWI-NG with an offline repo and a rendered kickstart template. Both share most `%post` patterns. The installer kickstart is rendered from `kiwi/azl-install.ks.in`/`kiwi/azl-install-encrypted.ks.in` via `config.sh`'s `render_kickstart()`.
+Two kickstart paths coexist: the live ISO/qcow2 path uses `livemedia-creator --no-virt` (Lorax/Anaconda dirinstall), and the installer ISO path uses KIWI-NG with an offline repo and a rendered kickstart template. Both share most `%post` patterns. The installer kickstart is rendered from `kiwi/azl-install.ks.in` via `config.sh`'s `render_kickstart()`, then copied to `/root/azl-install-encrypted.ks` so the launcher's second menu entry still has a file (storage is interactive Anaconda TUI for both).
 
 ## Known issues and root causes
 
@@ -71,8 +71,14 @@ Installer templates once carried a leftover `user --name=cinnamon` style placeho
 ### fedora-logos and anaconda-webui
 
 - `anaconda-webui` (pulled in by `anaconda-live` for the live installer stack) hard-requires `fedora-logos`. `azurelinux-logos` conflicts with `fedora-logos`. Both the live ISO and installer ISO now align on `fedora-logos` from Fedora.
-- The `system-logos` virtual dependency that would allow remix packages is present in upstream Anaconda source but not in the Fedora package this build consumes and not in AZL's published packages. Current policy: keep both paths on `fedora-logos`.
-- Log excerpt: `logs/release-canary-fedora-logos-2026-07-21.log`.
+- The `system-logos` virtual dependency that would allow remix packages is present in upstream Anaconda source but not in the Fedora package this build consumes and not in Azure Linux's published packages. Current policy: keep both paths on `fedora-logos`.
+Evidence:
+```
+Failed to resolve the transaction:
+Problem: package anaconda-webui-... from fedora43 requires fedora-logos, but none of the providers can be installed
+  - package azurelinux-logos-... from azl-base conflicts with fedora-logos provided by fedora-logos-... from fedora43
+  - package anaconda-live-... from fedora43 requires anaconda-webui
+```
 
 ## What didn't work
 
@@ -82,13 +88,20 @@ Installer templates once carried a leftover `user --name=cinnamon` style placeho
 
 ## Current state
 
-All three kickstarts use `install -m 0644`/`install -m 0755` for all asset staging. Installer kickstarts render from `kiwi/azl-install.ks.in` and `kiwi/azl-install-encrypted.ks.in` to `/root/azl-install.ks` and `/root/azl-install-encrypted.ks` respectively. Both share the same package section and `%post` blocks. Disk partitioning is delegated to Anaconda TUI for the installer. Live ISO uses `rd.live.image` conditional services for session-time-only settings; installed targets use persistent dconf databases.
+Live and installer paths use `install -m 0644`/`install -m 0755` for asset staging. The installer template is only `kiwi/azl-install.ks.in`; `config.sh` renders it to `/root/azl-install.ks` and copies that file to `/root/azl-install-encrypted.ks`. Disk partitioning is delegated to Anaconda TUI for the installer. Live ISO uses `rd.live.image` conditional services for session-time-only settings; installed targets use persistent dconf databases.
 
 ## References
 
-- `logs/installer-flatpak-selinux-dependency.log` — flatpak-selinux missing from offline repo
-- `logs/installer-grub-support-package.log` — grub2-tools-extra missing from offline repo
-- `logs/release-canary-fedora-logos-2026-07-21.log` — fedora-logos conflict trace
+Evidence (offline repo gaps):
+```
+package flatpak-... from azl-offline requires
+(flatpak-selinux = ... if selinux-policy-targeted),
+but none of the providers can be installed
+
+Requirement 'grub2-tools-extra' is applied.
+Reason: Necessary for the bootloader configuration.
+No match for argument: grub2-tools-extra
+```
 - `efi-vendor-path-azurelinux.md` — EFI/fedora vs EFI/azurelinux copy in post-bootloader
 - `uefi-bdsdxe-text-before-plymouth.md` — installed GRUB gfxterm parity
 - `admin-default-shell-pwsh.md` — anaconda-launcher user --shell

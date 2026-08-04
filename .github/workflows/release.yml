@@ -1,0 +1,549 @@
+name: Release
+
+# One publication path. Schedule does the full set. Manual dispatch is
+# the same workflow with per-artifact flags, so a focused rebuild does
+# not mean a second workflow file or a second mental model.
+#
+# Graph:
+#   plan
+#     -> cleanup (only when replacing the release)
+#     -> create-release (when any GitHub Release asset is in scope)
+#     -> kmods (optional; Pages repo, kernel drift)
+#     -> build-live and build-installer in parallel after kmods
+#     -> canary build+test in parallel with the image builds
+#     -> per-asset upload jobs (each independent, each clobbers in place)
+#     -> finalize
+#
+# Concurrency and failure isolation:
+# - Live ISO, installer ISO, and qcow2 build at the same time (installer
+#   is its own reusable call; live ISO and qcow2 are parallel jobs inside
+#   build-live-iso.yml).
+# - VHDX/VDI/VMDK convert from the finished qcow2 only. They stay 7z
+#   compressed the way build-live-iso.yml already does it.
+# - Canary failure must not block image uploads. Image failure must not
+#   block canary. Live ISO failure must not block qcow2/VM uploads when
+#   the disk build still produced artifacts. Each upload job stands alone
+#   with continue-on-error and only needs its own artifact.
+# - Package lists, build logs, and vendor snapshots stay in the reusable
+#   build workflows. Do not strip those when editing this file.
+#
+# Internals (not dispatched by hand):
+#   build-live-iso.yml, build-installer-iso.yml, publish-desktop-kmods.yml
+#
+# Release rules:
+# - One GitHub Release is the product. Get-AzureLinuxDesktop.ps1 reads
+#   /releases/latest.
+# - Schedule, or manual replace_release: delete every prior release and
+#   tag, mint a UTC-date tag, apply .github/release-notes-template.md.
+# - Focused manual (replace_release off): scripts/resolve-release-tag.sh
+#   attaches to the current release and clobbers only the assets this run
+#   built. Do not mint a second tag just because UTC rolled over.
+# - Split every oversize asset with split -b 1900M so we stay under the
+#   GitHub 2GiB per-asset cap.
+
+on:
+  schedule:
+    - cron: "30 05 * * *"
+  workflow_dispatch:
+    inputs:
+      live_iso:
+        description: "Build and publish the live desktop ISO"
+        type: boolean
+        default: true
+      installer_iso:
+        description: "Build and publish the installer ISO"
+        type: boolean
+        default: true
+      qcow2:
+        description: "Build and publish the qcow2 disk image (also the source for VHDX/VDI/VMDK when those are on)"
+        type: boolean
+        default: true
+      vhdx:
+        description: "Build and publish the VHDX disk image (Hyper-V, 7z)"
+        type: boolean
+        default: true
+      vdi:
+        description: "Build and publish the VDI disk image (VirtualBox, 7z)"
+        type: boolean
+        default: true
+      vmdk:
+        description: "Build and publish the VMDK disk image (VMware, 7z)"
+        type: boolean
+        default: true
+      canary:
+        description: "Build, push, and test the package-policy canary container"
+        type: boolean
+        default: true
+      kmods:
+        description: "Check upstream Azure Linux kernel drift; rebuild/publish desktop kmod RPMs when needed"
+        type: boolean
+        default: true
+      replace_release:
+        description: "Delete every prior GitHub release/tag and mint a fresh dated release with the notes template. Schedule always does this. Leave off to clobber assets on the current release only."
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: azurelinux-desktop-publication
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      live_iso: ${{ steps.flags.outputs.live_iso }}
+      installer_iso: ${{ steps.flags.outputs.installer_iso }}
+      qcow2: ${{ steps.flags.outputs.qcow2 }}
+      vhdx: ${{ steps.flags.outputs.vhdx }}
+      vdi: ${{ steps.flags.outputs.vdi }}
+      vmdk: ${{ steps.flags.outputs.vmdk }}
+      canary: ${{ steps.flags.outputs.canary }}
+      kmods: ${{ steps.flags.outputs.kmods }}
+      replace_release: ${{ steps.flags.outputs.replace_release }}
+      build_disk_image: ${{ steps.flags.outputs.build_disk_image }}
+      need_github_release: ${{ steps.flags.outputs.need_github_release }}
+      need_live_build: ${{ steps.flags.outputs.need_live_build }}
+    steps:
+      - id: flags
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IN_LIVE: ${{ inputs.live_iso }}
+          IN_INSTALLER: ${{ inputs.installer_iso }}
+          IN_QCOW2: ${{ inputs.qcow2 }}
+          IN_VHDX: ${{ inputs.vhdx }}
+          IN_VDI: ${{ inputs.vdi }}
+          IN_VMDK: ${{ inputs.vmdk }}
+          IN_CANARY: ${{ inputs.canary }}
+          IN_KMODS: ${{ inputs.kmods }}
+          IN_REPLACE: ${{ inputs.replace_release }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            live=true; installer=true; qcow2=true; vhdx=true
+            vdi=true; vmdk=true; canary=true; kmods=true; replace=true
+          else
+            live="${IN_LIVE:-false}"
+            installer="${IN_INSTALLER:-false}"
+            qcow2="${IN_QCOW2:-false}"
+            vhdx="${IN_VHDX:-false}"
+            vdi="${IN_VDI:-false}"
+            vmdk="${IN_VMDK:-false}"
+            canary="${IN_CANARY:-false}"
+            kmods="${IN_KMODS:-false}"
+            replace="${IN_REPLACE:-false}"
+          fi
+          disk=false
+          if [ "$qcow2" = "true" ] || [ "$vhdx" = "true" ] || [ "$vdi" = "true" ] || [ "$vmdk" = "true" ]; then
+            disk=true
+          fi
+          need_live=false
+          if [ "$live" = "true" ] || [ "$disk" = "true" ]; then
+            need_live=true
+          fi
+          need_rel=false
+          if [ "$live" = "true" ] || [ "$installer" = "true" ] || [ "$disk" = "true" ]; then
+            need_rel=true
+          fi
+          {
+            echo "live_iso=$live"
+            echo "installer_iso=$installer"
+            echo "qcow2=$qcow2"
+            echo "vhdx=$vhdx"
+            echo "vdi=$vdi"
+            echo "vmdk=$vmdk"
+            echo "canary=$canary"
+            echo "kmods=$kmods"
+            echo "replace_release=$replace"
+            echo "build_disk_image=$disk"
+            echo "need_live_build=$need_live"
+            echo "need_github_release=$need_rel"
+          } >> "$GITHUB_OUTPUT"
+          echo "plan: live=$live installer=$installer qcow2=$qcow2 vhdx=$vhdx vdi=$vdi vmdk=$vmdk canary=$canary kmods=$kmods replace=$replace"
+
+  cleanup:
+    needs: plan
+    if: needs.plan.outputs.replace_release == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out all tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete previous GitHub releases and tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release list --repo "${{ github.repository }}" --limit 1000 \
+            --json tagName --jq '.[].tagName' |
+            while IFS= read -r tag; do
+              [ -n "$tag" ] || continue
+              gh release delete "$tag" --repo "${{ github.repository }}" --yes
+            done
+          git ls-remote --tags --refs origin |
+            awk '{sub("refs/tags/", "", $2); print $2}' |
+            while IFS= read -r tag; do
+              [ -n "$tag" ] || continue
+              git push origin --delete "refs/tags/$tag"
+            done
+
+  create-release:
+    needs: [plan, cleanup]
+    if: |
+      always()
+      && needs.plan.outputs.need_github_release == 'true'
+      && (needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve or choose release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLACE: ${{ needs.plan.outputs.replace_release }}
+        run: |
+          set -euo pipefail
+          if [ "$REPLACE" = "true" ]; then
+            echo "tag=$(date -u +%Y.%m.%d)" >> "$GITHUB_OUTPUT"
+            echo "create=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          bash scripts/resolve-release-tag.sh "${{ github.repository }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release with notes template
+        if: steps.tag.outputs.create == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Azure Linux Desktop ${{ steps.tag.outputs.tag }}
+          body_path: .github/release-notes-template.md
+          make_latest: true
+
+  kmods:
+    needs: [plan, cleanup]
+    if: |
+      always()
+      && needs.plan.outputs.kmods == 'true'
+      && (needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
+    uses: ./.github/workflows/publish-desktop-kmods.yml
+
+  # Job-level continue-on-error lives inside build-live-iso.yml (ISO vs
+  # disk). Upload jobs below only need the call not skipped/cancelled;
+  # each download fails soft if its artifact is missing.
+  build-live:
+    needs: [plan, kmods]
+    if: |
+      always()
+      && needs.plan.outputs.need_live_build == 'true'
+      && (needs.kmods.result == 'success' || needs.kmods.result == 'skipped')
+    uses: ./.github/workflows/build-live-iso.yml
+    with:
+      build_iso: ${{ needs.plan.outputs.live_iso == 'true' }}
+      build_disk_image: ${{ needs.plan.outputs.build_disk_image == 'true' }}
+      build_vhdx: ${{ needs.plan.outputs.vhdx == 'true' }}
+      build_vdi: ${{ needs.plan.outputs.vdi == 'true' }}
+      build_vmdk: ${{ needs.plan.outputs.vmdk == 'true' }}
+      prepare_kernel_modules: false
+
+  build-installer:
+    needs: [plan, kmods]
+    if: |
+      always()
+      && needs.plan.outputs.installer_iso == 'true'
+      && (needs.kmods.result == 'success' || needs.kmods.result == 'skipped')
+    uses: ./.github/workflows/build-installer-iso.yml
+    with:
+      prepare_kernel_modules: false
+
+  canary:
+    needs: [plan, cleanup]
+    if: |
+      always()
+      && needs.plan.outputs.canary == 'true'
+      && (needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build canary container
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/build-canary-container.sh "ghcr.io/${{ github.repository }}/canary:latest"
+
+      - name: Tag with the run UTC date and push
+        run: |
+          set -euo pipefail
+          date_tag="$(date -u +%Y.%m.%d)"
+          img="ghcr.io/${{ github.repository }}/canary"
+          podman tag "${img}:latest" "${img}:${date_tag}"
+          podman push "${img}:latest"
+          podman push "${img}:${date_tag}"
+
+  canary-test:
+    needs: [plan, canary]
+    if: |
+      always()
+      && needs.plan.outputs.canary == 'true'
+      && needs.canary.result == 'success'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull canary container
+        run: podman pull "ghcr.io/${{ github.repository }}/canary:latest"
+
+      - name: Run package and Flatpak canary suite
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/test-container-logs"
+          podman run --rm \
+            --user root \
+            -v "$GITHUB_WORKSPACE/scripts/test-canary-container.sh:/usr/local/bin/test-canary-container:ro,Z" \
+            -v "$GITHUB_WORKSPACE/test-container-logs:/logs:Z" \
+            "ghcr.io/${{ github.repository }}/canary:latest" \
+            /usr/local/bin/test-canary-container
+
+      - name: Upload canary logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-container-logs
+          path: test-container-logs
+          retention-days: 7
+          if-no-files-found: warn
+
+  upload-live-iso:
+    needs: [plan, create-release, build-live]
+    if: |
+      always()
+      && needs.plan.outputs.live_iso == 'true'
+      && needs.create-release.result == 'success'
+      && needs.build-live.result != 'skipped'
+      && needs.build-live.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-live-iso
+          path: dist
+      - working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          f=$(ls ./*.iso)
+          sha256sum "$f" > "$f.sha256"
+          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
+          rm -f "$f"
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
+
+  upload-qcow2:
+    needs: [plan, create-release, build-live]
+    if: |
+      always()
+      && needs.plan.outputs.qcow2 == 'true'
+      && needs.create-release.result == 'success'
+      && needs.build-live.result != 'skipped'
+      && needs.build-live.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-live-qcow2
+          path: dist
+      - working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          f=$(ls ./*.qcow2)
+          sha256sum "$f" > "$f.sha256"
+          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
+          rm -f "$f"
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
+
+  upload-vhdx:
+    needs: [plan, create-release, build-live]
+    if: |
+      always()
+      && needs.plan.outputs.vhdx == 'true'
+      && needs.create-release.result == 'success'
+      && needs.build-live.result != 'skipped'
+      && needs.build-live.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-live-vhdx
+          path: dist
+      - working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          f=$(ls ./*.vhdx.7z)
+          sha256sum "$f" > "$f.sha256"
+          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
+          rm -f "$f"
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
+
+  upload-vdi:
+    needs: [plan, create-release, build-live]
+    if: |
+      always()
+      && needs.plan.outputs.vdi == 'true'
+      && needs.create-release.result == 'success'
+      && needs.build-live.result != 'skipped'
+      && needs.build-live.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-live-vdi
+          path: dist
+      - working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          f=$(ls ./*.vdi.7z)
+          sha256sum "$f" > "$f.sha256"
+          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
+          rm -f "$f"
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
+
+  upload-vmdk:
+    needs: [plan, create-release, build-live]
+    if: |
+      always()
+      && needs.plan.outputs.vmdk == 'true'
+      && needs.create-release.result == 'success'
+      && needs.build-live.result != 'skipped'
+      && needs.build-live.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-live-vmdk
+          path: dist
+      - working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          f=$(ls ./*.vmdk.7z)
+          sha256sum "$f" > "$f.sha256"
+          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
+          rm -f "$f"
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
+
+  upload-installer:
+    needs: [plan, create-release, build-installer]
+    if: |
+      always()
+      && needs.plan.outputs.installer_iso == 'true'
+      && needs.create-release.result == 'success'
+      && needs.build-installer.result != 'skipped'
+      && needs.build-installer.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: azurelinux-desktop-install-iso
+          path: dist
+      - working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          f=$(ls ./*.iso)
+          sha256sum "$f" > "$f.sha256"
+          split -b 1900M -d -a 2 --additional-suffix=.part "$f" "$f.split."
+          rm -f "$f"
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            "$f".split.*.part "$f.sha256" --clobber -R "${{ github.repository }}"
+
+  finalize:
+    needs:
+      - plan
+      - create-release
+      - upload-live-iso
+      - upload-qcow2
+      - upload-vhdx
+      - upload-vdi
+      - upload-vmdk
+      - upload-installer
+      - canary
+      - canary-test
+      - kmods
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+          NEED_REL: ${{ needs.plan.outputs.need_github_release }}
+        run: |
+          set -euo pipefail
+          echo "kmods=${{ needs.kmods.result }}"
+          echo "canary=${{ needs.canary.result }}"
+          echo "canary-test=${{ needs.canary-test.result }}"
+          echo "live-iso=${{ needs.upload-live-iso.result }}"
+          echo "qcow2=${{ needs.upload-qcow2.result }}"
+          echo "vhdx=${{ needs.upload-vhdx.result }}"
+          echo "vdi=${{ needs.upload-vdi.result }}"
+          echo "vmdk=${{ needs.upload-vmdk.result }}"
+          echo "installer=${{ needs.upload-installer.result }}"
+          if [ "$NEED_REL" != "true" ] || [ -z "${TAG:-}" ]; then
+            echo "No GitHub Release tag in this run; skip asset notes."
+            exit 0
+          fi
+          assets=$(gh release view "$TAG" -R "${{ github.repository }}" --json assets --jq '.assets[].name' || true)
+          missing=""
+          echo "$assets" | grep -q 'azurelinux-desktop-live\.iso\.split\.' || missing="$missing live-iso"
+          echo "$assets" | grep -q '\.qcow2\.split\.' || missing="$missing qcow2"
+          echo "$assets" | grep -q '\.vhdx\.7z\.split\.' || missing="$missing vhdx"
+          echo "$assets" | grep -q '\.vdi\.7z\.split\.' || missing="$missing vdi"
+          echo "$assets" | grep -q '\.vmdk\.7z\.split\.' || missing="$missing vmdk"
+          echo "$assets" | grep -qiE 'install.*\.iso\.split\.|azurelinux-desktop-install' || missing="$missing installer-iso"
+          body=$(gh release view "$TAG" -R "${{ github.repository }}" --json body --jq '.body' || true)
+          clean_body=$(printf '%s' "$body" | grep -v '^\*\*Note:\*\* the following artifact(s) did not make it into this release:' || true)
+          if [ -n "$missing" ]; then
+            note="**Note:** the following artifact(s) did not make it into this release:$missing."
+            printf '%s\n\n%s\n' "$note" "$clean_body" | gh release edit "$TAG" -R "${{ github.repository }}" --notes-file -
+          elif [ -n "$body" ] && [ "$clean_body" != "$body" ]; then
+            printf '%s\n' "$clean_body" | gh release edit "$TAG" -R "${{ github.repository }}" --notes-file -
+          fi

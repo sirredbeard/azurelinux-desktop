@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Render a disk-image kickstart variant for CI testing. It keeps the shared
-# live-image kickstart as the source of truth, applies the same disk-image
-# fixes build-live-iso.yml already uses, then appends a small test-only
-# systemd service that runs the post-boot checks once and reports back over
-# the serial console.
+# render-test-kickstart.sh
+#
+# Purpose: Render kickstart variants for local experiments (not the
+#   production disk-kickstart generator used in CI).
+# Usage:   ./scripts/render-test-kickstart.sh
+# Needs:   bash; kickstart templates in-tree.
+# CI:      No.
 
 set -euo pipefail
 

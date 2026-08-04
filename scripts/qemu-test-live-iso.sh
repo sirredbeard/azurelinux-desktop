@@ -1,45 +1,10 @@
 #!/usr/bin/env bash
-# Boot a built azurelinux-desktop-live.iso in QEMU for manual testing, with
-# a real GTK window (not -nographic/VNC) so the desktop can actually be
-# looked at, plus a QEMU monitor socket for scripted checks (screendump,
-# system_powerdown, etc.) alongside just watching the window directly.
+# qemu-test-live-iso.sh
 #
-# This is the exact invocation used to test GH Actions run 3's ISO - it's
-# recorded here so it doesn't have to be re-derived from scratch (or from
-# session history) every time. Usage:
-#
-#   ./scripts/qemu-test-live-iso.sh /path/to/azurelinux-desktop-live.iso
-#
-# Notes learned the hard way:
-#   - DISPLAY must point at a real, already-running X/Wayland session on
-#     this host (-display gtk opens an actual window there) - this only
-#     works when run from/against a graphical desktop session, not a
-#     headless SSH-only box.
-#   - The QEMU monitor's own `screendump` command produces visibly
-#     corrupted/striped PPM captures in this environment (a capture-path
-#     artifact, not a guest bug) - don't trust screendump PNGs/PPMs for
-#     pixel-level verification. Looking directly at the real GTK window
-#     (or having a human screenshot it) is the reliable way to check
-#     on-screen state; screendump is only good for coarse checks like
-#     "did grub load" via readable text.
-#   - -m 4096 (4GB) reproduced a live-session "out of disk space" report
-#     within minutes of testing flatpak installs - that's dracut's RAM-
-#     backed tmpfs overlay for the live root, sized as a fraction of
-#     total VM RAM, not a real free-space problem. Give the VM more RAM
-#     (8192+) if you intend to install/test anything substantial in the
-#     live session itself, or add rd.live.overlay.size=/rd.live.ram=
-#     kernel args - see findings/ for the details.
-#   - A second virtio drive (a throwaway qcow2) is attached so there's a
-#     writable disk present at boot in case the installable variant or
-#     any persistence testing needs one later; the live ISO itself boots
-#     and runs entirely from the -cdrom device.
-#   - -cpu host is required, not optional. Without it QEMU defaults to
-#     -cpu qemu64 even with -enable-kvm, a conservative baseline missing
-#     SSE4.1/SSE4.2/POPCNT - real modern CPU features .NET's runtime
-#     expects and hard-crashes without ("Fatal error. The current CPU is
-#     missing one or more of the following instruction sets..."). This
-#     was mistaken for a .NET/dotnet.desktop problem at first; it's a
-#     test-VM CPU model problem, not a build problem.
+# Purpose: Boot a live ISO in QEMU (graphical or serial helpers).
+# Usage:   ./scripts/qemu-test-live-iso.sh LIVE.iso
+# Needs:   qemu, OVMF; display or VNC as configured.
+# CI:      No.
 
 set -euo pipefail
 
@@ -59,6 +24,7 @@ mkdir -p "$WORKDIR"
 MONITOR_SOCK="$(azl_qemu_monitor_socket "$WORKDIR" "$NAME")"
 azl_find_ovmf
 OVMF_VARS="$(azl_prepare_ovmf_vars "$WORKDIR" "$NAME")"
+mapfile -t AUDIO_ARGS < <(azl_qemu_audio_args)
 
 case "$INPUT_DEVICE" in
     usb-tablet)
@@ -100,6 +66,7 @@ DISPLAY="${DISPLAY:-:0}" qemu-system-x86_64 \
     -boot d \
     -drive file="$DISK",format=qcow2,if=virtio \
     "${INPUT_ARGS[@]}" \
+    "${AUDIO_ARGS[@]}" \
     -display gtk \
     -monitor "unix:$MONITOR_SOCK,server,nowait" \
     -vga virtio \

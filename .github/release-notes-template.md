@@ -1,5 +1,7 @@
 ## Azure Linux Desktop Proof of Concept
 
+**This not officially supported by Microsoft, Azure, GitHub, or Fedora. This is a proof of concept experiment only.**
+
 This puts a real GNOME desktop from [Fedora](https://fedoraproject.org/) on top of Microsoft's [Azure Linux 4.0](https://github.com/microsoft/azurelinux).
 
 * [Azure Linux](https://github.com/microsoft/AzureLinux) 4.0 base
@@ -17,7 +19,7 @@ This puts a real GNOME desktop from [Fedora](https://fedoraproject.org/) on top 
 
 The package mixing required to accomplish this *will likely result in broken dependencies at some point*. Be prepared to handle that. **I do not recommend running this in production.** That's why live ISOs and VM images are available for you to explore this. An installer ISO is available if you dare to install on bare metal.
 
-This is a personal side project, explored for fun. **It is not affiliated with, sponsored by, or endorsed by Microsoft, the Fedora Project, Red Hat, the GNOME Foundation, or GitHub.** 
+This is a personal side project, explored for fun. **It is not affiliated with, sponsored by, or endorsed by Microsoft, the .NET Foundation, the Fedora Project, Red Hat, the GNOME Foundation, or GitHub.**
 
 ## Download tl;dr
 

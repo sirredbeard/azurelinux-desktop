@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# Filesystem validation for the Azure Linux Desktop installer ISO.
-# Checks GRUB config, kernelcmdline, and installer environment files.
+# validate-installer-iso.sh
 #
-# Usage: validate-installer-iso.sh <path-to-installer.iso> [work-dir]
+# Purpose: Structural checks on a built installer ISO (layout, initrd path,
+#   expected files) without a full install.
+# Usage:   ./scripts/validate-installer-iso.sh INSTALL.iso
+# Needs:   xorriso/iso tools, mount.
+# CI:      No. Local artifact QA after download.
+
 set -euo pipefail
 
 ISO="${1:?Usage: $0 <installer.iso> [work-dir]}"

@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# Build and exercise the canary package-source canary on the local host.
+# test-canary-container-local.sh
+#
+# Purpose: Thin local wrapper to build/test the canary image without GHCR push.
+# Usage:   ./scripts/test-canary-container-local.sh
+# Needs:   podman; build-canary-container.sh; test-canary-container.sh.
+# CI:      No. Local twin of the release canary job.
+
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

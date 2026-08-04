@@ -1,4 +1,4 @@
-# USB stick boot fails: CONFIG_USB_STORAGE off on AZL 4.0 x86_64
+# USB stick boot fails: CONFIG_USB_STORAGE off on Azure Linux 4.0 x86_64
 
 Tracked as GitHub issue #5.
 

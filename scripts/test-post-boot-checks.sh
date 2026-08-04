@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Boot a dedicated test qcow2 (same desktop, extra oneshot test unit baked
-# in) and wait for the guest itself to print PASS/FAIL markers over the
-# serial console. The guest does the real work - upgrade, repo-origin
-# assertions, and package/flatpak installs - because that is less fragile
-# here than trying to type a full session over ttyS0 on a slow TCG VM.
+# test-post-boot-checks.sh
+#
+# Purpose: Post-boot assertions (services, paths, branding) from host via
+#   SSH or from inside the guest.
+# Usage:   ./scripts/test-post-boot-checks.sh
+# Needs:   Reachable guest or chroot.
+# CI:      No.
 
 set -euo pipefail
 

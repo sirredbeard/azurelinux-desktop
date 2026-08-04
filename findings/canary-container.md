@@ -1,16 +1,16 @@
 # Canary container (repo-priority proof)
 
-**Status:** active canary; see `canary-container.yml`
+**Status:** active canary; see `release.yml` canary jobs
 
 ## Context
 
-`scripts/build-canary-container.sh` and `.github/workflows/canary-container.yml` build, push, and test a small OCI image on GHCR (`ghcr.io/sirredbeard/azurelinux-desktop/canary`). Its purpose: fast proof that the Azure-Linux-base + Fedora-GNOME-layer repo priority split still resolves packages from the intended repo, without a full ISO build. It is not a containerized desktop. Mirrors Azure Linux's own `container-base` approach (systemd=false, non-bootable, tiny package set). Use `dnf --installroot` + `podman import` rather than KIWI.
+`scripts/build-canary-container.sh` and the canary jobs in `.github/workflows/release.yml` build, push, and test a small OCI image on GHCR (`ghcr.io/sirredbeard/azurelinux-desktop/canary`). Its purpose: fast proof that the Azure-Linux-base + Fedora-GNOME-layer repo priority split still resolves packages from the intended repo, without a full ISO build. It is not a containerized desktop. Mirrors Azure Linux's own `container-base` approach (systemd=false, non-bootable, tiny package set). Use `dnf --installroot` + `podman import` rather than KIWI.
 
 ## What the container installs
 
 The container installs the project-specific package and side-load boundary:
 
-- Azure identity/repository packages (AZL base layer)
+- Azure identity/repository packages (Azure Linux base layer)
 - Fedora GTK and Plymouth families (desktop library boundary, but no GNOME session)
 - Microsoft Edge Canary, PowerShell, Azure CLI, VS Code Insiders, GitHub CLI and Desktop
 - .NET 11 SDK via linux-x64 tarball side-load (`fetch-latest-thirdparty.sh` + `install-dotnet-sdk-tarball.sh`), not yum 9.x
@@ -30,7 +30,7 @@ The container installs the project-specific package and side-load boundary:
 
 ## Post-publish test (same workflow)
 
-`canary-container.yml` runs the test job after each publish. Steps:
+`release.yml` runs the canary test job after each canary publish. Steps:
 1. Refresh and upgrade the image.
 2. Install optional packages from both sides of the boundary: Azure `ovfenv` and `telegraf`, Fedora `dconf-editor`, GNOME Sudoku, IDLE.
 3. Check RPM release tags for expected Azure or Fedora source (`.azl4*` vs `.fc43`).
@@ -60,7 +60,7 @@ The container installs Plymouth packages to exercise the Fedora Plymouth boundar
 
 ## CI notes
 
-- `canary-container.yml` uses concurrency group `azurelinux-desktop-canary`, not the kmod Pages group.
+- Canary rides the `azurelinux-desktop-publication` concurrency group on `release.yml` (same as the rest of publication).
 - Local equivalent: `scripts/test-canary-container-local.sh` builds the same canary, runs the same checks, keeps logs outside the repository.
 
 ## Confirmed working
@@ -72,6 +72,5 @@ Local: 547 MB image, correct repo sourcing, `/etc/os-release` reports Azure Linu
 - `canary-container.md` — superseded by this file; three bugs documented
 - `azure-kernel-usbhid-kmod.md` — Pages repo and policy package details
 - `fedora-azl-repo-mixing.md` — repo priority split, FEDORA_EXCLUDES
-- `logs/podman-resolve-full-desktop-947pkgs-edge-canary-code-insiders.log` — early full-desktop resolve
-- `logs/preflight-iteration-2026-07-22.log` — current preflight pass including container check
+Preflight 2026-07-22: container repo-origin checks PASS; canary local PASS after flatpak-step hardening (bwrap namespace warnings in container context, run completed).
 - `microsoft/azurelinux` `base/images/container-base/container-base.kiwi` — upstream container-base precedent

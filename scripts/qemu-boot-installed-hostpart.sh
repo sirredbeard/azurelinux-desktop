@@ -1,28 +1,11 @@
 #!/usr/bin/env bash
-# Boot an Azure Linux Desktop install that lives in a single host partition
-# (nested GPT from an Anaconda install done against that partition as a
-# whole QEMU disk). Intended for dual-boot QA on a live Fedora host:
-# only the target partition is exposed to the guest.
+# qemu-boot-installed-hostpart.sh
 #
-# Host-like defaults for this project's bare-metal prep path:
-#   - q35 + KVM + host CPU topology
-#   - NVMe controller (not virtio-blk) so storage looks closer to real HW
-#   - e1000e NIC, xHCI tablet/kbd, HDA audio
-#   - virtio-vga + GTK (optional GL)
-#   - serial log + SSH port forward for guest inspection
-#   - reuses installer OVMF NVRAM when present so Anaconda EFI boot
-#     entries survive across reboots
-#
-# Usage:
-#   ./scripts/qemu-boot-installed-hostpart.sh [/dev/nvmeXnYpZ] [name] [ram_mb]
-#
-# Example:
-#   ./scripts/qemu-boot-installed-hostpart.sh /dev/nvme0n1p4 azl-installed-partition 8192
-#
-# Safety:
-#   - Pass a partition node, never the whole disk, so Fedora's ESP/root
-#     stay out of the guest.
-#   - Unmount any host mounts of nested partitions first (kpartx -d).
+# Purpose: Boot the nested dual-boot install from the host partition in QEMU
+#   (optional BT USB passthrough / snapshot modes).
+# Usage:   ./scripts/qemu-boot-installed-hostpart.sh
+# Needs:   qemu, OVMF; correct host partition env. Can be host-sensitive.
+# CI:      No.
 
 set -euo pipefail
 
@@ -83,6 +66,7 @@ MONITOR_SOCK="$(azl_qemu_monitor_socket "$WORKDIR" "$NAME")"
 PIDFILE="$WORKDIR/${NAME}.pid"
 SERIAL_LOG="$WORKDIR/${NAME}-serial.log"
 STDOUT_LOG="$WORKDIR/${NAME}-qemu-stdout.log"
+mapfile -t AUDIO_ARGS < <(azl_qemu_audio_args)
 : >"$SERIAL_LOG"
 : >"$STDOUT_LOG"
 
@@ -168,8 +152,7 @@ DISPLAY="${DISPLAY:-:0}" qemu-system-x86_64 \
     -device e1000e,netdev=net0 \
     -netdev user,id=net0,hostfwd=tcp::${SSH_PORT}-:22 \
     -device virtio-rng-pci \
-    -device intel-hda \
-    -device hda-duplex \
+    "${AUDIO_ARGS[@]}" \
     -vga virtio \
     -display "gtk,gl=${GL_MODE},grab-on-hover=on" \
     -serial "file:$SERIAL_LOG" \

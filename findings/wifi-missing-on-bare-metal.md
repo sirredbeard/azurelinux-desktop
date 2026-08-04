@@ -32,7 +32,7 @@ not enough to create the interface on this hardware.
 
 ## What the installed system actually had
 
-| Component | Status on AZL install |
+| Component | Status on Azure Linux install |
 | --- | --- |
 | `NetworkManager` 1.54.3 azl4 | installed, enabled, started |
 | `NetworkManager-wifi` | installed; plugin loaded |
@@ -66,7 +66,7 @@ Bare-metal journal excerpt pattern:
    AZL splits firmware like Fedora. Meta/`linux-firmware` on the install does
    **not** contain `iwlwifi-8000C-*.ucode`. The 8260 needs
    **`iwlwifi-mvm-firmware`** (confirmed on the host: that package owns
-   `8000C-36`). AZL base repo ships `iwlwifi-mvm-firmware`,
+   `8000C-36`). Azure Linux base repo ships `iwlwifi-mvm-firmware`,
    `iwlwifi-dvm-firmware`, `iwlwifi-mld-firmware`, `iwlegacy-firmware`, but
    none were pulled in.
 
@@ -179,7 +179,7 @@ azurelinux-desktop-policy` refresh on an existing nested root +
 ## Workaround on existing nested install (pre-iwlwifi kmod)
 
 Firmware + `kernel-modules-extra` alone will **not** create a wlan
-device on AZL 4.0 x86_64. After the Pages repo carries
+device on Azure Linux 4.0 x86_64. After the Pages repo carries
 `azurelinux-desktop-iwlwifi-kmod` for your running kernel:
 
 ```bash

@@ -1,25 +1,11 @@
 #!/usr/bin/env bash
-# Non-interactive Bluetooth check against the nested installed system
-# booted via scripts/qemu-boot-installed-hostpart.sh with USB BT
-# passthrough (8087:0a2b by default).
+# test-bt-qemu-passthrough.sh
 #
-# What this proves:
-#   - Guest sees the Intel BT USB device
-#   - OOT btusb/btintel stack can init HCI / load firmware in QEMU
-#   - recover oneshot unit is present and (if run) did not error
-#
-# What this does NOT prove:
-#   - ThinkPad thinkpad_acpi rfkill ordering on bare metal
-#     (thinkpad_acpi is -ENODEV under QEMU)
-#
-# Usage:
-#   ./scripts/test-bt-qemu-passthrough.sh
-#   AZL_QEMU_SSH_PORT=2222 ./scripts/test-bt-qemu-passthrough.sh
-#
-# Prerequisites:
-#   - Nested install on /dev/nvme0n1p4 (or AZL_HOSTPART)
-#   - SSH pubkey auth to root@localhost:$SSH_PORT (see findings)
-#   - Host may lose Bluetooth for the duration of the guest run
+# Purpose: Bluetooth USB passthrough diagnostics against a guest in QEMU.
+#   Writes journals under the workdir (e.g. ~/azl-work), not findings/logs.
+# Usage:   ./scripts/test-bt-qemu-passthrough.sh
+# Needs:   qemu USB host passthrough, SSH into guest, bluetooth stack in guest.
+# CI:      No.
 
 set -euo pipefail
 
@@ -235,20 +221,11 @@ echo "=== result summary ==="
 if [[ "$powered" -eq 1 ]]; then
     echo "PASS: guest Bluetooth adapter Powered: yes"
     echo "Logs: $LOG_DIR"
-    # Copy key excerpts into repo findings/logs if REPO is writable
-    mkdir -p "$REPO_ROOT/findings/logs"
-    cp -f "$LOG_DIR/guest-bt-final.txt" \
-        "$REPO_ROOT/findings/logs/azl-bt-qemu-passthrough-final.txt"
-    cp -f "$LOG_DIR/guest-bt-diag.txt" \
-        "$REPO_ROOT/findings/logs/azl-bt-qemu-passthrough-diag.txt"
+    echo "Paste any useful journal lines into findings/bluetooth-hci-timeout-thinkpad.md"
     exit 0
 fi
 
 echo "FAIL: guest Bluetooth adapter not powered"
 echo "See $LOG_DIR"
-mkdir -p "$REPO_ROOT/findings/logs"
-cp -f "$LOG_DIR/guest-bt-final.txt" \
-    "$REPO_ROOT/findings/logs/azl-bt-qemu-passthrough-final.txt" 2>/dev/null || true
-cp -f "$LOG_DIR/guest-bt-diag.txt" \
-    "$REPO_ROOT/findings/logs/azl-bt-qemu-passthrough-diag.txt" 2>/dev/null || true
+echo "Paste any useful journal lines into findings/bluetooth-hci-timeout-thinkpad.md"
 exit 1

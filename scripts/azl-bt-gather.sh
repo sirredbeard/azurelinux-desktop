@@ -1,30 +1,11 @@
-#!/bin/bash
-# Azure Linux Desktop — bare-metal Bluetooth / audio / desktop diagnostics
+#!/usr/bin/env bash
+# azl-bt-gather.sh
 #
-# Run ON the installed Azure Linux Desktop system (nested install or real
-# disk), ideally after you have tried:
-#   1) Settings → Bluetooth toggle
-#   2) Settings → Screen recorder (optional)
-# then from a terminal (default shell may be pwsh):
-#
-#   bash ~/azl-bt-gather.sh
-#   # or:
-#   bash ~/bin/azl-bt-gather.sh
-#
-# Needs sudo for journals, modules, rfkill, and some sysfs. Password prompt
-# is normal. Output lands in ~/azl-bt-gather-<timestamp>/ as text files
-# plus a tarball you can copy back to the Fedora host.
-#
-# Designed for this project's mix: Azure Linux base + Fedora GNOME layer +
-# out-of-tree desktop kmods. Safe to re-run; does not change system state
-# except optional non-destructive bluetoothctl probes and one optional
-# recover re-run (off by default).
-#
-# Env knobs:
-#   AZL_GATHER_RERUN_RECOVER=1  — run bt-usb-reset once mid-gather
-#   AZL_GATHER_OUT=DIR          — force output directory
-#   AZL_GATHER_NO_SUDO=1        — skip sudo sections (incomplete)
-# Read-mostly diagnostics. May prompt for sudo. Safe for collecting logs; does not reflash firmware.
+# Purpose: Collect Bluetooth/kernel/journal evidence on a running desktop
+#   (bare metal or nested). Read-mostly; may need sudo for journals.
+# Usage:   sudo ./scripts/azl-bt-gather.sh [outdir]
+# Needs:   bash, journalctl, lsmod, bluetoothctl when present.
+# CI:      No. Field diagnostics for findings/bluetooth-*.md.
 
 set -u
 
@@ -578,7 +559,7 @@ done
 '
 
 # ---------------- SELinux policy note for AZL ----------------
-section 23-selinux-policy-notes.txt "SELinux policy bits for hybrid stack" bash -c '
+section 23-selinux-policy-notes.txt "SELinux policy bits for mixed Azure/Fedora stack" bash -c '
 echo "getenforce=$(getenforce 2>/dev/null || echo n/a)"
 echo
 echo "--- firmware contexts ---"
@@ -594,7 +575,7 @@ echo "Note: AZL has logged: Permission firmware_load in class system not defined
 echo "That is a policy capability gap vs Fedora; capture AVCs above if any."
 '
 
-# ---------------- repo / hybrid priority canary ----------------
+# ---------------- repo / package-priority canary ----------------
 section 24-repos.txt "dnf repos and priority (AZL vs Fedora)" bash -c '
 ls -la /etc/yum.repos.d/ 2>/dev/null || true
 echo

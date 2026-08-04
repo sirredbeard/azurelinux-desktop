@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# Install a Microsoft .NET SDK linux-x64 tarball into a rootfs (or /).
-# Usage: install-dotnet-sdk-tarball.sh ROOTFS TARBALL
-# Layout matches Microsoft binary-archive docs:
-#   DOTNET_ROOT=/usr/share/dotnet, /usr/bin/dotnet -> that tree.
+# install-dotnet-sdk-tarball.sh
+#
+# Purpose: Lay out a .NET SDK tarball into a rootfs (/usr/share/dotnet,
+#   /usr/bin/dotnet, DOTNET_ROOT). Used at image build and canary time.
+# Usage:   ./scripts/install-dotnet-sdk-tarball.sh ROOTFS TARBALL
+# Needs:   bash, tar; rootfs writable.
+# CI:      Yes. Image %post paths and canary build.
+
 set -euo pipefail
 
 ROOTFS="${1:?rootfs}"

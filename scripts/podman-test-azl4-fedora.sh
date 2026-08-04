@@ -1,26 +1,12 @@
 #!/usr/bin/env bash
-# Stage 1 of the three-stage test pipeline in README.md's "How it's
-# tested" section: resolve and install the live ISO's real %packages
-# list into a throwaway installroot with dnf, before ever spending a
-# full lorax build on it. This is where every packaging conflict so far
-# (grub2/fuse3 ABI fork, dnf5daemon-server version floor, glibc/gtk4
-# symbol floor, the fwupd/libcbor soname fork) actually got caught.
+# podman-test-azl4-fedora.sh
 #
-# Pulls the package list and every repo --cost=/--excludepkgs= setting
-# straight out of kickstart/azurelinux-desktop-live.ks instead of
-# hardcoding a second copy here that can silently drift out of sync -
-# this script is meant to always test what the live ISO's kickstart
-# would actually resolve, not a snapshot of it from whenever this file
-# was last hand-edited.
-#
-# Usage (from repo root, needs podman):
-#   ./scripts/podman-test-azl4-fedora43.sh
-#
-# Runs inside a plain `podman run fedora:43` container - no --privileged,
-# no /dev mount, no real ISO/ostree work happens here, just a dnf
-# --installroot resolve+install into a container-local directory, which
-# is enough to catch every dependency conflict this project has actually
-# hit so far without spending a real lorax build to find them.
+# Purpose: Resolve the mixed Azure Linux + Fedora desktop package set in
+#   Podman and print origin counts. Fast preflight for repo mixing.
+# Usage:   ./scripts/podman-test-azl4-fedora.sh
+# Needs:   podman, network.
+# CI:      No (local). Related checks also run via test-container-repos in CI.
+
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

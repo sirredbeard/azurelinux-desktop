@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Build the qcow2 through the same privileged Fedora/Anaconda pipeline as
-# build-disk-image in GitHub Actions. This is for local artifact QA.
+# build-qcow2-local.sh
+#
+# Purpose: Build a live-disk qcow2 on a local host (not Actions). Generates
+#   the disk kickstart from kickstart/azurelinux-desktop-live.ks.
+# Usage:   ./scripts/build-qcow2-local.sh
+# Needs:   podman/docker, lorax/livemedia-creator stack, lots of disk.
+# CI:      No. Local preflight for disk-image path.
+
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -48,7 +54,8 @@ sudo podman run --rm \
             lorax lorax-templates-generic lorax-lmc-novirt \
             anaconda-core anaconda-install-env-deps \
             qemu-img systemd-udev libguestfs-tools-c \
-            shim-x64 grub2-efi-x64-cdboot policycoreutils
+            shim-x64 grub2-efi-x64-cdboot policycoreutils \
+            curl python3 flatpak
         python3 /workspace/scripts/patch-anaconda-efi-skip-bug.py
         python3 /workspace/scripts/configure-anaconda-efi-vendor.py
         /usr/lib/systemd/systemd-udevd --daemon

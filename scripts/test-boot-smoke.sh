@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# Headless boot smoke test for a built qcow2. This is the CI-safe
-# counterpart to the local/manual QEMU scripts: UEFI only, serial log only.
-# Uses KVM automatically when /dev/kvm is present and usable (real hardware,
-# self-hosted/nested-virt runners), falling back to TCG software emulation
-# otherwise. The software-emulation path needs a longer timeout, so the
-# deliberately generous - a full GNOME boot under TCG can take 10-15+
-# minutes even when the image is healthy; under KVM it is usually well
-# under a minute.
+# test-boot-smoke.sh
+#
+# Purpose: Headless serial-marker smoke boot of an image or ISO.
+# Usage:   ./scripts/test-boot-smoke.sh ARTIFACT
+# Needs:   qemu; boot-monitor.py.
+# CI:      No.
 
 set -euo pipefail
 

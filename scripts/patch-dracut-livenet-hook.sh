@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-# Remove the livenet hook's stray pre-source function call.
+# patch-dracut-livenet-hook.sh
+#
+# Purpose: Fix the target root's dracut livenet hook so live network boot
+#   paths do not break under this project's live layout.
+# Usage:   chroot target /path/to/patch-dracut-livenet-hook.sh
+# Needs:   Run against the installed/live root, not only the build container.
+# CI:      Yes. Invoked from live kickstart %post --nochroot.
+
 set -euo pipefail
 
 if [ "$#" -gt 0 ]; then

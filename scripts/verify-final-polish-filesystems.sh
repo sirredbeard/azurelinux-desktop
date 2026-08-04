@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Validate on-disk final-polish expectations across live ISO, installer ISO,
-# and (optionally) an installed qcow2 root LV.
+# verify-final-polish-filesystems.sh
+#
+# Purpose: Cross-check mounted live / disk / installer roots for polish
+#   parity (assets, dconf, services) before calling a release done.
+# Usage:   ./scripts/verify-final-polish-filesystems.sh
+# Needs:   Mounted roots or paths set in the script env.
+# CI:      No. Release dogfood after Get-AzureLinuxDesktop.ps1 download.
+
 set -euo pipefail
 
 LIVE_ISO="${1:?usage: $0 /path/live.iso /path/installer.iso [installed.qcow2] [output_dir]}"

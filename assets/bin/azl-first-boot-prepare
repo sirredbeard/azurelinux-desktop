@@ -1,0 +1,137 @@
+#!/bin/bash
+# Quiet first-boot prepare for Azure Linux Desktop.
+#
+# Stock SELinux autorelabel quits Plymouth and prints fixfiles noise on the
+# console. This replaces that path: keep the splash up, show one plain
+# message, grow the root disk when tools allow it, relabel quietly, then
+# reboot once. Same end state as upstream autorelabel, without the text
+# wall.
+set -uo pipefail
+
+MSG="Expanding disk and finishing setup. The system will reboot once more."
+LOG_DIR=/var/log
+FIXFILES_LOG="$LOG_DIR/azl-first-boot-fixfiles.log"
+GROW_LOG="$LOG_DIR/azl-first-boot-grow.log"
+
+plymouth_msg() {
+    local text="$1"
+    if [ -x /usr/bin/plymouth ] && plymouth --ping >/dev/null 2>&1; then
+        plymouth show-splash >/dev/null 2>&1 || true
+        plymouth display-message --text="$text" >/dev/null 2>&1 || true
+        plymouth update --status="$text" >/dev/null 2>&1 || true
+    fi
+}
+
+efi_set_boot_next() {
+    if ! command -v efibootmgr >/dev/null 2>&1; then
+        return 0
+    fi
+    if ! efibootmgr >/dev/null 2>&1; then
+        return 0
+    fi
+    if ! efibootmgr | grep -q 'BootNext'; then
+        current="$(efibootmgr | awk -F': *' '/BootCurrent/ { print $2 }')"
+        if [ -n "$current" ]; then
+            efibootmgr -n "$current" >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
+grow_root_if_needed() {
+    mkdir -p "$LOG_DIR"
+    if [ -f /var/lib/azl-growroot.done ]; then
+        return 0
+    fi
+
+    if [ -x /usr/local/sbin/azl-growroot ]; then
+        /usr/local/sbin/azl-growroot >>"$GROW_LOG" 2>&1 || true
+        return 0
+    fi
+
+    if ! command -v growpart >/dev/null 2>&1; then
+        return 0
+    fi
+
+    {
+        root_src="$(findmnt -no SOURCE / 2>/dev/null || true)"
+        [ -n "$root_src" ] || exit 0
+        root_dev="$(readlink -f "$root_src")"
+        root_name="$(basename "$root_dev")"
+        disk_name="$(lsblk -no PKNAME "$root_dev" 2>/dev/null || true)"
+        part_num="$(cat "/sys/class/block/$root_name/partition" 2>/dev/null || true)"
+        if [ -z "$disk_name" ] || [ -z "$part_num" ]; then
+            echo "grow: could not resolve parent for $root_dev"
+            touch /var/lib/azl-growroot.done
+            exit 0
+        fi
+
+        growpart "/dev/$disk_name" "$part_num"
+        growpart_rc=$?
+        if [ "$growpart_rc" -ne 0 ] && [ "$growpart_rc" -ne 1 ]; then
+            echo "grow: growpart failed rc=$growpart_rc"
+        fi
+
+        fstype="$(findmnt -no FSTYPE / 2>/dev/null || true)"
+        case "$fstype" in
+            xfs)
+                command -v xfs_growfs >/dev/null 2>&1 && xfs_growfs / || true
+                ;;
+            ext4|ext3|ext2)
+                command -v resize2fs >/dev/null 2>&1 && resize2fs "$root_dev" || true
+                ;;
+            btrfs)
+                command -v btrfs >/dev/null 2>&1 && btrfs filesystem resize max / || true
+                ;;
+        esac
+        touch /var/lib/azl-growroot.done
+    } >>"$GROW_LOG" 2>&1 || true
+}
+
+relabel_quiet() {
+    if [ ! -f /.autorelabel ]; then
+        return 0
+    fi
+
+    mkdir -p "$LOG_DIR"
+    echo 0 >/sys/fs/selinux/enforce 2>/dev/null || true
+
+    opts="$(tr -d '\n' < /.autorelabel 2>/dev/null || true)"
+    opts="-T 0 $opts"
+
+    if [ -x /usr/sbin/quotaoff ]; then
+        /usr/sbin/quotaoff -aug >/dev/null 2>&1 || true
+    fi
+
+    {
+        echo "Running: /sbin/fixfiles $opts restore"
+        # shellcheck disable=SC2086
+        /sbin/fixfiles $opts restore
+    } >"$FIXFILES_LOG" 2>&1 || {
+        echo "fixfiles exited non-zero; see $FIXFILES_LOG" >>"$FIXFILES_LOG"
+    }
+
+    rm -f /.autorelabel
+}
+
+plymouth_msg "$MSG"
+
+# Do not call plymouth --quit. That is what turns first boot into a text
+# console full of selinux-autorelabel warnings.
+grow_root_if_needed
+relabel_quiet
+
+if [ -x /usr/lib/dracut/dracut-initramfs-restore ]; then
+    /usr/lib/dracut/dracut-initramfs-restore >/dev/null 2>&1 || true
+fi
+
+efi_set_boot_next
+
+if [ -x /usr/bin/grub2-editenv ]; then
+    grub2-editenv - incr boot_indeterminate >/dev/null 2>&1 || true
+fi
+
+sync
+plymouth_msg "$MSG"
+# Exit 0 and let the unit's SuccessAction=reboot handle the reboot so
+# systemd does not SIGTERM this oneshot mid-reboot and mark it failed.
+exit 0

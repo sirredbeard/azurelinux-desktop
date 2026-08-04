@@ -1,38 +1,11 @@
 #!/usr/bin/env bash
-# Boot the Azure Linux Desktop installer ISO with a single host partition
-# attached as the only installable disk. Use this for nested dual-boot
-# installs/reinstalls on a live Fedora host.
+# qemu-install-to-hostpart.sh
 #
-# Safety:
-#   - Pass a partition node only (e.g. /dev/nvmeXnYpZ), never the whole
-#     disk, so Fedora ESP/root/bootloader stay out of the guest.
-#   - Unmounts host kpartx mappings of nested partitions first.
-#
-# Input modes (AZL_INSTALLER_INPUT):
-#   gtk (default)
-#     - console=tty0 only, no serial device
-#     - installer auto-starts on graphical tty1 (kiwi .bash_profile)
-#     - type in the GTK window using QEMU's emulated PS/2 keyboard
-#     - AZL stock kernel still lacks in-tree usbhid; project initrd ships
-#       out-of-tree usbhid (and usb-storage/uas). PS/2 remains the reliable
-#       QEMU path; USB tablet works once usbhid loads from the live initrd.
-#   serial
-#     - console=ttyS0 + tty0; serial socket for typing
-#     - GTK window is watch-only (tty1 shows install-azl shell banner)
-#     - connect: socat STDIO,raw,echo=0,escape=0x1d UNIX-CONNECT:$sock
-#
-# Usage:
-#   ./scripts/qemu-install-to-hostpart.sh /path/to/install.iso [/dev/nvmeXnYpZ] [name] [ram_mb]
-#
-# Env:
-#   AZL_INSTALLER_INPUT=gtk|serial   (default gtk)
-#   AZL_KEEP_OVMF_VARS=1             reuse NVRAM vars
-#   AZL_QEMU_GL=off|on               (default off)
-#   AZL_INSTALLER_CMDLINE=...        override full kernel cmdline
-#
-# After install finishes and the guest shuts down:
-#   ./scripts/qemu-boot-installed-hostpart.sh /dev/nvme0n1p4
-# WARNING: can install onto a real host partition. Triple-check the target device.
+# Purpose: Run the installer ISO into the nested dual-boot container
+#   partition. DESTRUCTIVE to that partition if pointed wrong.
+# Usage:   ./scripts/qemu-install-to-hostpart.sh
+# Needs:   qemu, installer ISO, host partition device/vars.
+# CI:      No.
 
 set -euo pipefail
 
@@ -97,6 +70,7 @@ SERIAL_SOCK="$WORKDIR/${NAME}-serial.sock"
 SERIAL_LOG="$WORKDIR/${NAME}-serial.log"
 STDOUT_LOG="$WORKDIR/${NAME}-qemu-stdout.log"
 BOOTDIR="$WORKDIR/${NAME}-boot"
+mapfile -t AUDIO_ARGS < <(azl_qemu_audio_args)
 : >"$STDOUT_LOG"
 rm -f "$SERIAL_SOCK"
 
@@ -191,6 +165,7 @@ QEMU_ARGS=(
     # std VGA keeps classic PS/2 keyboard/mouse paths; avoid USB HID devices
     # until AZL ships usbhid (issue #5).
     -vga std
+    "${AUDIO_ARGS[@]}"
     -display "gtk,gl=${GL_MODE},grab-on-hover=off"
     -monitor "unix:$MONITOR_SOCK,server,nowait"
     -rtc base=utc,clock=host

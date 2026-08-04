@@ -110,9 +110,9 @@ WWAN (`qcserial` / MBIM) stays out of scope for this pass.
 
 `publish-desktop-kmods.yml` pipeline:
 
-1. **detect** — latest AZL kernel NEVRA; rebuild when the Pages set is
+1. **detect** — latest Azure Linux kernel NEVRA; rebuild when the Pages set is
    incomplete, on `republish=true`, on push to the builder/workflow, or
-   on the nightly schedule (`17 4 * * *` UTC, ahead of nightly-release).
+   on the nightly schedule (`17 4 * * *` UTC, ahead of release.yml).
    Schedule is once per day — policy couples siblings to one kernel EVR,
    so a four-hour poll is unnecessary.
 2. **prepare** — one job fetches/verifies the kernel source tarball
@@ -135,6 +135,6 @@ policy RPM that cannot resolve every sibling.
 ## Build fixes (UVC / thinkpad / typec) and partial publish
 
 * **UVC:** ship `uvc.ko` from `drivers/media/common/uvc.c` (`UVC_COMMON`) next to `uvcvideo.ko`.
-* **typec:** link UCSI `debugfs.o` and `trace.o` when the AZL kernel has `CONFIG_DEBUG_FS` and `CONFIG_TRACING`.
+* **typec:** link UCSI `debugfs.o` and `trace.o` when the Azure Linux kernel has `CONFIG_DEBUG_FS` and `CONFIG_TRACING`.
 * **thinkpad:** build `battery.ko` and an OOT `drm_privacy_screen.ko` (local class; stock kernel leaves both off). Build `thinkpad_acpi` without ALSA console mixer so parallel sound is not required at link time.
 * **CI:** matrix `fail-fast: false`. Package and Pages publish run when **any** family artifact exists. Policy `Requires` only the sibling kmod RPMs present for that kernel after merge with prior Pages RPMs. Schedule still rebuilds until the full set is on Pages.

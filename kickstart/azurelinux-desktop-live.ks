@@ -1,46 +1,38 @@
-# Azure Linux 4.0 Desktop - LIVE ISO BUILD kickstart
+# Azure Linux Desktop - live ISO / disk-image kickstart
 #
-# This is the only kickstart in the repo right now - the live bootable ISO
-# is the sole current deliverable. There used to be a second,
-# installable-variant kickstart (azurelinux-desktop.ks, real-disk
-# partitioning/bootloader/reboot instead of the live-build-only bits below)
-# but it was deleted for now to keep this repo focused on one thing at a
-# time; it'll come back once the live ISO itself is in good shape. Built
-# with native Fedora tooling (lorax + livemedia-creator --no-virt), not a
-# hand-modified Azure Linux installer ISO - see
-# findings/live-iso-and-bare-metal.md for why (AZL's own installer wants a
-# custom kickstart fetched over the network at install time, which is the
-# right path for the eventual bare-metal installer, but is the wrong tool
-# for "give me a live GNOME desktop to poke at in a VM").
+# Source of truth for:
+#   - Live ISO via lorax + livemedia-creator --make-iso --no-virt
+#   - Pre-built disk images (qcow2/VHDX/VDI/VMDK) via --make-disk
 #
-# Bare-metal follow-up to the WSL wslc/WinUI Reactor demo
+# Disk images do not use a second hand-maintained kickstart. CI and
+# scripts/build-qcow2-local.sh sed this file into a temporary
+# azurelinux-desktop-live-disk.ks (bootloader on, xfs --grow root,
+# enable azl-growroot.service, plus a small extra %post for liveuser on
+# a non-live root). Do not commit that generated file.
+#
+# Bare-metal *installer* media is separate: kiwi/ + Anaconda
+# (findings/kiwi-ng-installer-build.md). Built with Fedora tooling on
+# purpose, not by rewriting Microsoft's installer ISO.
+#
+# Background: bare-metal follow-up to the WSL wslc/WinUI Reactor demo
 # (https://www.boxofcables.dev/azure-linux-desktop-a-build-2026-mashup-of-wslc-winui-reactor-and-azure-linux-4-0/).
-# Azure Linux 4.0 is a snapshot of Fedora 43 (confirmed: glibc-2.42-10.azl4 vs
-# glibc-2.42-4.fc43, systemd-258.4 vs systemd-258 - same upstream versions,
-# different build tags). It ships no desktop packages at all: it's a server
-# and cloud-native distro. This kickstart installs the real Azure Linux 4.0
-# base, then layers GNOME 49 in from Fedora 43 stable, which is only one
-# Fedora release ahead of AZL4's own lineage. That one-release gap is the
-# whole trick: Fedora rawhide (45) needs glibc symbols AZL4 doesn't have yet,
-# Fedora 43 mostly doesn't.
+# Azure Linux 4.0 is close to Fedora 43 on core userland (same upstream
+# lines, different build tags). It ships no desktop. This kickstart
+# installs a real Azure Linux 4.0 base, then layers current GNOME and
+# desktop deps from Fedora 43. Stay on that Fedora baseline: newer
+# Fedora needs glibc symbols Azure Linux 4.0 does not have yet.
 #
-# Repo priority policy (dnf5 supports `priority=` natively, no plugin needed):
-#   - azl-base / azl-microsoft: priority=1 (win whenever they can satisfy a
-#     requirement - this is what keeps /etc/os-release, systemd, and most of
-#     the base system genuinely Azure Linux)
-#   - fedora / fedora-updates: priority=50 (fill in anything AZL doesn't ship,
-#     starting with the entire desktop/GNOME/media stack)
-# See ../findings/investigation.md for how this was tested in podman and
-# where it breaks down (short version: fine for GNOME plus a normal day-to-day
-# app list, NOT fine if you blindly `dnf group install workstation-product-environment`
-# in one shot - LibreOffice, NetworkManager plugins, and qemu-desktop all pull
-# in soname bumps that fight AZL's frozen packages).
-
-# xconfig/startxonboot + rootpw are lorax/livemedia-creator conventions,
-# not needed on the real installable variant since that one boots to
-# GDM via services/systemctl directly. url is the primary install source
-# livemedia-creator's anaconda --dirinstall wants in addition to the repo
-# lines below; azl-base is as good a choice as any since it's cost=1 too.
+# Repo policy at install time uses dnf `cost=` on the repo lines below
+# (lower cost wins). Azure base/microsoft = cost 1. Fedora / RPM Fusion =
+# cost 50. The installed system's /etc/yum.repos.d files use dnf
+# `priority=` the same way (1 vs 50). Fedora excludepkgs claw base/system
+# names back to Azure packages. Details and conflict history:
+# findings/fedora-azl-repo-mixing.md. Canary container exercises the same
+# mix: findings/canary-container.md.
+#
+# xconfig/startxonboot + rootpw are lorax/livemedia-creator conventions.
+# url is the primary install source anaconda --dirinstall wants in
+# addition to the repo lines; Azure base is cost=1 so it is a fine pick.
 xconfig --startxonboot
 lang en_US.UTF-8
 keyboard us
@@ -48,19 +40,11 @@ timezone America/New_York --utc
 selinux --enforcing
 firewall --enabled --ssh
 url --url="https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64"
-# --hostname matches the installer kickstart's own
-# --hostname=azurelinux-desktop (azl-install.ks.in) - this line
-# previously had no --hostname at all, which meant the live ISO and the
-# installer disagreed on hostname (live fell back to whatever
-# NetworkManager/systemd-hostnamed default to, typically "localhost");
-# caught during the three-way ISO comparison against the official
-# installer, see findings/gh-actions-installer-iso-build.md.
+# Match the installer kickstart hostname (kiwi/azl-install.ks.in).
 network --bootproto=dhcp --device=link --activate --hostname=azurelinux-desktop
 rootpw --lock
-# NetworkManager only, not systemd-networkd - matches lorax's own
-# fedora-livemedia.ks template; running both on a live image invites the
-# exact "which one actually configured the interface" confusion that ate a
-# chunk of time on the AZL-installer network debugging above.
+# NetworkManager only, not systemd-networkd - matches lorax's
+# fedora-livemedia.ks template. Do not enable both on a live image.
 # ModemManager dropped from --enabled: it's not in %packages (no cellular/
 # WWAN modem support requested), and anaconda hard-fails
 # ("NonCriticalInstallationError: Cannot enable ... ModemManager") trying
@@ -68,17 +52,17 @@ rootpw --lock
 # list services here for units that are actually part of %packages.
 services --disabled=sshd --enabled=gdm,NetworkManager,livesys,livesys-late
 
-# Live-build-only disk layout - livemedia-creator installs into a single
-# ext4 filesystem that gets squashed, no real bootloader/EFI/swap/LVM
-# needed since none of that persists past the squashfs capture.
+# Live ISO layout: single filesystem for the squashfs capture. No real
+# bootloader/EFI/swap. Disk-image builds sed these three lines:
+#   bootloader --location=none  -> bootloader
+#   part / --size=16384         -> part / --fstype=xfs --size=16384 --grow
+#   # AZL_GROWROOT_ENABLE_MARKER -> systemctl enable azl-growroot.service
 bootloader --location=none
 clearpart --all --initlabel
 reqpart
 part / --size=16384
 
-# livemedia-creator captures the image once %post finishes and the system
-# shuts down cleanly - "shutdown" here, not "reboot" (that's for the real
-# installable variant only).
+# livemedia-creator captures after a clean shutdown (not reboot).
 shutdown
 
 # .NET SDK is side-loaded from Microsoft's linux-x64 tarball (see
@@ -89,30 +73,19 @@ shutdown
 # non-preview shortlink works). Build fails if the
 # tarball cannot be resolved. Never ship EOL-bound 9.x for the desktop.
 
-# dnf5/libdnf5/dnf5daemon-server: AZL ships its own dnf5 stack
-# (libdnf5-5.2.18.0-2.azl4), but Fedora's gnome-software-50.3 has a hard
-# floor of dnf5daemon-server(x86-64) >= 5.4.2, which AZL's older build
-# can't satisfy - can't cherry-pick just dnf5daemon-server up to Fedora's
-# version without dragging its matching libdnf5 with it. Since
-# gnome-software has to come from Fedora anyway (AZL doesn't ship it at
-# all), hand the whole dnf5/libdnf5 family to Fedora too rather than
-# splitting it - same "don't split a coupled family across repos"
-# reasoning as the grub2/shim/fuse3 fix above.
+# dnf5/libdnf5/dnf5daemon-server: Azure Linux ships its own dnf5 stack,
+# but Fedora gnome-software needs a newer dnf5daemon-server than that
+# stack provides. gnome-software only exists on Fedora here, so take the
+# whole dnf5/libdnf5 family from Fedora rather than splitting it. Same
+# "don't split a coupled family" rule as grub2/shim.
 repo --name=azl-base --baseurl=https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64 --cost=1 --excludepkgs=hunspell-en,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,dnf5,dnf5daemon-server,dnf5daemon-server-polkit,libdnf5,libdnf5-cli,libdnf5-plugin-actions,libdnf5-plugin-appstream,libdnf5-plugin-expired-pgp-keys,libdnf5-plugin-local
 repo --name=azl-microsoft --baseurl=https://packages.microsoft.com/azurelinux/4.0/beta/microsoft/x86_64 --cost=1 --excludepkgs=hunspell-en,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas
 repo --name=azl-desktop-kmods --baseurl=https://sirredbeard.github.io/azurelinux-desktop/repo --cost=1
-# Claw-back excludepkgs: forces these specific base/system packages back
-# onto Azure Linux's own build instead of Fedora's, on top of the cost=
-# tie-break above - cost= only decides between mirrors offering the exact
-# same NEVRA, it has no opinion on which repo "owns" a package name when
-# the two repos offer genuinely different versions, and Fedora 43 was
-# winning nearly everything, not just the GNOME/GUI stack it's actually
-# needed for. Same list, same reasoning, and the same verified-with-a-
-# real-dnf5-resolve process as kiwi/config.sh's FEDORA_EXCLUDES - see the
-# comment there for the full rationale, including why glibc, wpa_supplicant,
-# fwupd/fwupd-efi, and fuse3-libs are deliberately NOT on this list despite
-# looking like obvious candidates (real ABI/version floors, or a silent-
-# drop risk with no AZL fallback at all).
+# Claw-back excludepkgs: keep named base/system packages on Azure Linux
+# even when Fedora also offers them. cost= alone does not pin ownership
+# across different NEVRAs. Same list and reasoning as kiwi/config.sh
+# FEDORA_EXCLUDES (glibc, wpa_supplicant, fwupd*, fuse3* deliberately
+# not here - real ABI floors or no safe Azure fallback).
 repo --name=fedora43 --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,less-color,libaio,libblkid,libcom_err,libfdisk,liblastlog2,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware
 repo --name=fedora43-updates --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/43/Everything/x86_64/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,less-color,libaio,libblkid,libcom_err,libfdisk,liblastlog2,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware
 # aznfs (Azure Files NFS mount helper) rides along in ms-prod's dependency
@@ -138,8 +111,8 @@ repo --name=github-desktop --baseurl=https://mirror.mwt.me/shiftkey-desktop/rpm 
 repo --name=rpmfusion-free --mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-43&arch=x86_64 --cost=50
 repo --name=rpmfusion-nonfree --mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=nonfree-fedora-43&arch=x86_64 --cost=50
 
-# --nocore: the AZL repo has no comps groups so @core is meaningless here.
-# GNOME 49 group comes from fedora43
+# --nocore: Azure Linux has no comps @core group that helps here.
+# GNOME and desktop packages come from Fedora 43.
 %packages --nocore --excludedocs
 # Azure Linux base
 azurelinux-release
@@ -213,15 +186,13 @@ glibc-all-langpacks
 # much later with "Cannot determine attributes of source file
 # '.../EFI/BOOT': No such file or directory" because x86.tmpl's xorrisofs
 # graft-point list references EFI/BOOT unconditionally regardless of
-# whether the EFI section actually ran. See
-# findings/live-iso-and-bare-metal.md for the full root-cause writeup and
-# how the first ISO build was hand-recovered without redoing the ~40-minute
-# mksquashfs step.
+# whether the EFI section actually ran. See findings/github-actions-build.md.
 grub2-efi-x64-cdboot
 grub2-tools-extra
 
-# GNOME 49 desktop (Fedora 43) - core session only, not the whole
-# workstation-product-environment comps group. See investigation.md for why.
+# GNOME desktop from Fedora 43 - core session only, not the whole
+# workstation-product-environment comps group. See
+# findings/fedora-azl-repo-mixing.md.
 gnome-shell
 gnome-session
 gnome-session-wayland-session
@@ -255,9 +226,9 @@ wireplumber
 flatpak
 gnome-software
 
-# The rest of "a normal GNOME 49 desktop" - default viewers, a handful of
+# The rest of a normal GNOME desktop - default viewers, a handful of
 # core apps, nothing that pulls in an office suite or a docs/tour/parental-
-# controls stack we don't want. Loupe/Papers are the GNOME 49-era renames
+# controls stack we don't want. Loupe/Papers are the current GNOME renames
 # of eog/evince - use those, not the old names.
 loupe
 papers
@@ -275,7 +246,7 @@ evolution-ews
 
 # Explicit excludes for weak/transitive deps observed sneaking in during
 # the no-virt live build despite not being requested anywhere - see
-# findings/live-iso-and-bare-metal.md's "Dependency leak" section. The
+# findings/fedora-azl-repo-mixing.md (weak-dep leak notes). The
 # `-pkgname` syntax excludes a package even if something else pulls it in
 # as a Recommends/weak dep.
 -gnome-tour
@@ -299,7 +270,7 @@ evolution-ews
 -mdatp
 
 # fedora-logos rides in as a weak/transitive dep of gdm/gnome-shell (see
-# findings/final-package-list.txt: fedora-logos-42.0.1-3.fc43.noarch was
+# findings/live-package-list.txt: fedora-logos was
 # never asked for directly) and puts Fedora's own blue "f" logo and
 # background on the GDM login screen of what is otherwise an Azure Linux
 # build. generic-logos is Fedora's own trademark-free drop-in replacement
@@ -354,21 +325,21 @@ github-desktop
 # explicitly now instead of relying on weak-dep luck - real bare-metal
 # installs need working wifi firmware and CPU microcode regardless of
 # what any one build happens to pull in transitively today - caught
-# during the three-way ISO comparison against the official installer
-# and our own installer ISO, see
-# findings/gh-actions-installer-iso-build.md.
+# during bare-metal and installer parity checks. See
+# findings/wifi-missing-on-bare-metal.md and findings/live-iso-installer-parity.md.
 linux-firmware
-# Intel WiFi firmware is split out of linux-firmware on AZL (same idea
-# as Fedora). linux-firmware alone does not ship iwlwifi-8000C and
-# friends. AZL puts iwlwifi.ko in kernel-modules-extra, not plain
-# kernel-modules. Without both, bare-metal Intel laptops get NM-wifi
-# userspace and no wlan device - see findings/wifi-missing-on-bare-metal.md.
+# Intel Wi-Fi firmware is split out of linux-firmware on Azure Linux.
+# linux-firmware alone does not ship iwlwifi-8000C and friends. The
+# driver is out-of-tree (stock x86_64 has CONFIG_WLAN off) via
+# azurelinux-desktop-policy / iwlwifi-kmod. Without firmware + the OOT
+# modules, bare-metal Intel laptops get NM-wifi userspace and no wlan
+# device. See findings/wifi-missing-on-bare-metal.md.
 iwlwifi-mvm-firmware
 iwlwifi-dvm-firmware
 iwlwifi-mld-firmware
 iwlegacy-firmware
 bluez
-# Audio/BT hooks for OOT sound + bluetooth kmods (AZL packages).
+# Audio/BT userspace for OOT sound + bluetooth kmods (Azure packages).
 # intel-audio-firmware: SST/AVS blobs; alsa-ucm: UCM profiles; NM-bt: tethering.
 intel-audio-firmware
 alsa-ucm
@@ -385,9 +356,9 @@ switcheroo-control
 brightnessctl
 
 # Intel hardware video acceleration (VAAPI) - the test host is Intel HD 520
-# (Skylake-U GT2), and AZL's own package set has nothing for this since it's
-# not a concern for cloud VMs. Pulled from Fedora - matters for smooth,
-# lower-power video playback in Totem/the browser rather than pure
+# (Skylake-U GT2), and Azure Linux's own package set has nothing for this
+# since it's not a concern for cloud VMs. Pulled from Fedora - matters for
+# smooth, lower-power video playback in Totem/the browser rather than pure
 # software decode.
 libva
 libva-intel-media-driver
@@ -421,7 +392,7 @@ libayatana-appindicator-gtk3
 # Regular (chrooted) %post has NO network access in livemedia-creator
 # --no-virt builds - confirmed by a real build log ("curl: (6) Could not
 # resolve host: api.github.com") even though the earlier %packages/dnf5
-# phase (which installs everything else, including Fedora/AZL repo
+# phase (which installs everything else, including Fedora/Azure Linux repo
 # packages) very much does have network. Anaconda tears down/doesn't
 # forward DNS into the chrooted %post environment the way it does for its
 # own payload backend. `%post --nochroot` runs in the *build host*
@@ -456,6 +427,13 @@ install -m 0644 /workspace/assets/systemd/azurelinux-desktop-bt-recover-late.ser
 install -m 0644 /workspace/assets/systemd/80-azurelinux-desktop-pipewire.preset /mnt/sysimage/usr/lib/systemd/user-preset/80-azurelinux-desktop-pipewire.preset
 install -d -m 0755 /mnt/sysimage/etc/udev/rules.d
 install -m 0644 /workspace/assets/udev/80-azurelinux-desktop-bt-power.rules /mnt/sysimage/etc/udev/rules.d/80-azurelinux-desktop-bt-power.rules
+# First-boot prepare: keep Plymouth up during SELinux relabel / disk grow.
+install -d -m 0755 /mnt/sysimage/usr/libexec/azurelinux-desktop \
+    /mnt/sysimage/usr/lib/systemd/system/selinux-autorelabel.service.d
+install -m 0755 /workspace/assets/bin/azl-first-boot-prepare \
+    /mnt/sysimage/usr/libexec/azurelinux-desktop/azl-first-boot-prepare
+install -m 0644 /workspace/assets/systemd/selinux-autorelabel.service.d/10-azurelinux-desktop.conf \
+    /mnt/sysimage/usr/lib/systemd/system/selinux-autorelabel.service.d/10-azurelinux-desktop.conf
 
 # Lorax builds the boot initramfs from this target root after %post. Patch the
 # target's older livenet hook, not the Fedora build container's dracut copy.
@@ -476,6 +454,11 @@ install -m 0644 /workspace/assets/plymouth/azurelinux/azurelinux.script /mnt/sys
 install -m 0644 /workspace/assets/plymouth/azurelinux/dot.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/dot.png
 install -m 0644 /workspace/assets/plymouth/azurelinux/dot-glow.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/dot-glow.png
 install -m 0644 /workspace/assets/branding/AzureLinuxLogo.png /mnt/sysimage/usr/share/plymouth/themes/azurelinux/azurelinuxlogo.png
+# GDM login badge (same asset + path as kiwi/azl-install.ks.in). Live
+# autologin hides it most of the time; logout and disk-image boots still
+# hit GDM.
+install -m 0644 /workspace/assets/branding/azurelinux-gdm-logo.png \
+    /mnt/sysimage/usr/share/pixmaps/azurelinux-logo.png
 mkdir -p /mnt/sysimage/usr/share/backgrounds/azurelinux
 install -m 0644 /workspace/assets/wallpapers/adwaita-l.jpg /mnt/sysimage/usr/share/backgrounds/azurelinux/adwaita-l.jpg
 install -m 0644 /workspace/assets/wallpapers/adwaita-d.jpg /mnt/sysimage/usr/share/backgrounds/azurelinux/adwaita-d.jpg
@@ -493,6 +476,17 @@ if [ ! -x /workspace/scripts/fetch-latest-thirdparty.sh ]; then
 fi
 /workspace/scripts/fetch-latest-thirdparty.sh /mnt/sysimage/root/thirdparty
 install -m 0755 /workspace/scripts/install-dotnet-sdk-tarball.sh /mnt/sysimage/root/thirdparty/install-dotnet-sdk-tarball.sh
+
+# Microsoft Copilot GTK Flatpak (updatable Pages remote). Needs host
+# network + flatpak CLI in the build container; chrooted %post has neither
+# under livemedia-creator --no-virt. System install into the target root
+# so every live/qcow user gets the app and can `flatpak update` later.
+if [ ! -x /workspace/scripts/install-copilot-desktop-flatpak.sh ]; then
+    echo "error: /workspace/scripts/install-copilot-desktop-flatpak.sh missing" >&2
+    exit 1
+fi
+/workspace/scripts/install-copilot-desktop-flatpak.sh /mnt/sysimage \
+    /mnt/sysimage/root/thirdparty/flathub.flatpakrepo
 %end
 
 %post --log=/var/log/azl-desktop-post.log
@@ -500,12 +494,12 @@ set -x
 
 # Persist the same repo priority policy post-install, so `dnf install
 # <whatever>` next year still prefers Azure Linux first and only falls back
-# to Fedora 43 when AZL has no package. Known soname landmines get an
+# to Fedora 43 when Azure Linux has no package. Known soname landmines get an
 # exclude here as they're discovered - add to this list, don't fight it.
 FEDORA_EXCLUDES="audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,less-color,libaio,libblkid,libcom_err,libfdisk,liblastlog2,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware"
 cat > /etc/yum.repos.d/azl-desktop-fedora.repo << EOF
 [fedora43]
-name=Fedora 43 (GNOME 49 desktop stack)
+name=Fedora 43 (GNOME desktop stack)
 baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/
 enabled=1
 gpgcheck=0
@@ -524,7 +518,7 @@ EOF
 # The kickstart `repo --name=...` lines above (ms-prod, vscode, edge-canary,
 # gh-cli, github-desktop, rpmfusion-free/nonfree) only exist for Anaconda's
 # own install-time transaction - none of them get written to the installed
-# system's /etc/yum.repos.d automatically, unlike the AZL repos (shipped by
+# system's /etc/yum.repos.d automatically, unlike the Azure Linux repos (shipped by
 # the azurelinux-repos package itself) and fedora43/fedora43-updates (just
 # persisted above). Left as-is, that meant PowerShell, .NET, VS Code
 # Insiders, Edge Canary, GitHub CLI, GitHub Desktop, and the RPMFusion
@@ -585,15 +579,16 @@ gpgcheck=0
 priority=50
 EOF
 
-# Known conflicts as of this writing (see findings/investigation.md).
-# hunspell-en: Fedora and AZL both ship it, identical file paths, no version
-# skew - just pick one. grub2/shim family: AZL's own grub2-tools-minimal
-# links against libfuse3.so.3, Fedora's flatpak/xdg-desktop-portal need
-# libfuse3.so.4 - can't have both, so hand the *whole* bootloader family to
-# Fedora rather than cherry-picking fuse3 out from under AZL's grub2 (that
-# just moves the same conflict one layer down). gsettings-desktop-schemas:
-# AZL ships 49.1 (its Fedora-43 lineage), gnome-shell-50.3 needs >=50~alpha -
-# plain version floor, no ABI risk, let Fedora's copy win.
+# Known conflicts as of this writing (see findings/fedora-azl-repo-mixing.md).
+# hunspell-en: Fedora and Azure Linux both ship it, identical file paths, no version
+# skew - just pick one. grub2/shim family: Azure Linux's own
+# grub2-tools-minimal links against libfuse3.so.3, Fedora's
+# flatpak/xdg-desktop-portal need libfuse3.so.4 - can't have both, so hand
+# the *whole* bootloader family to Fedora rather than cherry-picking fuse3
+# out from under Azure Linux grub2 (that just moves the same conflict one
+# layer down). gsettings-desktop-schemas: Azure Linux ships an older build
+# than current gnome-shell needs - plain version floor, no ABI risk, let
+# Fedora's copy win.
 sed -i '/^\[azl-base\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en grub2 grub2-pc grub2-pc-modules grub2-efi-x64 grub2-efi-x64-modules grub2-tools grub2-tools-minimal grub2-common shim shim-x64 gsettings-desktop-schemas dnf5 dnf5daemon-server dnf5daemon-server-polkit libdnf5 libdnf5-cli libdnf5-plugin-actions libdnf5-plugin-appstream libdnf5-plugin-expired-pgp-keys libdnf5-plugin-local/' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
 sed -i '/^\[azl-microsoft\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en grub2 grub2-pc grub2-pc-modules grub2-efi-x64 grub2-efi-x64-modules grub2-tools grub2-tools-minimal grub2-common shim shim-x64 gsettings-desktop-schemas/' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
 # Keep the version-locked Fedora GRUB family together during later updates.
@@ -700,6 +695,21 @@ system-db:local
 EOF
 dconf update || true
 
+# GDM login-screen logo: same override as kiwi/azl-install.ks.in. Autologin
+# skips the greeter on live boots; logout and non-autologin disk boots still
+# use GDM. fedora-logos points org.gnome.login-screen logo at the Fedora
+# badge; this system-db replaces it without editing the schema file.
+mkdir -p /etc/dconf/db/gdm.d
+cat > /etc/dconf/profile/gdm << 'EOF'
+user-db:user
+system-db:gdm
+EOF
+cat > /etc/dconf/db/gdm.d/00-azl-login-screen << 'EOF'
+[org/gnome/login-screen]
+logo='/usr/share/pixmaps/azurelinux-logo.png'
+EOF
+dconf update || true
+
 # Install Copilot GUI/CLI and microsoft/edit from files staged by
 # %post --nochroot (no network here under livemedia-creator --no-virt).
 # Required assets must exist - the fetch helper fails the build earlier
@@ -752,7 +762,7 @@ rm -rf /root/thirdparty
 
 # GNOME Software: Fedora's gschema override prefers only Fedora Flatpak
 # remotes and requires fedora/updates repos. This image uses Flathub +
-# AZL DNF. Our override filename sorts after the Fedora one so these
+# Azure Linux DNF. Our override filename sorts after the Fedora one so these
 # keys win after glib-compile-schemas.
 cat > /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override << 'EOF'
 [org.gnome.software]
@@ -803,7 +813,7 @@ if [ -x /usr/libexec/azurelinux-desktop-bt-usb-reset ]; then
     systemctl enable azurelinux-desktop-bt-recover.service 2>/dev/null || true
     systemctl enable azurelinux-desktop-bt-recover-late.service 2>/dev/null || true
 fi
-# PipeWire user sockets: AZL presets only enable D-Bus; GNOME screencast needs these.
+# PipeWire user sockets: Azure Linux presets only enable D-Bus; GNOME screencast needs these.
 mkdir -p /etc/systemd/user/sockets.target.wants /etc/systemd/user/pipewire.service.wants
 ln -sfn /usr/lib/systemd/user/pipewire.socket /etc/systemd/user/sockets.target.wants/pipewire.socket
 ln -sfn /usr/lib/systemd/user/pipewire-pulse.socket /etc/systemd/user/sockets.target.wants/pipewire-pulse.socket
@@ -863,13 +873,13 @@ EOF
 # clobbered by that later append (last key wins after compile-schemas).
 # So: patch livesys-gnome's own favorite-apps= line in place instead of
 # fighting it with a second override file. Desktop IDs confirmed against
-# the actual installed .desktop files: microsoft-edge-canary.desktop,
-# code-insiders.desktop, org.azurelinux.PowerShell.desktop (our own launcher, see
-# assets/desktop/), "GitHub Copilot.desktop" (the Tauri app really does
-# ship it with a literal space in the filename/ID), and
-# org.gnome.Nautilus.desktop. Five apps, matches the latest explicit dock
-# list - Terminal dropped off this particular list (still installed,
-# still in the app grid, just not pinned).
+# the actual installed .desktop files:
+# com.github.sirredbeard.copilot-desktop-gtk.desktop (Microsoft Copilot
+# Flatpak, far left), microsoft-edge-canary.desktop, code-insiders.desktop,
+# org.azurelinux.PowerShell.desktop (our own launcher, see assets/desktop/),
+# "GitHub Copilot.desktop" (the Tauri GitHub Copilot app really does ship
+# it with a literal space in the filename/ID), and org.gnome.Nautilus.desktop.
+# Terminal stays installed and in the app grid, just not pinned.
 #
 # Important: that whole favorite-apps override only gets written by
 # livesys-gnome inside its own `if [ -f /usr/share/applications/
@@ -892,10 +902,10 @@ EOF
 # stop depending on it: flip the gate itself to `if true` a few lines
 # down (after the mv/NoDisplay/welcome-loop lines specific to the
 # liveinst.desktop dance are already stripped out of the block below),
-# so the favorite-apps override, welcome-tour suppression, and branding
+# so the favorite-apps override, welcome-dialog suppression, and branding
 # copy always run regardless of whether that one file exists this boot.
 if [ -f /usr/libexec/livesys/sessions.d/livesys-gnome ]; then
-    sed -i "s|^favorite-apps=.*|favorite-apps=['microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']|" \
+    sed -i "s|^favorite-apps=.*|favorite-apps=['com.github.sirredbeard.copilot-desktop-gtk.desktop', 'microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']|" \
         /usr/libexec/livesys/sessions.d/livesys-gnome
 fi
 
@@ -1125,17 +1135,20 @@ touch /etc/machine-id
 # each of which can present the root disk under a different device name.
 cat > /usr/local/sbin/azl-growroot << 'EOF'
 #!/bin/bash
-# Grow the root partition (via growpart) and its xfs filesystem (via
-# xfs_growfs) to fill the real disk, once. Safe to re-run: growpart
-# exits 1 with "NOCHANGE" once the partition is already at max size, and
-# xfs_growfs is always safe to run against an already-full-size xfs
-# filesystem. The stamp file below still short-circuits every boot after
-# the first so this doesn't re-scan block devices forever.
+# Grow the root partition (via growpart) and its filesystem to fill the
+# real disk, once. Safe to re-run: growpart exits 1 with "NOCHANGE" once
+# the partition is already at max size. Prefer xfs_growfs on disk images;
+# fall back to resize2fs for ext*. Stamp short-circuits later boots.
 set -uo pipefail
 
 STAMP=/var/lib/azl-growroot.done
 if [ -f "$STAMP" ]; then
     exit 0
+fi
+
+if [ -x /usr/bin/plymouth ] && plymouth --ping >/dev/null 2>&1; then
+    plymouth show-splash >/dev/null 2>&1 || true
+    plymouth display-message --text="Expanding disk and finishing setup. The system will reboot once more." >/dev/null 2>&1 || true
 fi
 
 root_src=$(findmnt -no SOURCE /)
@@ -1157,9 +1170,21 @@ if [ "$growpart_rc" -ne 0 ] && [ "$growpart_rc" -ne 1 ]; then
     echo "azl-growroot: growpart /dev/$disk_name $part_num failed (exit $growpart_rc)" >&2
 fi
 
-if ! xfs_growfs /; then
-    echo "azl-growroot: xfs_growfs / failed" >&2
-fi
+fstype=$(findmnt -no FSTYPE / 2>/dev/null || true)
+case "$fstype" in
+    xfs)
+        if ! xfs_growfs /; then
+            echo "azl-growroot: xfs_growfs / failed" >&2
+        fi
+        ;;
+    ext4|ext3|ext2)
+        if command -v resize2fs >/dev/null 2>&1; then
+            if ! resize2fs "$root_dev"; then
+                echo "azl-growroot: resize2fs $root_dev failed" >&2
+            fi
+        fi
+        ;;
+esac
 
 touch "$STAMP"
 EOF
@@ -1200,7 +1225,7 @@ EOF
 # one per line, sorted) from this exact build's actual rpmdb - not a podman
 # dry-run from some earlier point in time. The GH Actions workflow pulls
 # this file back out of the built ISO afterward and republishes it as
-# findings/final-package-list.txt, so that file always reflects what
+# findings/live-package-list.txt, so that file always reflects what
 # actually got installed in the most recent real build instead of going
 # stale every time %packages changes.
 rpm -qa --qf '%{name}-%{version}-%{release}.%{arch}\n' | sort > /var/log/azl-desktop-package-list.txt

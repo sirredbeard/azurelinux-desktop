@@ -2,24 +2,23 @@
 # KIWI config.sh - post-bootstrap configuration for the Azure Linux
 # Desktop offline Anaconda installer ISO.
 #
-# Adapted directly from Microsoft's own vm-iso-installer/config.sh
-# (microsoft/azurelinux, same commit pinned in reference/azl-installer/
-# README.md) - same offline-repo-download-then-validate structure, same
-# @@PACKAGES@@ kickstart templating, same welcome-banner/autologin setup.
-# What's different here: INSTALL_PKGS is the full GNOME 49 + Microsoft/
-# GitHub desktop stack (not just a minimal base system), pulled from
-# several repos instead of one, and this project's own GitHub Copilot/
-# microsoft-edit/Flathub side-loads and branding assets get staged into
-# the offline area too - since this is the only point in the whole
-# pipeline that has real network access (kiwi's build machine), same as
-# upstream only ever downloads its offline repo here and nowhere else.
+# Adapted from Microsoft's vm-iso-installer/config.sh (microsoft/azurelinux,
+# commit pinned in reference/azl-installer/README.md): offline repo download
+# and validate, @@PACKAGES@@ kickstart templating, welcome banner / autologin.
+# INSTALL_PKGS is the full GNOME desktop plus Microsoft/GitHub tooling from
+# the mixed Azure Linux + Fedora repos (not a minimal base). Side-loads
+# (GitHub Copilot GUI/CLI, microsoft/edit, Flathub remote, .NET 11 tarball,
+# Microsoft Copilot GTK Flatpak OSTree) and branding assets stage here
+# because this is the only networked step in the KIWI pipeline. Keep the
+# list aligned with kickstart/azurelinux-desktop-live.ks %packages (minus
+# live-only packages).
 set -euo pipefail
 
 echo "=== Architecture: x86_64 (this project only ever builds x86_64) ==="
 
 #----------------------------------------------------------------------
 # Single source of truth for target-install packages.
-# Same GNOME 49 desktop + Microsoft/GitHub tooling stack as
+# Same GNOME desktop + Microsoft/GitHub tooling stack as
 # kickstart/azurelinux-desktop-live.ks's %packages - see that file for
 # the full per-package reasoning, not repeated here. Live-only packages
 # (livesys-scripts, anaconda-live, dracut-config-generic,
@@ -75,7 +74,7 @@ INSTALL_PKGS=(
     # install could plausibly end up with no way to see or associate to
     # any WiFi network at all, not even an unencrypted one. Caught
     # during the three-way ISO comparison; see
-    # findings/gh-actions-installer-iso-build.md.
+    # findings/kiwi-ng-installer-build.md.
     NetworkManager-wifi
     wpa_supplicant
 
@@ -176,7 +175,7 @@ INSTALL_PKGS=(
     # that as an open question a real hardware install could get bitten
     # by, all four are listed explicitly here - caught during the
     # three-way ISO comparison against the official installer and our
-    # own live ISO, see findings/gh-actions-installer-iso-build.md.
+    # own live ISO, see findings/kiwi-ng-installer-build.md.
     # microcode_ctl is listed explicitly on the live ISO too now for
     # the same real-hardware reason (CPU microcode updates, not a VM/
     # USB concern) - it turned out the live ISO's own prior "ships
@@ -274,7 +273,7 @@ MS_PROD_EXCLUDES="aznfs,mdatp"
 # tie-break above. cost= only decides between mirrors offering the exact
 # same NEVRA - it has no opinion on which repo "owns" a package name when
 # the two repos offer genuinely different versions, and Fedora 43 is
-# currently ahead of AZL4's frozen beta base for almost every package
+# currently ahead of Azure Linux 4.0's frozen beta base for almost every package
 # they both ship, so left alone, cost= let Fedora win nearly everything,
 # not just the GNOME/GUI stack it's actually needed for. This list is
 # scoped to fedora43/fedora43-updates only (excludepkgs on THOSE repos,
@@ -290,7 +289,7 @@ MS_PROD_EXCLUDES="aznfs,mdatp"
 # candidates at first:
 #   - glibc (and glibc-common/-minimal-langpack/-gconv-extra/-all-
 #     langpacks/-langpack-en): gtk4 (a hard dependency of gnome-shell)
-#     requires GLIBC_2.43 symbol versioning AZL4's glibc build doesn't
+#     requires GLIBC_2.43 symbol versioning Azure Linux 4.0's glibc build doesn't
 #     provide - confirmed via dnf5's own resolver conflict output. This
 #     is the same "hand the whole family to whichever repo can keep it
 #     internally consistent" call already made for grub2/shim/fuse3.
@@ -300,7 +299,7 @@ MS_PROD_EXCLUDES="aznfs,mdatp"
 #     offline repo, which would have broken WiFi WPA/WPA2 auth. Verified
 #     by listing the resulting offline repo directly, not by trusting a
 #     clean dnf5 exit code.
-#   - fwupd/fwupd-efi: AZL4's fwupd build is ELF-linked against
+#   - fwupd/fwupd-efi: Azure Linux 4.0's fwupd build is ELF-linked against
 #     libcbor.so.0.12; gnome-connections (a directly-installed GUI app)
 #     pulls in Fedora's freerdp-libs, which is linked against
 #     libcbor.so.0.13 - two incompatible sonames of a same-named
@@ -308,7 +307,7 @@ MS_PROD_EXCLUDES="aznfs,mdatp"
 #     build is fully functional (firmware updates aren't laptop-model-
 #     specific to who built the package), so it stays on Fedora rather
 #     than break gnome-connections. fwupd-efi has no Fedora build at
-#     all and resolves to AZL4 either way.
+#     all and resolves to Azure Linux 4.0 either way.
 # Sibling library packages that share an exact version-locked NEVRA with
 # an already-clawed-back package (util-linux's libblkid/libmount/libuuid/
 # libfdisk/libsmartcols, e2fsprogs's libcom_err, xz's xz-libs) are
@@ -559,6 +558,19 @@ if [ -f /opt/azl-desktop-assets/bluetooth/azurelinux-desktop-bt-usb-reset ]; the
     systemctl enable azurelinux-desktop-bt-recover-late.service 2>/dev/null || true
 fi
 
+# First-boot prepare override for the installed target tree. Also staged
+# by azl-install.ks.in; keep both paths so offline media and %post agree.
+if [ -f /opt/azl-desktop-assets/bin/azl-first-boot-prepare ]; then
+    install -d -m 0755 /usr/libexec/azurelinux-desktop \
+        /usr/lib/systemd/system/selinux-autorelabel.service.d
+    install -m 0755 \
+        /opt/azl-desktop-assets/bin/azl-first-boot-prepare \
+        /usr/libexec/azurelinux-desktop/azl-first-boot-prepare
+    install -m 0644 \
+        /opt/azl-desktop-assets/systemd/selinux-autorelabel.service.d/10-azurelinux-desktop.conf \
+        /usr/lib/systemd/system/selinux-autorelabel.service.d/10-azurelinux-desktop.conf
+fi
+
 #----------------------------------------------------------------------
 # Side-load GitHub Copilot GUI/CLI, microsoft/edit, and Flathub's repo
 # file the same way the live ISO does - always *latest* release, no
@@ -612,6 +624,47 @@ do
     fi
 done
 test -x "$EXTRAS/install-dotnet-sdk-tarball.sh"
+
+#----------------------------------------------------------------------
+# Microsoft Copilot GTK Flatpak (system install + Pages update remote).
+# Populated here with network so azl-install.ks.in can copy the OSTree
+# into the target offline. Same helper the live ISO and canary use.
+#----------------------------------------------------------------------
+echo "=== Staging Copilot desktop Flatpak for offline target install ==="
+FLATPAK_STAGE="$EXTRAS/flatpak-system-root"
+rm -rf "$FLATPAK_STAGE"
+mkdir -p "$FLATPAK_STAGE"
+INSTALL_COPILOT=""
+for cand in \
+    /opt/azl-desktop-assets/build-helpers/install-copilot-desktop-flatpak.sh \
+    /workspace/scripts/install-copilot-desktop-flatpak.sh
+do
+    if [ -x "$cand" ]; then
+        INSTALL_COPILOT="$cand"
+        break
+    fi
+done
+[ -n "$INSTALL_COPILOT" ] || {
+    echo "error: install-copilot-desktop-flatpak.sh missing" >&2
+    exit 1
+}
+if [ -s "$EXTRAS/flathub.flatpakrepo" ]; then
+    "$INSTALL_COPILOT" "$FLATPAK_STAGE" "$EXTRAS/flathub.flatpakrepo"
+else
+    "$INSTALL_COPILOT" "$FLATPAK_STAGE"
+fi
+# Only the Flatpak system dir is needed on the target (not a full rootfs).
+rm -rf "$EXTRAS/flatpak-system"
+mkdir -p "$EXTRAS/flatpak-system"
+cp -a "$FLATPAK_STAGE/var/lib/flatpak"/. "$EXTRAS/flatpak-system"/
+rm -rf "$FLATPAK_STAGE"
+test -f "$EXTRAS/flatpak-system/repo/config"
+test -d "$EXTRAS/flatpak-system/app/com.github.sirredbeard.copilot-desktop-gtk" \
+    || test -d "$EXTRAS/flatpak-system/appstream"
+# Prefer a hard check on the app id when the OSTree layout is present.
+if [ -d "$EXTRAS/flatpak-system/app" ]; then
+    ls "$EXTRAS/flatpak-system/app" | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
+fi
 
 #----------------------------------------------------------------------
 # Anaconda launcher symlink (script deployed via kiwi <file>) - same
@@ -703,7 +756,7 @@ AUTOEOF
 # for its "1) Standard installation" / "2) Encrypted disk (LUKS)"
 # menu, so this can't silently drift out of sync with what that
 # unmodified upstream script expects again (see findings/
-# gh-actions-installer-iso-build.md for the incident that happened
+# findings/kiwi-ng-installer-build.md for the incident that happened
 # when these names didn't match: anaconda-launcher.sh failed with
 # "Kickstart file /run/install/ks.cfg is missing" for both menu
 # choices, since neither /root/azl-install.ks nor
@@ -711,7 +764,7 @@ AUTOEOF
 # azl-desktop-install.ks naming).
 #----------------------------------------------------------------------
 generate_packages_section() {
-    echo "# Packages - Azure Linux Desktop (GNOME 49 + Microsoft/GitHub tooling)"
+    echo "# Packages - Azure Linux Desktop (GNOME + Microsoft/GitHub tooling)"
     echo "# --nocore: AZL repo has no comps groups, so @core would fail"
     echo "%packages --nocore --excludedocs"
     for pkg in "${INSTALL_PKGS[@]}"; do

@@ -11,7 +11,7 @@ boot from the expected vendor path when `EFI/azurelinux/` is empty.
 
 ## Root cause
 
-This project excludes AZL's unsigned `shim-x64` and `grub2-efi-x64` and uses
+This project excludes Azure Linux's unsigned `shim-x64` and `grub2-efi-x64` and uses
 Fedora's signed stack instead. Anaconda still creates an Azure Linux vendor
 NVRAM path. Without a copy step, the path and the files disagree.
 
@@ -21,8 +21,15 @@ NVRAM path. Without a copy step, the path and the files disagree.
 and `mmx64.efi` from `EFI/fedora/` to `EFI/azurelinux/` when the azurelinux
 binaries are absent.
 
-Do not reintroduce AZL's unsigned shim/grub only to avoid this copy.
+Do not reintroduce Azure Linux's unsigned shim/grub only to avoid this copy.
 
+Also rewrite **every** EFI stub `grub.cfg` (`EFI/azurelinux`, `EFI/BOOT`,
+and `EFI/fedora` when present) to the final `/boot` filesystem UUID.
+Fedora's package/shim fallback often loads `EFI/fedora/grub.cfg`. Anaconda
+can leave a package-time UUID there that does not match the installed
+`/boot`, which drops GRUB to a bare `grub>` prompt
+(`search.c: no such device: <stale-uuid>`). Confirmed on nested host-partition
+QA 2026-08-03.
 ## Evidence
 
 - Applied in installer interactive testing batch (2026-07-23), build

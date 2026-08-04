@@ -42,10 +42,11 @@ README for the full backstory.
    (filesystem + runtime/programmatic/manual confirmation), mark **Status:**
    in that issue file (or merge unique detail into the existing topic file)
    rather than archiving into a second megafile.
-5. **Logs earn their place.** `findings/logs/` holds only logs that are
-   actually referenced by something in `findings/*.md`, trimmed to the
-   relevant excerpt where the full log isn't needed. It is not a dumping
-   ground for every CI run's raw output.
+5. **Key log lines live in the topic file.** When a CI run, journal, or
+   local script fails or proves a fix, copy the smallest useful excerpt
+   (command, error, or success signature) into the matching
+   `findings/*.md` file. Do not keep a `findings/logs/` archive. Full CI
+   dumps and unusable chunks do not belong in the repo.
 6. **Scripts are real, tested artifacts**, not one-off snippets. Anything
    written to help build, test, or download this project's images goes in
    `/scripts/`, gets documented, and gets actually run (not just written) as
@@ -131,9 +132,9 @@ README for the full backstory.
    and repo-priority checks batchable in CI with per-check logs/artifacts so
    iteration can move forward when local parity hits diminishing returns.
 6. **Preserve the decision.** Record the failure, evidence, scope of any
-   workaround, and the remaining validation in `findings/`. Keep referenced
-   excerpts in `findings/logs/`. Update these instructions when the lesson is
-   general enough to prevent the next avoidable rabbit hole.
+   workaround, and the remaining validation in `findings/`. Paste the key
+   log lines into that same topic file. Update these instructions when the
+   lesson is general enough to prevent the next avoidable rabbit hole.
 
 ## Repository conventions
 
@@ -173,33 +174,40 @@ README for the full backstory.
 - **CI hygiene**: only re-run the specific build (ISO vs disk images, and
   going forward the more granular qcow2/VHDX/VDI/VMDK split) that actually
   needs iterating on. Cancel a premature run immediately. Once a failure or
-  cancellation is diagnosed and its relevant excerpt is retained in
-  `findings/logs/`, delete the run so the Actions list stays useful.
+  cancellation is diagnosed and the useful lines are in the matching
+  `findings/*.md` topic file, delete the run so the Actions list stays
+  useful.
 - **Preflight cadence**: keep preflight checks broken into small, reportable
   units with visible progress and per-step logs. If a grouped local preflight
   run stalls or exceeds the practical local budget, offload the non-GUI
   checks (package resolution, repo priority, canary policy checks) to
   a dedicated Actions workflow rather than extending a long opaque local run.
-- **Nightly publication and focused debugging**: `nightly-release.yml` builds
-  the live ISO, qcow2, VHDX, VDI, VMDK, installer ISO, and canary container
-  from the current default branch. VHDX/VDI/VMDK are derivative qcow2 formats,
-  so in iterative debugging runs they should remain optional and only be
-  dispatched when explicitly requested. It deletes all preceding GitHub
-  releases, tags, and canary GHCR versions first, so the project has one
-  current set of artifacts rather than a release archive. For debugging
-  outside the nightly run, build only the requested format. **When validation
-  needs testable artifacts, always dispatch the matching release workflow
-  (`release-live-iso.yml` or `release-installer-iso.yml`) rather than a
-  build-only workflow.** Build-only workflows produce un-released Actions
-  artifacts that must be downloaded with auth headers and extracted from zips;
-  release workflows publish to GitHub Releases, which `Get-AzureLinuxDesktop.ps1`
-  downloads directly. When only specific artifacts need rebuilding (e.g., just
-  the installer ISO), dispatch only that release workflow. Download released
+- **Publication (`release.yml`) and focused debugging**: one workflow
+  owns publication. Schedule (`30 05 * * *` UTC) runs the full set:
+  wipe prior GitHub releases/tags, mint a fresh UTC-date tag with
+  `.github/release-notes-template.md`, detect/publish desktop kmods when
+  needed, build live ISO + qcow2 + VHDX/VDI/VMDK + installer ISO, build
+  and test the canary container, upload split assets with
+  `gh release upload --clobber`. Manual dispatch exposes boolean flags
+  for `live_iso`, `installer_iso`, `qcow2`, `vhdx`, `vdi`, `vmdk`,
+  `canary`, `kmods`, and `replace_release`. Leave `replace_release` off
+  for focused rebuilds so `scripts/resolve-release-tag.sh` attaches to
+  the single current release and only clobbers the assets this run
+  built. Schedule always sets `replace_release`. There is no separate
+  build-only or canary-only workflow file, and no 3-day canary cron.
+  `publish-desktop-kmods.yml` stays a hybrid on purpose: its own early
+  kernel-drift schedule/dispatch plus `workflow_call` from `release.yml`
+  when `kmods` is on. Do not fold it into `release.yml` only; kernel
+  drift must refresh the Pages DNF repo without a full ISO night.
+  `build-live-iso.yml` / `build-installer-iso.yml` are reusable only
+  (`prepare_kernel_modules` defaults off when release already ran kmods).
+  `Get-AzureLinuxDesktop.ps1` reads `/releases/latest`. Download released
   artifacts via `Get-AzureLinuxDesktop.ps1 -Live` or `-Install`; download
-  build-only artifacts via `aria2c -x 16` with
+  mid-run Actions artifacts via `aria2c -x 16` with
   `--header="Authorization: Bearer $(gh auth token)"` against the
   `https://api.github.com/repos/sirredbeard/azurelinux-desktop/actions/artifacts/<id>/zip`
-  URL.
+  URL. Local scratch downloads and ISO work go under `~/azl-work`, not
+  `/tmp` for multi-gigabyte assets.
 - **Parity, linting, and reusable scripts**: carry a package, repository,
   side-load, or priority change through every applicable live, installer, and
   canary path. Add build/test/download helpers under `/scripts/`, run them
@@ -244,12 +252,12 @@ README for the full backstory.
   overhead on hardware that doesn't have a serial port. The installer ISO's
   own GRUB (`kiwi/grub_template.cfg`) already uses gfxterm; the installed
   system GRUB should match for a consistent desktop boot experience.
-- **EFI vendor path**: our kickstart excludes AZL's `shim-x64` and
+- **EFI vendor path**: our kickstart excludes Azure Linux's `shim-x64` and
   `grub2-efi-x64`; Fedora's Secure Boot-signed shim/grub RPMs install
   their binaries to `EFI/fedora/`, but Anaconda's NVRAM entry points to
   `EFI/azurelinux/shimx64.efi`. `kiwi/post-bootloader.sh` copies the
   Fedora EFI binaries to `EFI/azurelinux/` when absent. Don't reintroduce
-  AZL's unsigned shim/grub just to avoid this copy step.
+  Azure Linux's unsigned shim/grub just to avoid this copy step.
 - **Out-of-tree Bluetooth kmod layout:** Azure Linux x86_64 leaves
   `CONFIG_BT` off. The project bluetooth kmod must build `net/bluetooth`
   and `drivers/bluetooth` with matching `CONFIG_BT_LEDS` (and related)
@@ -283,7 +291,7 @@ README for the full backstory.
   non-qcow2 formats. This used to be the unstable part of this project -
   an anaconda `verify_bootloader()` bug ("You have not created a bootable
   partition.") blocked every BIOS/MBR attempt. Root cause and fix (full
-  trace in `findings/gh-actions-live-iso-build.md`, "BUG #5 - RESOLVED"):
+  trace in `findings/github-actions-build.md`, "BUG #5 - RESOLVED"):
   switch the disk image to **UEFI/GPT**, matching what the installed
   system should be using anyway - BIOS was never the right target here.
   Two more bugs surfaced only after the first real QEMU boot test of the
@@ -297,7 +305,7 @@ README for the full backstory.
   images**, which is what Microsoft's own Azure Linux release process
   actually uses: its own CI needs `losetup -P` (partition-scanning loop
   devices), which is confirmed broken on GitHub-hosted runners (see
-  `findings/live-iso-and-bare-metal.md`) - that's why Image Customizer's own
+  `findings/github-actions-build.md`) - that's why Image Customizer's own
   upstream CI runs on self-hosted runners, which this project doesn't have.
 - **Disk image formats**: qcow2 is what `livemedia-creator --make-disk`
   produces and `qemu-img resize`s to its final size; VHDX (Hyper-V), VDI
@@ -313,7 +321,7 @@ README for the full backstory.
   `qemu-img info` size/format checks only (no VirtualBox/VMware installed
   in this dev environment on purpose, so those two haven't been boot-
   tested, only conversion-tested).
-- **Canary container image** (`canary-container.yml`,
+- **Canary container image** (`release.yml` canary jobs,
   `scripts/build-canary-container.sh`): publishes a small OCI image to
   GHCR straight from the kickstart's own repo/priority setup, the same
   idea as Azure Linux's own upstream `container-base` (systemd=false,
@@ -326,9 +334,10 @@ README for the full backstory.
   it can be pulled and inspected without a full ISO/disk-image build.
   Keep its package and repository policy aligned with the image inputs,
   but keep its scope narrow: repo-mixing and priority regression checks,
-  not the desktop's runtime suite. `canary-container.yml (test job)` runs after each
-  publication and must keep covering DNF update/upgrade, Azure and Fedora
-  package origins, the project-specific tools, and representative Flatpaks.
+  not the desktop's runtime suite. `release.yml` builds, pushes, and
+  tests the canary whenever the canary flag is on (always on schedule)
+  and must keep covering DNF update/upgrade, Azure and Fedora package
+  origins, the project-specific tools, and representative Flatpaks.
   Preserve its version and transaction logs as workflow artifacts.
 - **Download script**: `scripts/Get-AzureLinuxDesktop.ps1` mirrors
   whatever image formats the release actually publishes - keep its
@@ -338,15 +347,16 @@ README for the full backstory.
 
 ## Where things live
 
-- `.github/workflows/` - `build-live-iso.yml` (live ISO + all disk-image
-  formats, split into independent jobs), `build-installer-iso.yml`
-  (installer ISO), `release-live-iso.yml` (publishes a GitHub Release from
-  the above), `canary-container.yml` (publishes the canary proof-of-repo-
-  priority container to GHCR), and `nightly-release.yml` (removes prior
-  published artifacts then calls all publication paths), plus
-  `local scripts under scripts/ (preflight workflow removed)` for batched package/repo-priority canary checks
-  with artifact logs. Guest boot testing stays local; do not add a GitHub
-  Actions KVM or TCG guest-test workflow.
+- `.github/workflows/` - four workflows only:
+  `release.yml` (only human-facing publication path: schedule full run
+  or manual per-artifact flags), `build-live-iso.yml` /
+  `build-installer-iso.yml` (reusable builds called by `release.yml`),
+  `publish-desktop-kmods.yml` (Pages DNF repo; hybrid schedule/dispatch
+  and `workflow_call` from `release.yml` - keep separate from release). Local preflight lives under `scripts/`
+  (for example `run-preflight-split.sh`, `test-container-repos.sh`);
+  there is no separate preflight Actions workflow. Guest boot testing
+  stays local; do not add a GitHub Actions KVM or TCG guest-test
+  workflow.
 - `kickstart/` - the kickstart(s) driving the ISO builds, the disk-image
   build, and (indirectly, via `scripts/build-canary-container.sh` parsing
   its repo/package setup) the canary container.
@@ -358,9 +368,8 @@ README for the full backstory.
   should actually get run against a real build, not just committed
   unverified.
 - `findings/` - the project's institutional memory. Read the relevant file
-  before debugging something that feels like it's been hit before.
-- `findings/logs/` - trimmed, relevant log excerpts referenced by
-  `findings/*.md` - not a general log archive.
+  before debugging something that feels like it's been hit before. Key log
+  evidence belongs inside those topic files, not a side archive.
 
 ## A note on continuity
 

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Launch the installer ISO in a GTK window for manual QA while recording
-# firmware/kernel/installer serial output to a persistent log.
+# qemu-manual-install-qa.sh
+#
+# Purpose: Driver for manual installer ISO QA in QEMU (checklist-oriented).
+# Usage:   ./scripts/qemu-manual-install-qa.sh
+# Needs:   qemu, installer ISO under ~/azl-work or args.
+# CI:      No.
+
 set -euo pipefail
 
 ISO="${1:?usage: $0 /path/to/azurelinux-desktop-install.iso [name] [ram_mb] [disk_gb]}"

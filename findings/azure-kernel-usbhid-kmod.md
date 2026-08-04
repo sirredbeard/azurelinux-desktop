@@ -60,7 +60,13 @@ repo/
 
 **Pages setup:** Pages must be enabled (`build_type: workflow`) before the workflow can deploy. First setup was done via GitHub API; the workflow then uses `configure-pages` with `enablement: true` so it remains safe if settings need to be restored. Required workflow permissions: `pages: write`, `id-token: write`. A workflow calling an image build through a release wrapper must grant these too — reusable workflow permissions can only stay the same or become narrower, never broader.
 
-Log: `logs/usbhid-pages-enable-2026-07-22.log` — initial Pages setup error (`Get Pages site failed`); resolved by correct API call sequence.
+Evidence (Pages enable step):
+```
+Get Pages site failed. Please verify that the repository has Pages enabled
+and configured to build using GitHub Actions...
+Create Pages site failed. Error: Resource not accessible by integration.
+```
+Resolved by the correct API call sequence / permissions.
 
 ## Secure Boot
 
@@ -75,8 +81,17 @@ This is a project-built module, not signed by Azure Linux's kernel key. Works fo
 
 ## Known issues
 
-- **`kernel-devel--` NEVRA query bug (2026-07-22).** The NEVRA query step briefly produced `kernel-devel--` (malformed package name) causing DNF to fail with `No match for argument: kernel-devel--.`. Root cause was a string-interpolation error in the query script; fixed. Log: `logs/usbhid-pages-nevra-query-2026-07-22.log`.
-- **Malformed URL in URL check (2026-07-22).** A validation step had a URL construction bug: `curl: (3) URL rejected: Malformed input to a URL function`. Fixed. Log: `logs/usbhid-pages-url-check-2026-07-22.log`.
+- **`kernel-devel--` NEVRA query bug (2026-07-22).** The NEVRA query step briefly produced `kernel-devel--` (malformed package name). DNF:
+```
+Failed to resolve the transaction:
+No match for argument: kernel-devel--.
+```
+Root cause was a string-interpolation error in the query script; fixed.
+- **Malformed URL in URL check (2026-07-22).** Validation step URL construction bug:
+```
+curl: (3) URL rejected: Malformed input to a URL function
+```
+Fixed.
 - **Virtio input is a VM workaround, not a product fix.** Azure's `virtio_input.ko` is present. QEMU test VMs can use `-device virtio-tablet-pci` to get pointer input. Physical USB mice still need `usbhid`; shipping without it is not a complete desktop kernel.
 
 ## Verification
@@ -95,12 +110,9 @@ Module builds successfully for each Azure kernel release. Pages repo is live. Li
 
 ## References
 
-- `logs/usbhid-pages-enable-2026-07-22.log` — Pages setup error
-- `logs/usbhid-pages-nevra-query-2026-07-22.log` — NEVRA query string bug
-- `logs/usbhid-pages-url-check-2026-07-22.log` — URL construction bug
 - `live-iso-installer-parity.md` — how the module fits into parity matrix
 - `canary-container.md` — canary transaction check
-- AZL kernel config: `microsoft/azurelinux` `base/comps/kernel/6.18-x86_64-azl.config`
+- Azure Linux kernel config: `microsoft/azurelinux` `base/comps/kernel/6.18-x86_64-azl.config`
 
 
 ## USB mass-storage sibling package

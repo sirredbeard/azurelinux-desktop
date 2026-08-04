@@ -59,8 +59,7 @@ Call Trace:
   hci_power_on+… [bluetooth]
 ```
 
-Logs: `findings/logs/azl-bt-baremetal-20260803-1454-kernel.txt`,
-`findings/logs/azl-bt-baremetal-20260803-late-recover-oops.txt`.
+Bare-metal journal evidence (2026-08-03): ThinkPad rfkill unblocked; HCI command timeouts under load; later recover path hit kernel Oops in the Bluetooth receive drop path (`sk_skb_reason_drop` / HCI stack) when the out-of-tree layout did not match `CONFIG_BT_LEDS` and related options.
 
 ### 2. Secondary issues (fixed, not sufficient alone)
 
@@ -124,7 +123,7 @@ AZL_QEMU_SNAPSHOT=1 AZL_QEMU_BT_PASSTHROUGH=1 \
   ./scripts/qemu-boot-installed-hostpart.sh
 ```
 
-Serial (`findings/logs/azl-bt-qemu-leds-fix-20260803-serial.txt`):
+QEMU serial (LEDS-fix kmod attempt):
 
 ```
 Bluetooth: hci0: Firmware revision 0.0 build 14 week 44 2021
@@ -144,8 +143,8 @@ headphones worked end-to-end under passthrough.
 
 * Bare metal / QEMU dry-run: `0x0c03` + Intel version `-110`, no firmware
 * Metal after recover race: Oops in `sk_skb_reason_drop`
-* Logs under `findings/logs/azl-bt-baremetal-*`, `azl-bt-qemu-dryrun-*`,
-  `azl-bt-qemu-passthrough-diag.txt`
+* Bare-metal and QEMU serial journals from 2026-08-03 BT diagnose runs
+  (kept under `~/azl-work` workdirs during the session; key lines are inlined above)
 
 ### Bare metal
 

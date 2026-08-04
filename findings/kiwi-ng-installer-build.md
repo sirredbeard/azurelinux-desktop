@@ -4,7 +4,7 @@
 
 ## Context
 
-The installer ISO uses KIWI-NG (`python3-kiwi`, `kiwi-ng system build`), matching the tool Microsoft's own Azure Linux installer ISO is built with. The description files are `kiwi/azl-desktop-installer.kiwi`, `kiwi/config.sh`, `kiwi/azl-install.ks.in`, and `kiwi/azl-install-encrypted.ks.in` — direct adaptations of `microsoft/azurelinux` `base/images/vm-iso-installer/`. The live ISO and disk images use Lorax/livemedia-creator. Do not conflate the two build paths.
+The installer ISO uses KIWI-NG (`python3-kiwi`, `kiwi-ng system build`), matching the tool Microsoft's own Azure Linux installer ISO is built with. The description files are `kiwi/azl-desktop-installer.kiwi`, `kiwi/config.sh`, and `kiwi/azl-install.ks.in` (plus `grub_template.cfg`, launcher, and post scripts in `kiwi/`) — adaptations of `microsoft/azurelinux` `base/images/vm-iso-installer/`. There is no separate `azl-install-encrypted.ks.in` in-tree; `config.sh` duplicates the rendered kickstart for the launcher's second option. The live ISO and disk images use Lorax/livemedia-creator. Do not conflate the two build paths.
 
 ## Known issues and root causes
 
@@ -21,11 +21,15 @@ The installer ISO uses KIWI-NG (`python3-kiwi`, `kiwi-ng system build`), matchin
 ### KIWI DNF5 compatibility
 
 - **`--disable-plugin=priorities,versionlock` causes failures.** KIWI hard-codes this argument; current libdnf5 no longer ships either legacy plugin and treats unknown plugin names as a failed transaction. Fix: `scripts/patch-kiwi-dnf5.sh` removes that obsolete argument from the installed KIWI Python backend. Run after installing `python3-kiwi`, before `kiwi-ng system build`.
-- **AZL dnf5 does not accept `-v`.** AZL's DNF5 does not accept the familiar `-v` flag (unlike Fedora's build). Use `--debugsolver` / `debuglevel=10` for verbose solver output. Log excerpt: `logs/installer-release-dnf-debug-29889193251.log`.
+- **AZL dnf5 does not accept `-v`.** Azure Linux's DNF5 does not accept the familiar `-v` flag (unlike Fedora's build). Use `--debugsolver` / `debuglevel=10` for verbose solver output.
+```
+Unknown argument "-v" for command "dnf5".
+Offline repository download attempt 1 failed.
+```
 
 ### Repository configuration
 
-- **Fedora repo required in KIWI runtime for Plymouth.** KIWI's `<repository>` bootstraps the installer runtime with Azure Linux repos only by default. `plymouth`, `plymouth-plugin-script`, and `plymouth-plugin-label` are Fedora-supplied. Fix: add Fedora release repo at `priority=50` in the `.kiwi` runtime definition (Azure Linux repos at `priority=10`). Test script: `scripts/test-installer-runtime-resolve.sh` — resolved 426 packages including Fedora Plymouth. Log: `logs/installer-runtime-resolve-optionb-2026-07-22.log`.
+- **Fedora repo required in KIWI runtime for Plymouth.** KIWI's `<repository>` bootstraps the installer runtime with Azure Linux repos only by default. `plymouth`, `plymouth-plugin-script`, and `plymouth-plugin-label` are Fedora-supplied. Fix: add Fedora release repo at `priority=50` in the `.kiwi` runtime definition (Azure Linux repos at `priority=10`). Test script: `scripts/test-installer-runtime-resolve.sh` — resolved 426 packages including Fedora Plymouth (`[426/426] Total ... Complete!`).
 - **`priority=` vs `cost=` in `config.sh`'s `dnf5 download`.** `priority=` is a hard shadow (locks onto higher-priority repo's candidate even if unresolvable); `cost=` only tie-breaks identical NEVRAs. Use `--setopt=<repo>.cost=` matching the live kickstart. Mixing them caused `grub2-efi-x64-cdboot`'s AZL dependency to be unresolvable.
 - **Multilib i686/x86_64 conflict.** `dnf5 download --alldeps` pulls `libpeas1-gtk-...i686` alongside `.x86_64`, causing an unresolvable conflict. `--setopt=multilib_policy=best` doesn't help. Fix: `--arch=x86_64 --arch=noarch` (repeated flags; comma form `--arch=x86_64,noarch` fails with "Unsupported architecture").
 - **RPMFusion must be in `config.sh`'s `dnf5 download` repo list.** `ffmpeg`/`gstreamer1-plugin-libav` require it; omitting it silently drops those packages from the offline repo.
@@ -35,11 +39,21 @@ The installer ISO uses KIWI-NG (`python3-kiwi`, `kiwi-ng system build`), matchin
 
 ### Plymouth asset staging order
 
-- **Stage theme files BEFORE calling `plymouth-set-default-theme`.** If the `azurelinux` theme directory doesn't exist when the selection command runs, it exits with `azurelinux.plymouth does not exist` and the build fails. Copy `.plymouth`, `.script`, logo PNG, and dot PNGs from the unpacked asset archive into `/usr/share/plymouth/themes/azurelinux/` first. Log: `logs/installer-release-runtime-plymouth-29890385508.log`.
+- **Stage theme files BEFORE calling `plymouth-set-default-theme`.** If the `azurelinux` theme directory doesn't exist when the selection command runs, it exits and the build fails:
+```
+KiwiScriptFailed: config.sh failed with:
+/usr/share/plymouth/themes/azurelinux/azurelinux.plymouth does not exist
+```
+Copy `.plymouth`, `.script`, logo PNG, and dot PNGs from the unpacked asset archive into `/usr/share/plymouth/themes/azurelinux/` first.
 
 ### KIWI initramfs path
 
-- **KIWI stores the boot initramfs at `/boot/x86_64/loader/initrd`**, not at `/images/pxeboot/initrd.img` (Lorax's path). Post-build verification that uses the Lorax path fails to find the initramfs. Log: `logs/installer-release-kiwi-initramfs-path-29891158562.log`.
+- **KIWI stores the boot initramfs at `/boot/x86_64/loader/initrd`**, not at `/images/pxeboot/initrd.img` (Lorax's path). Post-build verification that uses the Lorax path fails:
+```
+xorriso : FAILURE : Cannot determine attributes of (ISO) source file
+'/images/pxeboot/initrd.img' : No such file or directory
+```
+KIWI Result files still list `live_image: ...iso`; assert the KIWI loader path instead.
 
 ### `grub_template.cfg` and `mediacheck`
 
@@ -81,11 +95,7 @@ First successful installer build: run `29625540225` (~3.1 GiB ISO). KIWI build i
 
 ## References
 
-- `logs/installer-release-dnf-debug-29889193251.log` — DNF5 -v flag failure
-- `logs/installer-release-kiwi-initramfs-path-29891158562.log` — wrong initramfs path
-- `logs/installer-release-runtime-plymouth-29890385508.log` — Plymouth staging order failure
-- `logs/installer-runtime-resolve-optionb-2026-07-22.log` — 426-package runtime resolve
-- `logs/gha-run29625540225-installer-first-success.log` — first successful build log
+Failure signatures for DNF5 `-v`, Plymouth staging order, and Lorax-vs-KIWI initrd path are inlined above. Runtime resolve Option B: 426/426 packages downloaded. First successful installer path confirmed via KIWI Result files + published ISO.
 - `local-build-environment-boundaries.md` — superseded by this file; retained for context
 - `anaconda-kickstart-patterns.md` — %post, asset staging, storage directives
 - `live-iso-installer-parity.md` — installer vs. live vs. installed system parity

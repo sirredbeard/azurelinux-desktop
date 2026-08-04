@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# Boot a downloaded Azure Linux Desktop qcow2 through QEMU's localhost-only
-# VNC display backend. This bypasses the host GTK/SDL Wayland grab path while
-# preserving the same UEFI, KVM, and guest input setup used by the normal
-# disk-image tests.
+# qemu-vnc-disk-image.sh
 #
-# Usage:
-#   ./scripts/qemu-vnc-disk-image.sh /path/to/azurelinux-desktop-live.qcow2
-#   AZL_QEMU_INPUT_DEVICE=virtio-tablet ./scripts/qemu-vnc-disk-image.sh /path/to/azurelinux-desktop-live.qcow2
-#
-# Connect from the same host with:
-#   vncviewer 127.0.0.1:5901
+# Purpose: Boot a disk image with VNC enabled for remote GUI capture.
+# Usage:   ./scripts/qemu-vnc-disk-image.sh IMAGE [display]
+# Needs:   qemu, OVMF, free VNC display.
+# CI:      No.
+
 set -euo pipefail
 
 DISK_IMAGE="${1:?usage: $0 /path/to/azurelinux-desktop-live.qcow2}"

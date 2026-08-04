@@ -1,34 +1,13 @@
 #!/usr/bin/env bash
-# Builds a small OCI container image straight from this project's own
-# repo/priority setup, the same idea as Azure Linux's own upstream
-# container-base (microsoft/azurelinux base/images/container-base/
-# container-base.kiwi): a tiny, non-bootable, no-systemd image that
-# ships nothing but the release/repo package plus whatever it's there
-# to demonstrate. Their `core` container is base-only (filesystem,
-# bash, azurelinux-release-container, azurelinux-repos); ours adds the
-# one thing this project actually exists to prove - that the
-# Azure-Linux-base + Fedora/GNOME-layer repo priority split in
-# kickstart/azurelinux-desktop-live.ks resolves cleanly and keeps
-# picking packages from the intended repo, not just at ISO-build time.
+# build-canary-container.sh
 #
-# This is NOT a container version of the full desktop - a GNOME
-# session needs a running systemd, D-Bus, and a display, none of which
-# make sense in a plain OCI container. It's a lightweight, publishable
-# proof of the repo-priority mechanism, small enough to build and push
-# on every run, and pullable by anyone who wants to inspect/test the
-# canary resolution without building a full ISO or disk image.
-#
-# Reuses the exact repo --name=... parsing approach from
-# scripts/podman-test-azl4-fedora43.sh (see that script's comments for
-# why: always test/ship what the kickstart actually says, never a
-# hand-maintained second copy of it).
-#
-# Usage (from repo root, needs podman or buildah):
-#   ./scripts/build-canary-container.sh [image-ref]
-#
-# image-ref defaults to localhost/azurelinux-desktop-canary:latest.
-# Set PUSH=1 (and have already `podman login`'d) to push it too - the
-# GitHub Actions workflow does this against ghcr.io.
+# Purpose: Build the package-policy canary OCI image from kickstart repo
+#   rules and a small asset set (including Microsoft Copilot GTK Flatpak).
+#   Not a full GNOME desktop container.
+# Usage:   ./scripts/build-canary-container.sh [tag]
+# Needs:   podman or docker; network for base image and repos.
+# CI:      Yes. release.yml canary job.
+
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -40,7 +19,7 @@ if [ ! -f "$KS" ]; then
     exit 1
 fi
 
-# Same repo-parsing awk as podman-test-azl4-fedora43.sh - see that
+# Same repo-parsing awk as podman-test-azl4-fedora.sh - see that
 # script for a line-by-line explanation of why each field is handled
 # the way it is (mirrorlist vs baseurl, the quote() escaping, etc).
 # shellcheck disable=SC1003
@@ -242,6 +221,17 @@ EOF
         /scripts/install-dotnet-sdk-tarball.sh /mnt/azl /work/thirdparty/dotnet-sdk-linux-x64.tar.gz
         test -x /mnt/azl/usr/share/dotnet/dotnet
         rpm --root=/mnt/azl -q gh github-desktop
+
+        # Microsoft Copilot GTK Flatpak + Pages update remote (system).
+        # Host flatpak CLI targets the installroot via FLATPAK_SYSTEM_DIR.
+        dnf5 install -y flatpak >/dev/null
+        test -x /scripts/install-copilot-desktop-flatpak.sh
+        if [ -s /work/thirdparty/flathub.flatpakrepo ]; then
+            /scripts/install-copilot-desktop-flatpak.sh /mnt/azl \
+                /work/thirdparty/flathub.flatpakrepo
+        else
+            /scripts/install-copilot-desktop-flatpak.sh /mnt/azl
+        fi
 
         # Confirm the priority split held: azl-base (cost=1) should win
         # for azurelinux-release, fedora43 (cost=50) for gtk4/glib2.

@@ -1,26 +1,10 @@
 #!/usr/bin/env bash
-# Full repo-origin check for the Azure-vs-Fedora hybrid split, without
-# spending a full live/installer-image build or a VM boot. Installs the
-# REAL combined package set both images actually ask dnf5 for - the union
-# of kickstart/azurelinux-desktop-live.ks's %packages and kiwi/config.sh's
-# INSTALL_PKGS, not a small hand-picked subset - through the same real
-# repo/cost/excludepkgs definitions those two images use, and asserts that
-# every package this project's own kickstart explicitly claws back to one
-# side or the other (via --excludepkgs=) actually resolved from the side
-# it was supposed to. Those assertions are derived straight from the
-# kickstart's own exclude lists (azl_derive_repo_assertions in
-# test-repo-common.sh) instead of a second hand-maintained "expected
-# family" map, so this scales automatically as the real package/exclude
-# lists grow, plus a small curated fallback for the handful of packages
-# (glibc, gdm, gnome-shell, gnome-software, flatpak, wpa_supplicant,
-# fwupd) that win by "azl just does not build this" rather than an
-# explicit claw-back.
+# test-container-repos.sh
 #
-# This is the same "resolve the whole real package list through the whole
-# real repo scheme" approach the older podman-test-azl4-fedora.sh
-# already used (manually, eyeballing Azure/Fedora counts, live packages
-# only) - wired up here as a real pass/fail CI check, covering both
-# images' package sets, not just live's.
+# Purpose: Assert package origins and repo priority for the mixed desktop set.
+# Usage:   ./scripts/test-container-repos.sh
+# Needs:   podman; test-repo-common.sh.
+# CI:      Yes when wired into preflight/canary paths; also local.
 
 set -euo pipefail
 

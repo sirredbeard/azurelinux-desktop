@@ -24,7 +24,7 @@ Installer ISO → nested bare-metal install:
 | Appstream on disk | Populated 10:21 during session |
 | `~/.cache/gnome-software/flatpak-system-default/components.xmlb` | **40 bytes empty** stamped 10:15, never rebuilt |
 | Fedora gschema override | `packaging-format-preference = ['flatpak:fedora-testing', 'flatpak:fedora', 'rpm']` — **no flathub** |
-| Same override | `required-repos = ['fedora', 'updates']` — those repos do not exist on AZL |
+| Same override | `required-repos = ['fedora', 'updates']` — those repos do not exist on Azure Linux |
 | Our override | Only set `allow-updates` / `download-updates` |
 
 Screenshots under `~/Pictures/Screenshots/`. Probes under

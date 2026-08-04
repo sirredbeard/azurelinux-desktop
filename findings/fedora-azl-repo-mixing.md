@@ -25,11 +25,11 @@ This project installs a full GNOME desktop on Azure Linux 4.0 by mixing AZL 4.0 
 No AZL build exists. Excluding it from Fedora with `--skip-unavailable` silently drops it — WiFi breaks with nothing in the build log to flag it. Caught only by listing the offline repo's actual contents, not by trusting exit codes.
 
 **3. fwupd / fwupd-efi (fwupd stays on Fedora).**
-AZL's `fwupd` links against `libcbor.so.0.12`. Fedora's `freerdp-libs` (a `gnome-connections` dependency) needs `libcbor.so.0.13`. Only one can be installed. Fedora's `fwupd` is functionally equivalent, so it stays on Fedora. `fwupd-efi` naturally resolves to AZL (Fedora doesn't ship it).
+Azure Linux's `fwupd` links against `libcbor.so.0.12`. Fedora's `freerdp-libs` (a `gnome-connections` dependency) needs `libcbor.so.0.13`. Only one can be installed. Fedora's `fwupd` is functionally equivalent, so it stays on Fedora. `fwupd-efi` naturally resolves to AZL (Fedora doesn't ship it).
 
 ### ABI fork: fuse3-libs (both stay installed)
 
-AZL's `grub2-tools-minimal` links against `libfuse3.so.3`. Fedora's `flatpak`/`xdg-desktop-portal` need `libfuse3.so.4`. Both sonames are genuine, both have real consumers; both AZL and Fedora fuse3 builds stay installed side by side. This is not a conflict — it's two separate library slots. Do not try to unify them.
+Azure Linux's `grub2-tools-minimal` links against `libfuse3.so.3`. Fedora's `flatpak`/`xdg-desktop-portal` need `libfuse3.so.4`. Both sonames are genuine, both have real consumers; both AZL and Fedora fuse3 builds stay installed side by side. This is not a conflict — it's two separate library slots. Do not try to unify them.
 
 ### Version-locked sibling libraries (must exclude whole family)
 
@@ -77,7 +77,7 @@ Problem 2: cockpit-ws-364-1.fc43 requires (cockpit-ws-selinux = 364-1.fc43 if
 ```
 **Root cause:** Cockpit from AZL installed fine at build time. `fedora43-updates` later published `cockpit-ws-364`, which requires `cockpit-ws-selinux-364`, which requires Fedora's `selinux-policy-targeted >= 43.8`. But `selinux-policy` and `selinux-policy-targeted` are in `FEDORA_EXCLUDES` (AZL owns them). The update chain breaks because the new Fedora cockpit-ws version pulls a dep on the excluded Fedora selinux-policy.
 
-**Fix:** Add `cockpit, cockpit-ws, cockpit-ws-selinux, cockpit-bridge, cockpit-networkmanager, cockpit-packagekit, cockpit-selinux, cockpit-storaged, cockpit-system` to `FEDORA_EXCLUDES` in both static lists (live kickstarts) and `kiwi/config.sh`. Cockpit is an AZL infrastructure tool; it should stay on AZL's version.
+**Fix:** Add `cockpit, cockpit-ws, cockpit-ws-selinux, cockpit-bridge, cockpit-networkmanager, cockpit-packagekit, cockpit-selinux, cockpit-storaged, cockpit-system` to `FEDORA_EXCLUDES` in both static lists (live kickstarts) and `kiwi/config.sh`. Cockpit is an AZL infrastructure tool; it should stay on Azure Linux's version.
 
 **Installer ISO: already handled dynamically.** `kiwi/config.sh` uses a vendor-based dynamic `FEDORA_EXCLUDES`: `rpm -qa --qf '%{NAME}\t%{VENDOR}\n'` filtered for "Microsoft Corporation". AZL-installed cockpit has vendor "Microsoft Corporation", so it was already excluded. The static lists in live artifacts were the gap.
 
@@ -87,7 +87,7 @@ Problem 2: cockpit-ws-364-1.fc43 requires (cockpit-ws-selinux = 364-1.fc43 if
 
 - **`hunspell-en`:** pure file collision (no ABI). Both repos ship it at different versions with identical paths. Fix: exclude from AZL, let Fedora win.
 - **`gsettings-desktop-schemas`:** version floor. `gnome-shell` requires `>= 50~alpha`; AZL ships `49.1`. Fix: exclude from AZL.
-- **`grub2`/`shim` family:** AZL's `grub2-tools-minimal` links `libfuse3.so.3`; Fedora's `flatpak`/`xdg-desktop-portal` need `libfuse3.so.4`. Fix: hand the **entire** grub2/shim family to Fedora. Cherry-picking individual libs out of a coherent dep tree just moves the conflict one layer down.
+- **`grub2`/`shim` family:** Azure Linux's `grub2-tools-minimal` links `libfuse3.so.3`; Fedora's `flatpak`/`xdg-desktop-portal` need `libfuse3.so.4`. Fix: hand the **entire** grub2/shim family to Fedora. Cherry-picking individual libs out of a coherent dep tree just moves the conflict one layer down.
 - **`dnf5`/`libdnf5`/`dnf5daemon-server`:** `gnome-software` needs `dnf5daemon-server(x86-64) >= 5.4.2`; AZL ships `5.2.18.0`. Same "hand the whole family to one repo" fix.
 - **`aznfs`:** Azure Files NFS mount helper pulled from `ms-prod` as a transitive dep. Its `%pre` scriptlet hard-fails without `/proc`. Excluded with `-aznfs` in `%packages`.
 - **`grub2-efi-x64-cdboot`:** Lorax only builds `EFI/BOOT` + `images/efiboot.img` if it finds `boot/efi/EFI/*/gcdx64.efi` (from `grub2-efi-x64-cdboot` specifically, not plain `grub2-efi-x64`). Missing it silently skips the EFI template section; xorrisofs fails later. Add explicitly to `%packages`.
@@ -99,7 +99,7 @@ Seven extra `repo` lines (`ms-prod`, `vscode`, `edge-canary`, `gh-cli`, `github-
 - `azl-desktop-microsoft-github.repo`: `ms-prod`, `vscode`, `edge-canary`, `gh-cli`, `github-desktop` (`priority=1`).
 - `azl-desktop-rpmfusion.repo`: `rpmfusion-free`, `rpmfusion-nonfree` (`priority=50`).
 
-The AZL base and Fedora `.repo` files come from their standard package installers; only these seven extra sources needed explicit persistence.
+The Azure Linux base and Fedora `.repo` files come from their standard package installers; only these seven extra sources needed explicit persistence.
 
 ### Dynamic vs. static FEDORA_EXCLUDES
 
@@ -140,10 +140,8 @@ Live ISO and qcow2 kickstarts: static 93-package `FEDORA_EXCLUDES` + cockpit fam
 
 ## References
 
-- `logs/podman-resolve-full-desktop-947pkgs-edge-canary-code-insiders.log` — early 947-package resolution with old priority= approach
-- `logs/podman-resolve-full-package-list-1019pkgs-success.log` — 1019-package resolution
-- `logs/preflight-iteration-2026-07-22.log` — current preflight pass (azl4=643, fc43=513)
-- `investigation.md` — superseded; initial conflict investigation preserved
+Resolve evidence (local preflight): early full-desktop pass ~947 packages under the old priority approach; later success path ~1019 packages; 2026-07-22 split preflight recorded azl4=643 fc43=513 total=1171.
+- Early conflict notes folded into this file and `github-actions-build.md`
 - `package-sourcing-clawback.md` — superseded; full clawback investigation preserved
 - `copr-azure-linux-desktop-rebuild-scope.md` — COPR rebuild scope analysis
 - `alternative-architectures.md` — superseded; alternative architecture analysis preserved
@@ -162,8 +160,9 @@ filtered out by exclude filtering.
    never satisfy its own dep chain.
 
 **Fix:** Remove `cockpit*` and `selinux-policy/selinux-policy-targeted` from `FEDORA_EXCLUDES`
-in all three deliverables (live.ks, live-disk.ks, config.sh). Fedora's selinux-policy-targeted
-43.8 wins over AZL's 43.4 by version preference (no explicit pin needed). Cockpit-364 from
+in the live kickstart and installer config.sh (disk images share the live
+kickstart via a generated variant). Fedora's selinux-policy-targeted
+43.8 wins over Azure Linux's 43.4 by version preference (no explicit pin needed). Cockpit-364 from
 fedora43-updates installs cleanly. Security updates for cockpit are no longer blocked.
 
 **Verified:** Canary container rebuild — `anaconda-webui` resolves, cockpit-364 from

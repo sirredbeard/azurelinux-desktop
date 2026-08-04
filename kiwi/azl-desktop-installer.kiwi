@@ -158,6 +158,10 @@
         <package name="anaconda-tui" />
         <package name="anaconda-install-env-deps" />
 
+        <!-- flatpak CLI so config.sh can stage the Copilot GTK app OSTree
+             into /opt/azl-offline-extras for offline target install. -->
+        <package name="flatpak" />
+
         <!-- Offline repo creation -->
         <package name="createrepo_c" />
         <package name="curl" />

@@ -110,7 +110,7 @@ Second package or same RPM second stage if deps stay small:
 
 **Firmware / userspace:**
 
-* `ibt-12-16` already on AZL image.
+* `ibt-12-16` already on Azure Linux image.
 * BlueZ + gnome-bluetooth already installed; enable/start
   `bluetooth.service` (already enabled on nested install).
 * Add `NetworkManager-bluetooth` so NM can expose BT tethering if we
@@ -212,7 +212,7 @@ For each wave’s merge:
 4. Installer KIWI `config.sh` / package list: same RPMs.
 5. Canary container: install policy + new kmod RPMs (modules need not
    load in the canary; RPM presence and repo priority are the check).
-6. `test-container.yml` / preflight: assert new NEVRAs resolve from
+6. `release.yml` canary / preflight: assert new NEVRAs resolve from
    the project repo.
 7. Rebuild **release** live + installer ISOs (not build-only) when
    ready to dogfood; download via `Get-AzureLinuxDesktop.ps1`.
@@ -235,7 +235,7 @@ For each wave’s merge:
 * **Sound spike is the hard one.** If the HDA dependency cut exceeds
   what we can maintain as OOT copies, stop and write the finding
   before expanding scope. Fallback options then: narrower codec set,
-  or revisit whether AZL upstream will flip `CONFIG_SOUND=m` (prefer
+  or revisit whether Azure Linux upstream will flip `CONFIG_SOUND=m` (prefer
   OOT until that exists).
 * **Bluetooth and UVC** should be much closer to the iwlwifi/usb
   experience (small, bounded source sets).

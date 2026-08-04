@@ -1,13 +1,18 @@
 name: Desktop kmod repo (GitHub Pages)
 
-# Parallel family builds → one package job → one serial Pages publish.
-# Triggers: schedule (new kernel), push to builder/workflow, manual, reusable call.
-# Concurrency group serializes Pages writes so two runs never clobber the DNF repo.
+# Hybrid on purpose: reusable workflow_call (release.yml and optional
+# prepare_kernel_modules on build-*.yml) plus its own schedule, path push,
+# and workflow_dispatch. Keep this file. Do not fold it into release.yml
+# only: kernel drift must rebuild the Pages DNF repo without a full ISO
+# night. Parallel family builds → one package job → one serial Pages
+# publish. Concurrency group serializes Pages writes so two runs never
+# clobber the repo.
 
 on:
   schedule:
-    # Once nightly, before nightly-release (05:30 UTC). Policy coupling
-    # means mid-day kernel drift is rare; push/manual still rebuilds.
+    # Once nightly, before release.yml (05:30 UTC). Detects upstream
+    # kernel drift and rebuilds only when the Pages set is incomplete.
+    # release.yml also calls this when its kmods flag is on.
     - cron: "17 4 * * *"
   push:
     branches: [main]

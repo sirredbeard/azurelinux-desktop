@@ -6,6 +6,20 @@
 
 Four deliverables share a package policy and custom tooling but have different boot and install lifecycles: the live ISO (squashfs+livesys), the qcow2 disk image (installed, persistent), the installer ISO (KIWI runtime + offline repo + Anaconda TUI), and the canary container (repo/policy canary, not a desktop). What must stay in sync and where the intentional differences are is documented here.
 
+## Asset staging parity (2026-08-03)
+
+* **GDM login logo:** live kickstart stages `azurelinux-gdm-logo.png` to
+  `/usr/share/pixmaps/azurelinux-logo.png` and sets the GDM dconf
+  `org.gnome.login-screen` logo override, matching the installer path.
+  Live autologin still hides the greeter most of the time.
+* **BT / PipeWire / udev on installed target:** `kiwi/azl-install.ks.in`
+  `%post --nochroot` now installs `azurelinux-desktop-bt-usb-reset`, the
+  recover units, the PipeWire user preset, and the BT udev rules into
+  `/mnt/sysroot`. `kiwi/config.sh` still stages the same files into the
+  installer ISO rootfs for the live installer environment; the kickstart
+  block is what reaches the installed system so the chrooted `systemctl
+  enable` is not a no-op.
+
 ## Package and configuration parity matrix
 
 | Item | Live ISO | qcow2 | Installer runtime | Installed target | Canary container |
@@ -20,6 +34,7 @@ Four deliverables share a package policy and custom tooling but have different b
 | Custom launchers + .desktop | ✅ | ✅ | N/A | ✅ | ❌ |
 | Edge Canary, GitHub tools | ✅ | ✅ | In offline repo | ✅ | ✅ (rpm only) |
 | Flatpak + Flathub | ✅ | ✅ | In offline repo | ✅ | Flatpak install test |
+| Microsoft Copilot GTK Flatpak + Pages remote | ✅ (system OSTree) | ✅ (via live path) | Staged under offline extras | ✅ (copied OSTree) | ✅ (preinstall + remote check) |
 | Plymouth `azurelinux` theme | ✅ (Lorax initrd) | ✅ (dracut --kver) | ✅ (KIWI initrd) | ✅ (Anaconda) | ❌ |
 | early-kms.conf | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Microsoft/GitHub/RPMFusion repos persisted | ✅ | ✅ | N/A | ✅ | ✅ |
@@ -51,11 +66,11 @@ The installed target has ~1,025 RPMs vs. 1,175 in the live/qcow2. The ~148-name 
 
 ### EFI vendor path
 
-Our kickstart excludes AZL's `shim-x64` and `grub2-efi-x64`; Fedora's Secure Boot-signed shim/grub RPMs install EFI binaries to `EFI/fedora/`, but Anaconda creates the NVRAM entry pointing to `EFI/azurelinux/shimx64.efi`. `kiwi/post-bootloader.sh` copies `shimx64.efi`, `shim.efi`, `grubx64.efi`, `mmx64.efi` from `EFI/fedora/` → `EFI/azurelinux/` when absent. Do not reintroduce AZL's unsigned shim/grub to avoid this copy step.
+Our kickstart excludes Azure Linux's `shim-x64` and `grub2-efi-x64`; Fedora's Secure Boot-signed shim/grub RPMs install EFI binaries to `EFI/fedora/`, but Anaconda creates the NVRAM entry pointing to `EFI/azurelinux/shimx64.efi`. `kiwi/post-bootloader.sh` copies `shimx64.efi`, `shim.efi`, `grubx64.efi`, `mmx64.efi` from `EFI/fedora/` → `EFI/azurelinux/` when absent. Do not reintroduce Azure Linux's unsigned shim/grub to avoid this copy step.
 
 ### Azure kernel: missing desktop input drivers
 
-AZL kernel `6.18.31-1.6.azl4` explicitly disables `CONFIG_USB_HID` and `CONFIG_INPUT_MOUSE` (confirmed in `base/comps/kernel/6.18-x86_64-azl.config`):
+Azure Linux kernel `6.18.31-1.6.azl4` explicitly disables `CONFIG_USB_HID` and `CONFIG_INPUT_MOUSE` (confirmed in `base/comps/kernel/6.18-x86_64-azl.config`):
 
 ```
 Azure:   # CONFIG_USB_HID is not set
@@ -78,7 +93,7 @@ Fedora:  CONFIG_MOUSE_PS2=y
 ### Flatpak live-session space
 
 - Live ISO with `--live-rootfs-size 8` ignored for `--make-iso`; Lorax pure-squashfs OverlayFS mode puts the upper layer in tmpfs (~783 MiB at 4 GB RAM). Flatpak's `min-free-space-size=500MB` guard blocked installation since 438 MB < 500 MB.
-- Fix: switched to `--rootfs-type squashfs-ext4`; dracut uses DM-snapshot and `statvfs` reports ext4 virtual size (~4 GiB free). Log: `logs/flatpak-live-space-debug.log`.
+- Fix: switched to `--rootfs-type squashfs-ext4`; dracut uses DM-snapshot and `statvfs` reports ext4 virtual size (~4 GiB free). OverlayFS path evidence before the fix: `LiveOS_rootfs` ~783M with ~438M free vs Flatpak `min-free-space-size=500MB`.
 - Live Flatpak installation requires at least 8 GB RAM in QEMU. 4 GB is sufficient to boot but causes OOM on Flatpak install.
 
 ### os-prober and Ubuntu GRUB entries
@@ -122,12 +137,7 @@ Release 2026-07-24 (commit `c661bdd`, nightly run 30181902965): live ISO 2.75 GB
 
 ## References
 
-- `logs/installer-flatpak-selinux-dependency.log` — flatpak-selinux offline closure gap
-- `logs/installer-grub-support-package.log` — grub2-tools-extra offline closure gap
-- `logs/flatpak-live-space-debug.log` — live Flatpak space root cause
-- `logs/local-disk-image-efi-and-sparsify-2026-07-20.log` — EFI stub generation, sparsify sequence
-- `logs/fedora-kernel-control-download-29893981896.log` — Fedora kernel control test (diagnostic only)
-- `logs/disk-build-run-29641568473-storage-log-excerpt.log` — blivet storage debug
+Offline gaps (flatpak-selinux soft dep; grub2-tools-extra bootloader need) and live Flatpak space numbers are covered in the related topic files. Disk path: EFI stub under `EFI/azurelinux` then sparsify-raw → zstd qcow2 → resize. Fedora-kernel control download once hit transient `clevis-luks` mirror failure while the Azure RPM URL still returned HTTP 200.
 - `azure-kernel-usbhid-kmod.md` — USB HID kernel module, GitHub Pages repo
 - `anaconda-kickstart-patterns.md` — asset staging, %post, storage directives
 - `gnome-desktop-defaults.md` — dconf, GDM, keyring, GNOME configuration

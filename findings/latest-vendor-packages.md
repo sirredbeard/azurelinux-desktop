@@ -50,7 +50,7 @@ or edit failed to download, so images could ship without them.
 | Artifact | Side-load path | Hard fail |
 | --- | --- | --- |
 | Live ISO | `%post --nochroot` → fetch helper → chroot install | yes (`test -s` + no `\|\| true` on rpm/tar) |
-| Disk qcow2 | same via `azurelinux-desktop-live-disk.ks` | yes |
+| Disk qcow2 | same via generated `azurelinux-desktop-live-disk.ks` (sed from live.ks) | yes |
 | Installer ISO | CI prefetches into `assets/thirdparty-latest/`, packs into `assets.tar.gz`; `kiwi/config.sh` copies to `/opt/azl-offline-extras/`; install kickstart installs on target | yes |
 | Canary | `build-canary-container.sh` mounts `scripts/` and runs fetch helper | yes |
 

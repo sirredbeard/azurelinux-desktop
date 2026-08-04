@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-# Run fast non-GUI preflight checks in short, visible steps with per-step logs.
+# run-preflight-split.sh
+#
+# Purpose: Run local preflight checks as small reportable steps with
+#   per-step logs. Not a GitHub workflow.
+# Usage:   ./scripts/run-preflight-split.sh
+# Needs:   podman and the individual test-*.sh helpers it calls.
+# CI:      Optional / documented; primary use is local.
+
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

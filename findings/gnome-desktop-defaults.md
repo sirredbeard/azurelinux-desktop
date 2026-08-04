@@ -19,7 +19,7 @@ The project configures GNOME with dark mode, custom wallpaper, a specific dock f
 
 - **Both `picture-uri` and `picture-uri-dark` must be set.** GNOME uses `picture-uri` in light mode and `picture-uri-dark` in dark mode. Setting only one causes a blank desktop in the other mode.
 - **Image files must be staged.** `adwaita-d.jpg` and `adwaita-l.jpg` are staged to `/usr/share/backgrounds/azurelinux/` in all targets. The dconf URIs reference that path: `file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg`.
-- **Wallpaper staging was initially missing from live ISO and live-disk kickstarts** (fixed in commit `8eb3e17`). dconf in `00-dark-mode` already pointed at those paths (commits `28dd697`, `0f1c41d`) but only `kiwi/azl-install.ks.in` had `mkdir` + `install -m 0644`. Live desktop therefore showed stock GNOME blue until staging landed on live/live-disk. Confirmed on run `29990996437` and QEMU wallpaper match avg=(12,30,70) vs `adwaita-d.jpg` (`logs/live-wallpaper-match-2026-07-22.log`).
+- **Wallpaper staging was initially missing from live ISO and live-disk kickstarts** (fixed in commit `8eb3e17`). dconf in `00-dark-mode` already pointed at those paths (commits `28dd697`, `0f1c41d`) but only `kiwi/azl-install.ks.in` had `mkdir` + `install -m 0644`. Live desktop therefore showed stock GNOME blue until staging landed on live/live-disk. Confirmed on run `29990996437` and QEMU wallpaper match (winner `adwaita-d`, corr_mean≈0.048 vs light negative; center RGB deep blue).
 - **Do not introduce a new RPM solely for wallpaper** while closing polish issues. Research documented Fedora's three-package pattern (`*-backgrounds-base`, `*-backgrounds-gnome`, gschema override) and JXL preference, but product policy is existing assets + dconf only. A future branded default can still use Option A (inline assets) without a new RPM.
 - Early product note: matching stock Adwaita is configuration-correct but visually generic. Staging the chosen JPEGs is still required so the URI is not a broken path.
 
@@ -46,9 +46,11 @@ The project configures GNOME with dark mode, custom wallpaper, a specific dock f
 ### GNOME dock favorites (GNOME Shell)
 
 - **Key:** `org.gnome.shell favorite-apps` (array of `.desktop` file names).
+- **Current dock order (left → right):** `com.github.sirredbeard.copilot-desktop-gtk.desktop` (Microsoft Copilot Flatpak), `microsoft-edge-canary.desktop`, `code-insiders.desktop`, `org.azurelinux.PowerShell.desktop`, `GitHub Copilot.desktop` (GitHub Copilot Tauri RPM; space in the id is real), `org.gnome.Nautilus.desktop`.
 - **Live ISO:** `livesys-gnome` sed-patches the favorites list at session time. The kickstart must set `livesys_session="gnome"` in `/etc/sysconfig/livesys` — without this, `livesys-main`'s dispatch logic is a no-op (empty `livesys_session` skips `sessions.d/livesys-gnome`).
-- **qcow2 and installed system:** write a dconf database file at `/etc/dconf/db/local.d/01-azl-desktop-favorites` with the `favorite-apps` key. Run `dconf update` in `%post`.
+- **qcow2 and installed system:** write a dconf database file at `/etc/dconf/db/local.d/00-azl-desktop-defaults` (installer) / disk `%post` with the `favorite-apps` key. Run `dconf update` in `%post`.
 - **`.desktop` files must be mode 644.** Mode 600 (from umask 077 in the Fedora 43 build container with `cp -v`) causes GNOME Shell to silently drop the entry from the dash. See `anaconda-kickstart-patterns.md`.
+- **Microsoft Copilot Flatpak:** installed system-wide at image build via `scripts/install-copilot-desktop-flatpak.sh` (`org.gnome.Platform//50` from Flathub + app from the project's GitHub Pages remote). Live/qcow use `%post --nochroot` network; installer stages the OSTree under `/opt/azl-offline-extras/flatpak-system` and copies it into the target so offline install still gets the app and update remote.
 
 ### GNOME Software: polkit and update suppression
 
@@ -120,9 +122,7 @@ All three kickstarts and installer templates:
 
 ## References
 
-- `logs/live-boot-ocr-2026-07-22.log` — live boot text cleanliness OCR pass
-- `logs/live-iso-vnc-behavior-2026-07-22.log` — GNOME session activity behavioral evidence
-- `logs/live-wallpaper-match-2026-07-22.log` — wallpaper color analysis (adwaita-d confirmed)
+On-device checks (2026-07-22): Super-key VNC diff ~45% pixels changed (session alive); boot OCR zero early-boot text until desktop UI; wallpaper match still dark Adwaita that iteration.
 - `powershell-dock-identity.md` — full D-Bus/app-id analysis
 - `dotnet-cli-first-run.md` — launcher Exec fix and first-run noise
 - `edit-desktop-missing.md` — Edit overview discovery

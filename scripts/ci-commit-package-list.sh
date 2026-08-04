@@ -1,23 +1,11 @@
 #!/usr/bin/env bash
-# Commit a resolved package list into findings/ from GitHub Actions.
+# ci-commit-package-list.sh
 #
-# The live and installer ISO workflows already extract the real package
-# inventory after a successful build. This script copies that file into
-# the repo and pushes a commit when the content changed, so
-# findings/*-package-list.txt stay current without a manual artifact
-# download.
-#
-# Usage:
-#   ./scripts/ci-commit-package-list.sh <source-list> <repo-relative-dest> <commit-subject>
-#
-# Example:
-#   ./scripts/ci-commit-package-list.sh \
-#     live-result/final-package-list.txt \
-#     findings/live-package-list.txt \
-#     "findings: refresh live package list from CI build"
-#
-# Needs git push rights on the current branch (GITHUB_TOKEN with
-# contents: write). Safe no-op when the list is unchanged.
+# Purpose: After a successful ISO build, commit refreshed
+#   findings/*-package-list.txt back to the branch tip.
+# Usage:   CI only; called from build-live-iso.yml / build-installer-iso.yml.
+# Needs:   git write permission on contents; clean list files as inputs.
+# CI:      Yes.
 
 set -euo pipefail
 

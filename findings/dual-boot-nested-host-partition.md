@@ -130,7 +130,7 @@ After a failed (or successful) AZL boot, return to Fedora and run:
 ## Reinstall with a newer installer ISO (WiFi packages)
 
 Release `2026.08.02` installer ships `kernel-modules-extra` and
-`iwlwifi-*-firmware`. Reinstall nested AZL on **the container partition only**, then restage
+`iwlwifi-*-firmware`. Reinstall nested Azure Linux on **the container partition only**, then restage
 kernel/initrd for host GRUB before bare-metal WiFi check.
 
 1. Confirm fresh ISO checksum under `~/azl-work/`.
@@ -270,7 +270,7 @@ initrd now contains:
 
 Also stripped missing `bochs_drm` from nested
 `/etc/dracut.conf.d/early-kms.conf` so rebuilds do not fail (module not
-in this AZL kernel module set).
+in this Azure Linux kernel module set).
 
 ### Packages on nested root (rpm)
 

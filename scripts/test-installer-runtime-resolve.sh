@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Resolve the complete KIWI installer runtime against its Azure-preferred and
-# Fedora fallback repositories without requiring KIWI loop or bind mounts.
+# test-installer-runtime-resolve.sh
+#
+# Purpose: Resolve the installer offline package set (runtime + target list)
+#   without building a full ISO.
+# Usage:   ./scripts/test-installer-runtime-resolve.sh
+# Needs:   dnf/network; mirrors Azure Linux + Fedora as configured.
+# CI:      No. Local preflight; related resolve runs in installer CI.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

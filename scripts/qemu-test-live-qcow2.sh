@@ -1,16 +1,10 @@
 #!/usr/bin/env bash
-# Boot a downloaded azurelinux-desktop-live.qcow2 in QEMU for manual QA,
-# with a real GTK window so the desktop can be looked at directly.
-# Companion to qemu-test-live-iso.sh - see that script's header for notes
-# on -cpu host, RAM sizing, screendump limitations, and display requirements;
-# they apply here too.
+# qemu-test-live-qcow2.sh
 #
-# A snapshot overlay is used so the downloaded qcow2 is never modified -
-# every boot starts from the same clean state. The overlay lives under
-# $AZL_QEMU_WORKDIR and is recreated fresh on each run.
-#
-# Usage:
-#   ./scripts/qemu-test-live-qcow2.sh /path/to/azurelinux-desktop-live.qcow2 [name] [ram_mb]
+# Purpose: Boot a live-style qcow2 (disk image of the live desktop) in QEMU.
+# Usage:   ./scripts/qemu-test-live-qcow2.sh IMAGE.qcow2
+# Needs:   qemu, OVMF.
+# CI:      No.
 
 set -euo pipefail
 

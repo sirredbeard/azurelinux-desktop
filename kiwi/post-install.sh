@@ -52,5 +52,8 @@ rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
 # Disable root SSH login with password (key-based only)
 sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config 2>/dev/null || true
 
-# Trigger SELinux relabel on first boot
+# Trigger SELinux relabel on first boot. Covered by Plymouth via
+# assets/bin/azl-first-boot-prepare (selinux-autorelabel.service drop-in):
+# splash stays up with one "expanding disk / reboot once more" line instead
+# of stock fixfiles console spam.
 touch /.autorelabel

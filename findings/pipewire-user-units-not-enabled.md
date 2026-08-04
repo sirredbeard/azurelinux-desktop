@@ -43,7 +43,7 @@ the daemon never starts.
 User unit presets come from **Azure Linux** `azurelinux-release-common`,
 not from Fedora's `redhat-systemd-presets-common`:
 
-`/usr/lib/systemd/user-preset/90-default-user.preset` on AZL only has:
+`/usr/lib/systemd/user-preset/90-default-user.preset` on Azure Linux only has:
 
 ```
 enable dbus.socket
@@ -104,5 +104,10 @@ ls -l /run/user/$UID/pipewire-0
 
 ## Related logs
 
-* `findings/logs/azl-screencast-pipewire-20260803.txt`
+Evidence (journal, 2026-08-03):
+```
+xdg-desktop-portal: Failed connect to PipeWire: Couldn't connect to PipeWire
+org.gnome.Shell.Screencast: Failed to start recorder: ... Couldn't connect pipewire context
+gnome-shell: Screencast failed during phase STARTUP: ... Couldn't connect pipewire context
+```
 * Full diag dir: `~/azl-work/bt-diag-20260803-132241/` (shared session pull)
