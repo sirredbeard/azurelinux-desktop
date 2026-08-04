@@ -67,6 +67,7 @@ CI refreshes those on successful builds via
 | [`admin-default-shell-pwsh.md`](admin-default-shell-pwsh.md) | Installer admin shell |
 | [`locale-conf-mode-600.md`](locale-conf-mode-600.md) | locale.conf mode breaks bash |
 | [`flatpak-live-session-space.md`](flatpak-live-session-space.md) | Flatpak space on live ISO |
+| [`copilot-desktop-gtk-webkit-performance.md`](copilot-desktop-gtk-webkit-performance.md) | Copilot Flatpak WebKit RAM, KMSI inject, low-memory profile |
 
 ## Build, packages, parity
 
