@@ -74,10 +74,14 @@ flatpak list --user --app --columns=application,origin | grep -F "$APP_ID"
 
 if ! flatpak remotes --user --columns=name | grep -qx 'copilot-desktop-gtk'; then
     # Belt-and-suspenders: if a future flatpakref path skipped remote
-    # registration, add the Pages remote explicitly (no GPG on that host).
-    flatpak remote-add --user --if-not-exists --no-gpg-verify \
-        copilot-desktop-gtk \
-        https://sirredbeard.github.io/copilot-desktop-gtk/copilot-desktop-gtk.flatpakrepo
+    # registration, add the Pages remote. Prefer GPG from .flatpakrepo
+    # (signed Pages stream); only fall back to --no-gpg-verify for legacy.
+    REPO_URL="https://sirredbeard.github.io/copilot-desktop-gtk/copilot-desktop-gtk.flatpakrepo"
+    if curl -fsSL "$REPO_URL" | grep -q '^GPGKey='; then
+        flatpak remote-add --user --if-not-exists             copilot-desktop-gtk "$REPO_URL"
+    else
+        flatpak remote-add --user --if-not-exists --no-gpg-verify             copilot-desktop-gtk "$REPO_URL"
+    fi
 fi
 
 flatpak remotes --user --columns=name | grep -qx 'copilot-desktop-gtk'

@@ -43,7 +43,7 @@ Work large downloads under `~/azl-work`, not `/tmp`.
 | [`qemu-boot-installed-hostpart.sh`](qemu-boot-installed-hostpart.sh) | No | Boot nested install (BT passthrough / snapshot options). |
 | [`qemu-manual-install-qa.sh`](qemu-manual-install-qa.sh) | No | Manual installer QA driver. |
 | [`restage-azl-nested-boot.sh`](restage-azl-nested-boot.sh) | No | Restage nested boot, dracut `50azl-nested-partx`, GRUB drop-in. |
-| [`inspect-azl-nested-install.sh`](inspect-azl-nested-install.sh) | No | Mount/inspect nested root without full boot. |
+| [`inspect-azl-nested-install.sh`, `patch-nested-desktop-polish.sh`](inspect-azl-nested-install.sh) | No | Mount/inspect nested root without full boot. |
 | [`test-boot-smoke.sh`](test-boot-smoke.sh) | No | Headless serial-marker smoke boot. |
 | [`test-container-repos.sh`](test-container-repos.sh) | Yes/local | Repo-priority and package-origin assertions. |
 | [`test-repo-common.sh`](test-repo-common.sh) | Indirect | Shared helpers for repo tests (sourced). |
@@ -92,7 +92,7 @@ Read [`../findings/qemu-gnome-interactive-testing.md`](../findings/qemu-gnome-in
 * Shared: [`qemu-uefi-common.sh`](qemu-uefi-common.sh)
 * Boot tests: `qemu-test-live-iso.sh`, `qemu-test-disk-image.sh`, `qemu-test-live-qcow2.sh`, VNC variants
 * Installer: `qemu-test-install-iso.sh` (destructive to the target image), `qemu-manual-install-qa.sh`
-* Nested host partition: `qemu-install-to-hostpart.sh`, `qemu-boot-installed-hostpart.sh`, `restage-azl-nested-boot.sh`, `inspect-azl-nested-install.sh`
+* Nested host partition: `qemu-install-to-hostpart.sh`, `qemu-boot-installed-hostpart.sh`, `restage-azl-nested-boot.sh`, `inspect-azl-nested-install.sh`, `patch-nested-desktop-polish.sh`
 
 ### Validation and tests
 

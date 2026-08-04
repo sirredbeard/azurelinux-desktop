@@ -17,8 +17,10 @@ plymouth_msg() {
     local text="$1"
     if [ -x /usr/bin/plymouth ] && plymouth --ping >/dev/null 2>&1; then
         plymouth show-splash >/dev/null 2>&1 || true
+        # display-message only. Do not call `plymouth update --status`:
+        # themes that hook SetUpdateStatusFunction will then paint every
+        # systemd unit name under the logo and replace this line.
         plymouth display-message --text="$text" >/dev/null 2>&1 || true
-        plymouth update --status="$text" >/dev/null 2>&1 || true
     fi
 }
 

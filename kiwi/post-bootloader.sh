@@ -107,8 +107,12 @@ fi
 # Keep /etc/default/grub aligned with the desktop boot path so a later
 # grub2-mkconfig does not reintroduce serial console and text terminals.
 mkdir -p "$SYSROOT/etc/default"
+# Desktop install: no text GRUB menu on normal boots. Go straight to the
+# Azure Linux Plymouth splash. Hold Shift (or spam Esc) during firmware
+# handoff if you need the menu; rescue + UEFI entries stay in grub.cfg.
 cat > "$SYSROOT/etc/default/grub" << 'DEFAULTGRUB'
-GRUB_TIMEOUT=2
+GRUB_TIMEOUT=0
+GRUB_TIMEOUT_STYLE=hidden
 GRUB_DISTRIBUTOR="Azure Linux"
 GRUB_DEFAULT=0
 GRUB_DISABLE_SUBMENU=true
@@ -122,7 +126,8 @@ DEFAULTGRUB
 mkdir -p "$SYSROOT/boot/grub2"
 cat > "$SYSROOT/boot/grub2/grub.cfg" << GRUBCFG
 set default=0
-set timeout=2
+set timeout=0
+set timeout_style=hidden
 insmod efi_gop
 insmod efi_uga
 insmod all_video

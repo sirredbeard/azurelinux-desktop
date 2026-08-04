@@ -85,10 +85,12 @@ fun refresh_callback() {
 }
 Plymouth.SetRefreshFunction(refresh_callback);
 
-# One status line under the dots. Used for first-boot prepare ("expanding
-# disk… reboot once more") and any other deliberate plymouth message.
-# Ordinary dracut/systemd chatter still looks fine as a short line; we do
-# not dump multi-line fixfiles output here.
+# One status line under the dots for deliberate messages only
+# (plymouth display-message). azl-growroot uses that for first-boot
+# "Expanding disk…". Do NOT hook SetUpdateStatusFunction: systemd feeds
+# every unit name through it (gdm.service, udev-settle, …), which replaces
+# the throbber with service spam on live ISO and VM boots. Leave update
+# status unhandled so live/qcow2/VM stay animation-only.
 message_sprite = NULL;
 message_text = "";
 
@@ -121,7 +123,10 @@ fun message_callback(text) {
 }
 Plymouth.SetMessageFunction(message_callback);
 
+# Explicit no-op for systemd unit-name spam. Some images still ship a
+# theme that forwarded update-status into the message line; keep this
+# hook installed and empty so a stale copy cannot reappear via partial
+# theme updates, and so script-plugin defaults never paint unit names.
 fun update_status_callback(text) {
-    message_callback(text);
 }
 Plymouth.SetUpdateStatusFunction(update_status_callback);
