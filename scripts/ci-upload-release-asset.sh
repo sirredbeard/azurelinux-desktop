@@ -62,18 +62,38 @@ base=$(basename -- "$file")
 path="$dir/$base"
 
 echo "ci-upload-release-asset: tag=$tag repo=$repo file=$path"
-sha256sum "$path" | tee "$path.sha256"
+
+# KIWI/docker often leaves installer-result/ root-owned. Prefer writing
+# sidecar files next to the asset; fall back to a temp dir under RUNNER_TEMP
+# (or /tmp) so sha256sum/split never need write access to dir.
+work="$dir"
+if ! touch "$dir/.ci-upload-write-test" 2>/dev/null; then
+  work="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/ci-upload-$$"
+  mkdir -p "$work"
+  echo "ci-upload-release-asset: $dir not writable; using $work for sidecars"
+fi
+rm -f "$dir/.ci-upload-write-test" 2>/dev/null || true
+
+sha_out="$work/$base.sha256"
+# sha256sum prints "<hash>  <path>"; keep basename-only second field so
+# Get-AzureLinuxDesktop.ps1 and local checks stay path-agnostic.
+hash=$(sha256sum "$path" | awk '{print $1}')
+printf '%s  %s\n' "$hash" "$base" | tee "$sha_out"
 
 # Always split so naming matches Get-AzureLinuxDesktop.ps1 even under 1900M.
-split -b 1900M -d -a 2 --additional-suffix=.part "$path" "$path.split."
+split -b 1900M -d -a 2 --additional-suffix=.part "$path" "$work/$base.split."
 
 shopt -s nullglob
-parts=("$path".split.*.part)
+parts=("$work/$base".split.*.part)
 if [[ ${#parts[@]} -eq 0 ]]; then
   echo "ci-upload-release-asset: split produced no parts" >&2
   exit 1
 fi
 
-gh release upload "$tag" "${parts[@]}" "$path.sha256" --clobber -R "$repo"
+gh release upload "$tag" "${parts[@]}" "$sha_out" --clobber -R "$repo"
 rm -f "${parts[@]}"
+# Leave .sha256 next to the source when we could write there; else copy if possible.
+if [[ "$work" != "$dir" ]]; then
+  cp -f "$sha_out" "$dir/$base.sha256" 2>/dev/null || true
+fi
 echo "ci-upload-release-asset: uploaded $base (+ sha256, ${#parts[@]} part(s)) to $tag"
