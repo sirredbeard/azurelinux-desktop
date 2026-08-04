@@ -35,6 +35,12 @@ issue](https://github.com/sirredbeard/azurelinux-desktop/issues) and I'll do my 
 ### Desktop Environment
 
 * [GNOME](https://www.gnome.org/) from [Fedora](https://fedoraproject.org/)
+* [Copilot](https://github.com/sirredbeard/copilot-desktop-gtk)
+
+### Web and Email
+
+* [Microsoft Edge Canary](https://explore.microsoft.com/en-us/edge) (default web browser)
+* [GNOME Evolution](https://help.gnome.org/evolution/mail-account-manage-microsoft-exchange.html) with Exchange support
 
 ### Developer Tools
 
@@ -42,35 +48,26 @@ issue](https://github.com/sirredbeard/azurelinux-desktop/issues) and I'll do my 
 * [GitHub CLI](https://github.com/cli/cli)
 * [GitHub Copilot CLI](https://github.com/github/copilot-cli)
 * [GitHub Copilot App](https://github.com/github/app)
-* [Microsoft Copilot app](https://github.com/sirredbeard/copilot-desktop-gtk) (unofficial GTK Flatpak; updates from its GitHub Pages Flatpak remote)
 * [GitHub Desktop](https://github.com/shiftkey/desktop)
 * [PowerShell](https://learn.microsoft.com/en-us/powershell/scripting/install/linux-overview?view=powershell-7.6) (default shell)
 * [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?view=azure-cli-latest&pivots=dnf)
 * [Edit](https://github.com/microsoft/edit) (default terminal editor)
 * [.NET 11 Runtime and SDK](https://dotnet.microsoft.com/en-us/download/dotnet/11.0)
 
-### Web and Email
+### Also Included
 
-* [Microsoft Edge Canary](https://explore.microsoft.com/en-us/edge) (default web browser)
-* [GNOME Evolution](https://help.gnome.org/evolution/mail-account-manage-microsoft-exchange.html) with Exchange support
-
-### Errata
-
-* Dark mode enabled
+* Dark mode enabled by default
 * GNOME utilities (audio player, video player, document viewer, screenshot utility, weather, text editor)
-* Custom Plymouth boot theme based on the Azure Linux logo
+* Custom Azure Linux Plymouth boot theme
 * Linux firmware, bluez, fwupd, upower, media codecs, and common fonts
 * [Flatpak](https://flatpak.org/) configured with [Flathub](https://flathub.org/)
-* Unofficial [Microsoft Copilot](https://github.com/sirredbeard/copilot-desktop-gtk) Flatpak preinstalled system-wide, with its GitHub Pages remote registered for `flatpak update` (pinned far left on the GNOME dash, left of Edge Canary)
-* Desktop hardware modules: Azure Linux's stock kernel
-  leaves several desktop drivers off, so this project ships matching out-of-tree
-  modules and pulls them into every image
+* Desktop hardware kernel modules
 
 ## Why does this exist
 
 [Azure Linux](https://github.com/microsoft/azurelinux) is server- and cloud-native by design, and [Fedora](https://fedoraproject.org/) always gets the latest GNOME. Azure Linux 4.0's userland turns out to be close enough to Fedora that a real, current GNOME desktop sourced from Fedora can be layered on top of it with the right repo priority setup.
 
-The result: GNOME, PowerShell, Azure CLI, Visual Studio Code Insiders, Microsoft Edge Canary, GitHub CLI, GitHub Desktop, GitHub Copilot (GUI and CLI), the unofficial Microsoft Copilot Flatpak, .NET, and Flatpak support, all running on Azure Linux 4.0's actual base.
+The result: GNOME, Copilot, PowerShell, Visual Studio Code Insiders, Microsoft Edge Canary, GitHub CLI, GitHub Desktop, GitHub Copilot (GUI and CLI), .NET, Azure CLI, and Flatpak support, all running on Azure Linux 4.0's actual base.
 
 ### Where the packages actually come from
 
