@@ -75,3 +75,14 @@ gh secret set GPG_KEY_ID -R OWNER/REPO -b "$(tr -d ' \n' < packaging/gpg/keyid.t
 - `findings/flatpak-untrusted-non-gpg-remote.md`
 - `findings/out-of-tree-usb-kmods-pages.md`
 - `packaging/gpg/README.md`
+
+
+## Republish gotcha (rpmsign)
+
+Merging prior Pages RPMs into a new publish leaves packages that already
+have a signature. `rpmsign --addsign` then fails with:
+
+`already contains a legacy signature`
+
+`scripts/sign-desktop-rpms.sh` runs `rpmsign --delsign` then `--addsign`
+so key rotation and mixed old/new sets resign cleanly.

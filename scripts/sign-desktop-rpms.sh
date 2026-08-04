@@ -39,7 +39,11 @@ cat > "${HOME}/.rpmmacros" <<MACROS
 %_gpg_sign_cmd_extra_args --batch --pinentry-mode loopback
 MACROS
 
-echo "signing ${#RPMS[@]} RPM(s) with key $GPG_KEY_ID"
+# Republish merges prior Pages RPMs that may already carry a signature
+# (old key or same key). rpmsign --addsign refuses "legacy signature"
+# packages. Strip first, then sign with the current project key.
+echo "delsign + addsign ${#RPMS[@]} RPM(s) with key $GPG_KEY_ID"
+rpmsign --delsign "${RPMS[@]}"
 rpmsign --addsign "${RPMS[@]}"
 
 # Import pubkey so --checksig can validate on this host.
