@@ -1,8 +1,8 @@
 # Copilot desktop GTK - WebKit performance and RAM
 
-**Status:** Improved in upstream app `sirredbeard/copilot-desktop-gtk` (local
-build **0.1.11**). Not yet shipped through Azure Linux Desktop image rebuild /
-Pages Flatpak pin. Host RSS recheck done; live-ISO VM retest still open.
+**Status:** Upstream app **0.1.12** fixes MS sign-in AADSTS90100 from KMSI
+force-complete. **0.1.11** shipped performance work; live-ISO QA found the
+login regression. Image Flatpak pin still follows the public Pages remote.
 
 ## Symptom
 
@@ -109,15 +109,34 @@ At ~25 s after launch (SPA loading, not idle forever):
 
 So the big win on a roomy host is **CPU/console + not running KMSI observers on the SPA**, not a miracle half-GiB drop. Low-memory still matters more inside a **6 GiB or smaller guest** where auto profile engages and swap pressure is real.
 
+## Live ISO QA (2026.08.04, 7 GiB QEMU, Copilot 0.1.11)
+
+- SSH: live kickstart has `sshd` disabled; enable with empty-password drop-in
+  for `liveuser`, then `systemctl start sshd`. Hostfwd `2222→22` works.
+- Guest MemTotal ~6.8 GiB → auto low-memory **does not** engage (threshold
+  ≤6 GiB). RSS after SPA load ~1.1 GiB; during MS sign-in ~1.5 GiB with extra
+  WebKit processes. Stable, not a classic leak.
+- Blank white page largely gone vs 0.1.10; MS account form **does** paint.
+- **Regression:** AADSTS90100 `login parameter is empty or not valid` right
+  after "Sign in with Microsoft". Guest log:
+  `load-failed: Load request cancelled going_to=https://login.microsoftonline.com/common/login`
+- **Root cause:** KMSI force-complete treated `#idSIButton9` as Yes. That id is
+  also **Next** on the email step. After ~1.2 s the script auto-clicked Next
+  with an empty login field, POSTed `/common/login`, and canceled the real
+  navigation. More visible once KMSI scripts were limited to login hosts only
+  (0.1.11) so the timer always runs on the auth pages.
+- **Fix (0.1.12):** force-click only when page text looks like "Stay signed
+  in?" / "Keep me signed in"; never map `#idSIButton9` to Yes on email/password
+  steps; reset force flags when not on the KMSI page.
+
 ## Still open
 
-- Retest blank MS sign-in on live ISO VM with 0.1.11 + low-memory auto
-  (MemTotal in guest ≤ 6 GiB should select Never HA).
+- Retest full MS sign-in on live ISO after **0.1.12** (email → password → KMSI).
+- Consider raising auto low-memory MemTotal threshold to 8 GiB so 7 GiB VMs
+  engage HA Never without `--low-memory`.
 - Optional later: `MemoryPressureSettings` / back-forward list capacity if
   GirCore bindings are clean; do not set kill thresholds that nuke the SPA.
-- Publish app release + refresh desktop image Flatpak pin when ready.
-  Commit/push on `copilot-desktop-gtk` when ready (local 0.1.11 bundle already
-  installed for host QA).
+- EGL/Zink warnings under Flatpak on virtio-vga are noisy; UI still renders.
 
 ## Related
 
