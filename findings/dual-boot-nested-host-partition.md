@@ -309,3 +309,15 @@ Host dual-boot restage:
 
 Bare metal: pick **Azure Linux Desktop (nested test install)** in
 the Fedora GRUB menu. Wi-Fi bind is the remaining hardware proof.
+
+## Nested desktop polish / Flatpak (2026-08-04)
+
+After installer → hostpart boot on the dedicated Azure Linux partition:
+
+- First-boot Plymouth/relabel and GRUB timeout 0: see
+  `first-boot-plymouth-relabel.md`, `installed-grub-skip-menu.md`,
+  `scripts/patch-nested-desktop-polish.sh`.
+- Copilot Flatpak system updates: Pages must be GPG-signed (0.1.15+) and
+  the image needs the wheel polkit rule. See
+  `flatpak-untrusted-non-gpg-remote.md`. Guest password and SSH port are
+  session-local; default shell is often `pwsh` (use `bash -c`).

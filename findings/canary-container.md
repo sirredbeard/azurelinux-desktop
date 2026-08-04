@@ -74,3 +74,17 @@ Local: 547 MB image, correct repo sourcing, `/etc/os-release` reports Azure Linu
 - `fedora-azl-repo-mixing.md` — repo priority split, FEDORA_EXCLUDES
 Preflight 2026-07-22: container repo-origin checks PASS; canary local PASS after flatpak-step hardening (bwrap namespace warnings in container context, run completed).
 - `microsoft/azurelinux` `base/images/container-base/container-base.kiwi` — upstream container-base precedent
+
+## Copilot Flatpak GPG (2026-08-04)
+
+Canary must keep the Microsoft Copilot GTK system Flatpak and the Pages
+remote. After Pages signed the stream (0.1.15+),
+`scripts/test-canary-container.sh` asserts:
+
+- app present with origin on `copilot-desktop-gtk`
+- remote name registered
+- `/var/lib/flatpak/repo/config` has `gpg-verify=true` for that remote
+- `flatpak remote-ls` reaches live Pages
+
+Unsigned or `--no-gpg-verify` remotes fail the canary on purpose so image
+builds do not ship a system update path that GNOME Software cannot use.

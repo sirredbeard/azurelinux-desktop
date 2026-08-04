@@ -114,3 +114,32 @@ Prefer GPG on the Pages remote for system installs. Polkit alone is not
 enough for Flatpak trust on HTTPS system remotes. Keep both: GPG for
 trust, polkit `app-update` for unprivileged Deploy in an active local
 wheel session.
+
+## Azure Linux Desktop wiring
+
+Product path on live ISO, disk images, installer target, and canary:
+
+1. **Prestage / install:** `scripts/install-copilot-desktop-flatpak.sh`
+   installs from the signed Pages `.flatpakref`, prefers `GPGKey=` when
+   adding the remote, and asserts `gpg-verify=true` in the install-root
+   Flatpak `repo/config` when Pages publishes a key.
+2. **Canary:** `scripts/test-canary-container.sh` requires the system
+   remote `copilot-desktop-gtk` with `gpg-verify=true` and a live
+   `remote-ls` against Pages.
+3. **Polkit:** `assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules`
+   allows active local **wheel** the Flatpak action set including
+   `app-update` / `runtime-update` / `appstream-update`. Staged from live
+   kickstart and installer `kiwi/config.sh` with `install -m 0644`.
+4. **Complementary checks:** GPG = trust for HTTPS system pulls. Polkit =
+   Deploy without root in a desktop session. SSH is not `subject.active`;
+   unprivileged update over SSH stays denied by design.
+5. **Nested QA (2026-08-04):** hostpart install on `nvme0n1p4`; after
+   Pages 0.1.15 + key import, GNOME Software no longer failed on
+   `appstream2/x86_64`. In-session Software/update is the unprivileged
+   proof; sudo still works as a root bypass of the helper.
+
+Rebuild live/installer artifacts to ship the polkit rule and a prestage
+tree that already has `gpg-verify=true` from a current Pages pull. Until
+then, `scripts/patch-nested-desktop-polish.sh` can apply polish on a
+nested install for local QA.
+
