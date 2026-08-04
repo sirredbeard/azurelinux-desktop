@@ -18,7 +18,7 @@ Work large downloads under `~/azl-work`, not `/tmp`.
 | [`resolve-release-tag.sh`](resolve-release-tag.sh) | Yes (`release.yml`) | Attach uploads to latest existing GitHub Release; mint UTC-date tag only when none exists. |
 | [`fetch-latest-thirdparty.sh`](fetch-latest-thirdparty.sh) | Yes (image builds) | Resolve latest GitHub Copilot GUI/CLI, microsoft/edit, Flathub repo file, .NET 11 SDK tarball. |
 | [`install-copilot-desktop-flatpak.sh`](install-copilot-desktop-flatpak.sh) | Yes (image/canary) | System-install Microsoft Copilot GTK Flatpak + Platform//50 into a rootfs; register Pages update remote. |
-| [`install-dotnet-sdk-tarball.sh`](install-dotnet-sdk-tarball.sh) | Yes (image/canary) | Install a .NET SDK tarball into a rootfs. |
+| [`prestage-copilot-flatpak-system.sh`](prestage-copilot-flatpak-system.sh) | Yes (live/disk/installer) | Build a copy-ready `/var/lib/flatpak` tree before livemedia/kiwi (avoids Anaconda post hang). || [`install-dotnet-sdk-tarball.sh`](install-dotnet-sdk-tarball.sh) | Yes (image/canary) | Install a .NET SDK tarball into a rootfs. |
 | [`log-latest-vendor-packages.sh`](log-latest-vendor-packages.sh) | Yes | Snapshot Microsoft/GitHub yum NEVRAs and .NET 11 version into CI logs. |
 | [`ci-commit-package-list.sh`](ci-commit-package-list.sh) | Yes (`build-*.yml`) | Commit refreshed `findings/*-package-list.txt`. |
 | [`build-canary-container.sh`](build-canary-container.sh) | Yes (`release.yml`) | Build package-policy canary OCI image. |

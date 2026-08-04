@@ -477,16 +477,21 @@ fi
 /workspace/scripts/fetch-latest-thirdparty.sh /mnt/sysimage/root/thirdparty
 install -m 0755 /workspace/scripts/install-dotnet-sdk-tarball.sh /mnt/sysimage/root/thirdparty/install-dotnet-sdk-tarball.sh
 
-# Microsoft Copilot GTK Flatpak (updatable Pages remote). Needs host
-# network + flatpak CLI in the build container; chrooted %post has neither
-# under livemedia-creator --no-virt. System install into the target root
-# so every live/qcow user gets the app and can `flatpak update` later.
-if [ ! -x /workspace/scripts/install-copilot-desktop-flatpak.sh ]; then
-    echo "error: /workspace/scripts/install-copilot-desktop-flatpak.sh missing" >&2
+# Microsoft Copilot GTK Flatpak (updatable Pages remote). Do *not* run
+# flatpak install against /mnt/sysimage here - OSTree pulls inside Anaconda
+# %post --nochroot hung for 90+ minutes on GHA while the same pull finishes
+# in ~30s on the build host. CI (and local disk builds) prestage a full
+# /var/lib/flatpak tree at /workspace/prestage/flatpak-system via
+# scripts/prestage-copilot-flatpak-system.sh before livemedia-creator; this
+# block only copies it in.
+STAGE_FP=/workspace/prestage/flatpak-system
+if [ ! -f "$STAGE_FP/repo/config" ]; then
+    echo "error: staged Copilot Flatpak missing at $STAGE_FP (run prestage-copilot-flatpak-system.sh before livemedia-creator)" >&2
     exit 1
 fi
-/workspace/scripts/install-copilot-desktop-flatpak.sh /mnt/sysimage \
-    /mnt/sysimage/root/thirdparty/flathub.flatpakrepo
+mkdir -p /mnt/sysimage/var/lib/flatpak
+cp -a "$STAGE_FP"/. /mnt/sysimage/var/lib/flatpak/
+test -d /mnt/sysimage/var/lib/flatpak/app/com.github.sirredbeard.copilot-desktop-gtk
 %end
 
 %post --log=/var/log/azl-desktop-post.log

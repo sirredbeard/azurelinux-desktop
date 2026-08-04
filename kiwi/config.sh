@@ -627,44 +627,68 @@ test -x "$EXTRAS/install-dotnet-sdk-tarball.sh"
 
 #----------------------------------------------------------------------
 # Microsoft Copilot GTK Flatpak (system install + Pages update remote).
-# Populated here with network so azl-install.ks.in can copy the OSTree
-# into the target offline. Same helper the live ISO and canary use.
+# Prefer CI-prestaged OSTree under assets (flatpak-system-latest). Fall
+# back to network install via the shared helper when missing (local kiwi).
 #----------------------------------------------------------------------
 echo "=== Staging Copilot desktop Flatpak for offline target install ==="
-FLATPAK_STAGE="$EXTRAS/flatpak-system-root"
-rm -rf "$FLATPAK_STAGE"
-mkdir -p "$FLATPAK_STAGE"
-INSTALL_COPILOT=""
+rm -rf "$EXTRAS/flatpak-system"
+mkdir -p "$EXTRAS/flatpak-system"
+PRESTAGE_FP=""
 for cand in \
-    /opt/azl-desktop-assets/build-helpers/install-copilot-desktop-flatpak.sh \
-    /workspace/scripts/install-copilot-desktop-flatpak.sh
+    /opt/azl-desktop-assets/flatpak-system-latest \
+    /workspace/prestage/flatpak-system
 do
-    if [ -x "$cand" ]; then
-        INSTALL_COPILOT="$cand"
+    if [ -f "$cand/repo/config" ]; then
+        PRESTAGE_FP="$cand"
         break
     fi
 done
-[ -n "$INSTALL_COPILOT" ] || {
-    echo "error: install-copilot-desktop-flatpak.sh missing" >&2
-    exit 1
-}
-if [ -s "$EXTRAS/flathub.flatpakrepo" ]; then
-    "$INSTALL_COPILOT" "$FLATPAK_STAGE" "$EXTRAS/flathub.flatpakrepo"
+if [ -n "$PRESTAGE_FP" ]; then
+    echo "using pre-staged Flatpak tree from $PRESTAGE_FP"
+    cp -a "$PRESTAGE_FP"/. "$EXTRAS/flatpak-system"/
 else
-    "$INSTALL_COPILOT" "$FLATPAK_STAGE"
+    echo "no prestage tree; installing Flatpak over the network"
+    FLATPAK_STAGE="$EXTRAS/flatpak-system-root"
+    rm -rf "$FLATPAK_STAGE"
+    mkdir -p "$FLATPAK_STAGE"
+    INSTALL_COPILOT=""
+    for cand in \
+        /opt/azl-desktop-assets/build-helpers/prestage-copilot-flatpak-system.sh \
+        /opt/azl-desktop-assets/build-helpers/install-copilot-desktop-flatpak.sh \
+        /workspace/scripts/prestage-copilot-flatpak-system.sh \
+        /workspace/scripts/install-copilot-desktop-flatpak.sh
+    do
+        if [ -x "$cand" ]; then
+            INSTALL_COPILOT="$cand"
+            break
+        fi
+    done
+    [ -n "$INSTALL_COPILOT" ] || {
+        echo "error: no prestaged Flatpak and no install/prestage helper" >&2
+        exit 1
+    }
+    case "$INSTALL_COPILOT" in
+        *prestage-copilot-flatpak-system.sh)
+            if [ -s "$EXTRAS/flathub.flatpakrepo" ]; then
+                "$INSTALL_COPILOT" "$EXTRAS/flatpak-system" "$EXTRAS/flathub.flatpakrepo"
+            else
+                "$INSTALL_COPILOT" "$EXTRAS/flatpak-system"
+            fi
+            ;;
+        *)
+            if [ -s "$EXTRAS/flathub.flatpakrepo" ]; then
+                "$INSTALL_COPILOT" "$FLATPAK_STAGE" "$EXTRAS/flathub.flatpakrepo"
+            else
+                "$INSTALL_COPILOT" "$FLATPAK_STAGE"
+            fi
+            cp -a "$FLATPAK_STAGE/var/lib/flatpak"/. "$EXTRAS/flatpak-system"/
+            rm -rf "$FLATPAK_STAGE"
+            ;;
+    esac
 fi
-# Only the Flatpak system dir is needed on the target (not a full rootfs).
-rm -rf "$EXTRAS/flatpak-system"
-mkdir -p "$EXTRAS/flatpak-system"
-cp -a "$FLATPAK_STAGE/var/lib/flatpak"/. "$EXTRAS/flatpak-system"/
-rm -rf "$FLATPAK_STAGE"
 test -f "$EXTRAS/flatpak-system/repo/config"
-test -d "$EXTRAS/flatpak-system/app/com.github.sirredbeard.copilot-desktop-gtk" \
-    || test -d "$EXTRAS/flatpak-system/appstream"
-# Prefer a hard check on the app id when the OSTree layout is present.
-if [ -d "$EXTRAS/flatpak-system/app" ]; then
-    ls "$EXTRAS/flatpak-system/app" | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
-fi
+test -d "$EXTRAS/flatpak-system/app/com.github.sirredbeard.copilot-desktop-gtk"
+ls "$EXTRAS/flatpak-system/app" | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
 
 #----------------------------------------------------------------------
 # Anaconda launcher symlink (script deployed via kiwi <file>) - same

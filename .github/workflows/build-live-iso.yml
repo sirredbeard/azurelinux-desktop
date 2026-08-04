@@ -128,6 +128,11 @@ jobs:
                 /tmp/dotnet-channel.env
               cat /workspace/build-meta/vendor-packages-latest.txt
 
+              # Copilot Flatpak OSTree on the build host *before* Anaconda.
+              # %post --nochroot only copies /workspace/prestage/flatpak-system.
+              /workspace/scripts/prestage-copilot-flatpak-system.sh \
+                /workspace/prestage/flatpak-system
+
               # Default: boot straight into the real desktop, not the
               # verify-media path. Keep GRUB hidden with a one-second
               # interrupt window so Escape still exposes recovery entries.
@@ -586,6 +591,10 @@ jobs:
                 /workspace/disk-result/vendor-packages-latest.txt \
                 /tmp/dotnet-channel.env
               cat /workspace/disk-result/vendor-packages-latest.txt
+
+              # Same Copilot Flatpak prestage as the live ISO job (copy-only in %post).
+              /workspace/scripts/prestage-copilot-flatpak-system.sh \
+                /workspace/prestage/flatpak-system
 
               # Fedora 43 packaged anaconda-core still carries a real
               # bug upstream already fixed - see

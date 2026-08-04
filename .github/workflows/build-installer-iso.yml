@@ -91,6 +91,12 @@ jobs:
           install -D -m 0755 \
             "$GITHUB_WORKSPACE/scripts/install-copilot-desktop-flatpak.sh" \
             "$GITHUB_WORKSPACE/assets/build-helpers/install-copilot-desktop-flatpak.sh"
+          install -D -m 0755 \
+            "$GITHUB_WORKSPACE/scripts/prestage-copilot-flatpak-system.sh" \
+            "$GITHUB_WORKSPACE/assets/build-helpers/prestage-copilot-flatpak-system.sh"
+          # Do not pack the ~1.7G Flatpak OSTree into assets.tar.gz: kiwi
+          # config.sh pulls it in ~30s with network (proven on GHA). Live/disk
+          # must prestage outside Anaconda; installer does not have that hang.
           tar -C "$GITHUB_WORKSPACE" \
             --transform 's,^assets,opt/azl-desktop-assets,' \
             -czf "$GITHUB_WORKSPACE/kiwi/assets.tar.gz" \
