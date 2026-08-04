@@ -108,7 +108,13 @@ for i in "${!REPO_NAMES[@]}"; do
             echo "baseurl=${REPO_URLS[$i]}"
         fi
         echo "enabled=1"
-        echo "gpgcheck=0"
+        # Desktop kmod Pages RPMs are project-signed (shared OpenPGP key).
+        if [ "${REPO_NAMES[$i]}" = "azl-desktop-kmods" ]; then
+            echo "gpgcheck=1"
+            echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
+        else
+            echo "gpgcheck=0"
+        fi
         echo "cost=${REPO_COSTS[$i]}"
         if [ "${REPO_EXCLUDES[$i]}" != "-" ]; then
             echo "excludepkgs=${REPO_EXCLUDES[$i]}"
@@ -122,8 +128,12 @@ done
 
 ROOTFS="$WORKDIR/rootfs"
 REPO_DIR="$WORKDIR/repos"
-mkdir -p "$ROOTFS/etc/yum.repos.d"
+mkdir -p "$ROOTFS/etc/yum.repos.d" "$ROOTFS/etc/pki/rpm-gpg"
 cp "$REPO_FILE" "$ROOTFS/etc/yum.repos.d/azl-canary.repo"
+if [ -f "$REPO_ROOT/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop" ]; then
+    install -m 0644 "$REPO_ROOT/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop" \
+        "$ROOTFS/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
+fi
 mkdir -p "$REPO_DIR"
 cp "$REPO_FILE" "$REPO_DIR/azl-canary.repo"
 
@@ -148,6 +158,12 @@ podman run --rm \
         # container before side-load fetch. Package installroot may not
         # put them on PATH for the outer shell.
         dnf5 install -y curl tar ca-certificates python3 >/dev/null
+        # Import project RPM key into the installroot before gpgcheck=1
+        # pulls from azl-desktop-kmods.
+        if [ -s /mnt/azl/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
+            rpm --root=/mnt/azl --import \
+                /mnt/azl/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+        fi
         dnf5 install -y \
             --refresh \
             --setopt=reposdir=/work/repos \

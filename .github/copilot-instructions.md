@@ -350,6 +350,59 @@ README for the full backstory.
   documentation of them in sync with whatever the release workflow
   actually produces at any given time.
 
+
+## OpenPGP signing (Flatpak remote + desktop kmod RPMs)
+
+One shared OpenPGP key covers:
+
+1. **Copilot Flatpak** on `sirredbeard/copilot-desktop-gtk` Pages (OSTree
+   tips + `GPGKey=` in `.flatpakref`). Live/installer do **not** ship a
+   separate Flatpak key file; they install from the signed `.flatpakref`
+   (`scripts/install-copilot-desktop-flatpak.sh` asserts `gpg-verify=true`)
+   and stage polkit for unprivileged Deploy.
+2. **Desktop kmod RPMs** on this repo's Pages DNF tree
+   (`https://sirredbeard.github.io/azurelinux-desktop/repo/`).
+
+### Key identity
+
+- UID: `copilot-desktop-gtk Flatpak (GitHub Pages Flatpak repo signing)`
+- Email: `flatpak-signing@sirredbeard.github.io`
+- Short id: see `packaging/rpm-gpg/keyid.txt`
+- Public file in-tree: `packaging/rpm-gpg/public.asc` and
+  `assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop`
+
+### Actions secrets (`sirredbeard/azurelinux-desktop`)
+
+Same names and material as `copilot-desktop-gtk`:
+
+| Secret | Purpose |
+| --- | --- |
+| `FLATPAK_GPG_PRIVATE_KEY` | Armored private key (CI signing) |
+| `FLATPAK_GPG_PUBLIC_KEY` | Armored public key |
+| `FLATPAK_GPG_KEY_ID` | Short key id |
+
+`gh secret list -R sirredbeard/azurelinux-desktop` shows names only.
+GitHub never returns values. Keep a private offline backup. Detail:
+`packaging/rpm-gpg/README.md`.
+
+### Workflows and clients
+
+- `publish-desktop-kmods.yml` runs `scripts/sign-desktop-rpms.sh` on every
+  RPM in the staged tree **before** `createrepo_c`, then publishes
+  `RPM-GPG-KEY-azurelinux-desktop` at the Pages site root.
+- Image `.repo` files use `gpgcheck=1` and
+  `gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop`
+  (live kickstart, installer `post-install.sh`, canary).
+- After key rotation: update secrets on **both** GitHub repos, resign
+  kmods (`republish=true`), and cut a new Copilot Flatpak release.
+
+### Flatpak on live/installer (summary)
+
+- Seeded trust comes from Pages `.flatpakref` `GPGKey=` at prestage time,
+  not from a baked-in keyring file.
+- Polkit: `assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules`
+- Findings: `findings/flatpak-untrusted-non-gpg-remote.md`
+
 ## Where things live
 
 - `.github/workflows/` - four workflows only:

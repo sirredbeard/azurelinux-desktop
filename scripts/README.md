@@ -26,6 +26,8 @@ Work large downloads under `~/azl-work`, not `/tmp`.
 | [`build-canary-container.sh`](build-canary-container.sh) | Yes (`release.yml`) | Build package-policy canary OCI image. |
 | [`build-desktop-kmods.sh`](build-desktop-kmods.sh) | Yes (`publish-desktop-kmods.yml`) | Build OOT desktop kmod RPMs for an Azure Linux kernel. |
 | [`generate-kmod-repo-index.sh`](generate-kmod-repo-index.sh) | Yes (kmods) | DNF repo index for GitHub Pages kmod repo. |
+| [`rpm-gpg-import.sh`](rpm-gpg-import.sh) | Yes (kmods) | Import shared OpenPGP key for kmod RPM signing. |
+| [`sign-desktop-rpms.sh`](sign-desktop-rpms.sh) | Yes (kmods) | `rpmsign --addsign` every RPM in a dir before createrepo. |
 | [`build-qcow2-local.sh`](build-qcow2-local.sh) | No | Local disk-image build; generates disk kickstart from live.ks. |
 | [`build-fedora-kernel-live-control.sh`](build-fedora-kernel-live-control.sh) | No | Diagnostic live build with Fedora kernel (not a release path). |
 | [`patch-anaconda-efi-skip-bug.py`](patch-anaconda-efi-skip-bug.py) | Yes (live disk) | Patch anaconda EFI bootable-partition bug before `--make-disk`. |

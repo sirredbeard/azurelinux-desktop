@@ -567,6 +567,15 @@ if [ -f /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.r
         /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
 fi
 
+# Shared project OpenPGP key (Copilot Flatpak + desktop kmod RPMs).
+if [ -f /opt/azl-desktop-assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
+    install -d -m 0755 /etc/pki/rpm-gpg
+    install -m 0644 \
+        /opt/azl-desktop-assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
+        /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+    rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop 2>/dev/null || true
+fi
+
 if [ -f /opt/azl-desktop-assets/bin/azl-first-boot-prepare ]; then
     install -d -m 0755 /usr/libexec/azurelinux-desktop \
         /usr/lib/systemd/system/selinux-autorelabel.service.d

@@ -600,12 +600,30 @@ sed -i '/^\[azl-microsoft\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en g
 sed -i '/^\[azl-base\]/,/^\[/ s/^exclude=/&grub2-tools-extra /' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
 sed -i '/^\[azl-microsoft\]/,/^\[/ s/^exclude=/&grub2-tools-extra /' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
 
+# Project OpenPGP key (same as Copilot Flatpak Pages). Required for gpgcheck=1.
+install -d -m 0755 /etc/pki/rpm-gpg
+if [ -f /workspace/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
+    install -m 0644 /workspace/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
+        /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+elif [ -f /root/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
+    install -m 0644 /root/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
+        /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+else
+    curl -fsSL --retry 3 \
+        https://sirredbeard.github.io/azurelinux-desktop/RPM-GPG-KEY-azurelinux-desktop \
+        -o /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop || \
+        curl -fsSL --retry 3 \
+        https://sirredbeard.github.io/azurelinux-desktop/repo/RPM-GPG-KEY-azurelinux-desktop \
+        -o /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+fi
+rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop 2>/dev/null || true
 cat > /etc/yum.repos.d/azl-desktop-kmods.repo << 'EOF'
 [azl-desktop-kmods]
 name=Azure Linux Desktop kernel modules
 baseurl=https://sirredbeard.github.io/azurelinux-desktop/repo
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
 cost=1
 EOF
 

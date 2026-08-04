@@ -49,7 +49,7 @@ CI refreshes those on successful builds via
 
 | File | Topic |
 | --- | --- |
-| [`out-of-tree-usb-kmods-pages.md`](out-of-tree-usb-kmods-pages.md) | Pages repo + policy RPM pipeline; **detect gate** (`build_required`, why prepare/build skip) |
+| [`out-of-tree-usb-kmods-pages.md`](out-of-tree-usb-kmods-pages.md) | OOT kmods on Pages; RPM GPG signing with shared key |
 | [`desktop-kmod-waves-1-5.md`](desktop-kmod-waves-1-5.md) | Sound, BT, UVC, thinkpad, typec waves |
 | [`azure-kernel-usbhid-kmod.md`](azure-kernel-usbhid-kmod.md) | Early usbhid kmod writeup |
 | [`intel-laptop-host-vs-azl-drivers.md`](intel-laptop-host-vs-azl-drivers.md) | Host Fedora vs nested Azure Linux driver gap |

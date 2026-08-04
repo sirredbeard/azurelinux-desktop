@@ -248,3 +248,24 @@ Boot story.
   avoid `awk` in the validate root; installer initrd verified to contain
   all three modules; nested reinstall on host container partition used
   that installer ISO.
+
+## RPM GPG signing (2026-08-04)
+
+Desktop kmod RPMs on Pages are signed with the **same OpenPGP key** as the
+Copilot Flatpak Pages stream.
+
+- Secrets: `FLATPAK_GPG_PRIVATE_KEY` / `PUBLIC_KEY` / `KEY_ID` on this repo
+- Scripts: `scripts/rpm-gpg-import.sh`, `scripts/sign-desktop-rpms.sh`
+- Workflow signs every RPM after merge/policy rebuild, then `createrepo_c`
+- Public key: `assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop` and
+  `https://sirredbeard.github.io/azurelinux-desktop/RPM-GPG-KEY-azurelinux-desktop`
+- Client `.repo`: `gpgcheck=1` + `gpgkey=file:///etc/pki/rpm-gpg/...`
+
+UID on the key is still the Flatpak-oriented string
+(`copilot-desktop-gtk Flatpak… <flatpak-signing@sirredbeard.github.io>`);
+fingerprint is what DNF checks. See `packaging/rpm-gpg/README.md`.
+
+Until a signed publish lands, `gpgcheck=1` clients fail on old unsigned
+RPMs. Republish with `publish-desktop-kmods.yml` `republish=true` after
+enabling signing.
+

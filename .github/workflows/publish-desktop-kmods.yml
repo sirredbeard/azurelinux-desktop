@@ -356,6 +356,8 @@ jobs:
       - name: Merge prior repo, createrepo, write indexes
         env:
           KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+          FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+          FLATPAK_GPG_KEY_ID: ${{ secrets.FLATPAK_GPG_KEY_ID }}
         run: |
           set -euo pipefail
           mkdir -p site/repo
@@ -441,6 +443,30 @@ jobs:
           # Remove any stale policy from kmod-output overwrite confusion
           ls -la site/repo/azurelinux-desktop-policy-*.rpm
 
+          # Sign every RPM (including merged priors + rebuilt policy) with the
+          # shared project OpenPGP key before createrepo. Same key as Copilot
+          # Flatpak Pages (secrets FLATPAK_GPG_*). Sign inside Fedora: Ubuntu
+          # runners often lack a working rpm-sign stack.
+          if [[ -z "${FLATPAK_GPG_PRIVATE_KEY:-}" ]]; then
+            echo "error: FLATPAK_GPG_PRIVATE_KEY secret required to sign kmod RPMs" >&2
+            exit 1
+          fi
+          chmod +x scripts/rpm-gpg-import.sh scripts/sign-desktop-rpms.sh
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -e FLATPAK_GPG_PRIVATE_KEY \
+            -e FLATPAK_GPG_KEY_ID \
+            -w /workspace \
+            registry.fedoraproject.org/fedora:43 \
+            bash -euo pipefail -c '
+              dnf5 install -y -q rpm-sign gnupg2
+              ./scripts/sign-desktop-rpms.sh site/repo
+            '
+          install -m 0644 packaging/rpm-gpg/public.asc \
+            site/RPM-GPG-KEY-azurelinux-desktop
+          install -m 0644 packaging/rpm-gpg/public.asc \
+            site/repo/RPM-GPG-KEY-azurelinux-desktop
+
           createrepo_c site/repo
           find site/repo -maxdepth 1 -type f -name '*.rpm' -printf '%f\n' | sort \
             > site/repo/manifest.txt
@@ -466,10 +492,17 @@ jobs:
             -v "$GITHUB_WORKSPACE/site/repo:/repo:ro" \
             "$KMOD_IMAGE" \
             bash -exc '
+              # Import project key; require signatures on kmod RPMs.
+              mkdir -p /etc/pki/rpm-gpg
+              if [[ -f /repo/RPM-GPG-KEY-azurelinux-desktop ]]; then
+                cp -f /repo/RPM-GPG-KEY-azurelinux-desktop \
+                  /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+                rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+              fi
               dnf5 install -y \
                 --setopt=reposdir=/dev/null \
                 --setopt=azl-base.gpgcheck=0 \
-                --setopt=azl-desktop-kmods.gpgcheck=0 \
+                --setopt=azl-desktop-kmods.gpgcheck=1 \
                 --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64 \
                 --repofrompath=azl-desktop-kmods,file:///repo \
                 --repo=azl-base --repo=azl-desktop-kmods \
@@ -528,6 +561,11 @@ jobs:
           done
           curl --fail --location --retry 6 --retry-delay 5 \
             "$KMOD_REPO_URL/manifest.txt" | tee published-manifest.txt
+          # Public key at site root (and under repo/) for gpgcheck=1 clients.
+          curl --fail --location --retry 6 --retry-delay 5 \
+            "https://sirredbeard.github.io/azurelinux-desktop/RPM-GPG-KEY-azurelinux-desktop" \
+            -o /tmp/RPM-GPG-KEY-azurelinux-desktop
+          grep -q 'BEGIN PGP PUBLIC KEY BLOCK' /tmp/RPM-GPG-KEY-azurelinux-desktop
           krel="${KERNEL_NEVRA#"kernel-"}"
           grep -Fxq "azurelinux-desktop-policy-${krel}.rpm" published-manifest.txt
           # Every RPM we just built must appear; prior-only siblings are bonus.

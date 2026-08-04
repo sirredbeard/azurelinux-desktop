@@ -143,3 +143,12 @@ tree that already has `gpg-verify=true` from a current Pages pull. Until
 then, `scripts/patch-nested-desktop-polish.sh` can apply polish on a
 nested install for local QA.
 
+## No separate Flatpak GPG key file on the image
+
+Live/installer do not install a dedicated Flatpak public key under
+`/usr/share/flatpak` or similar. Trust is established when
+`install-copilot-desktop-flatpak.sh` / prestage pulls the signed Pages
+`.flatpakref` (`GPGKey=`). The system remote then has `gpg-verify=true`.
+The same OpenPGP material is reused to **RPM-sign** desktop kmods (see
+`packaging/rpm-gpg/` and `out-of-tree-usb-kmods-pages.md`).
+
