@@ -1,6 +1,7 @@
 # Azure Linux Desktop Proof of Concept
 
-<img width="1197" height="836" alt="Screenshot From 2026-07-17 18-01-10" src="https://github.com/user-attachments/assets/2df0ccfc-2cf4-43fa-b150-83319ea9d07d" />
+<img width="986" height="745" alt="dock" src="https://github.com/user-attachments/assets/05040746-9a9f-4a0f-9fb5-d5cd4c826bf8" /><img width="1356" height="927" alt="appgrid" src="https://github.com/user-attachments/assets/862ac238-4f3b-419c-91f3-85d28ca2fbe4" />
+
 
 ## What this is
 
@@ -216,7 +217,6 @@ sha256sum -c azurelinux-desktop-live.vhdx.7z.sha256
 
 [`scripts/qemu-test-live-iso.sh`](scripts/qemu-test-live-iso.sh) boots the reassembled live ISO with `-cpu host`, a QEMU USB tablet, and a real GTK window, so you can actually watch the desktop and test pointer input instead of squinting at serial output. The USB tablet is deliberate: it exercises the image's project-provided `usbhid` module rather than QEMU's default PS/2 mouse path.
 
-
 ### Using the installer ISO
 
 The installer is **text-mode Anaconda**, same as Microsoft's own Azure Linux installer media. It is not a graphical desktop installer.
@@ -226,9 +226,12 @@ What you will see:
 1. Boot the ISO. A small live environment comes up.
 2. You set an **administrator username and password** first.
 3. Anaconda then launches for the rest of the install.
-4. **Storage starts incomplete on purpose.** Disk partitioning is left to Anaconda's interactive TUI. You pick the target disk, layout, and optional encryption yourself. There is no autopart kickstart that silently wipes a disk for you.
-5. Language, time zone, and similar spokes ship with defaults. Change them if you care. Storage is the spoke that blocks **begin installation** until you finish it.
-6. The package payload installs from the offline repo on the ISO. No network is required for that step.
+4. **Storage starts incomplete on purpose.** Disk partitioning is left to Anaconda's interactive TUI. You pick the target disk, layout, and optional encryption yourself:
+
+<img width="677" height="231" alt="Screenshot From 2026-08-04 11-14-50" src="https://github.com/user-attachments/assets/e0048e0b-ba81-4567-b27f-3916ef3ca972" />
+
+6. Language, time zone, and similar spokes ship with defaults. Change them if you care. Storage is the spoke that blocks **begin installation** until you finish it.
+7. The package payload installs from the offline repo on the ISO. No network is required for that step.
 
 After install, reboot into the new system and sign in with the admin account you created.
 
