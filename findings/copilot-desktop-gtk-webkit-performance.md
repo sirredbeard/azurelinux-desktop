@@ -1,8 +1,9 @@
 # Copilot desktop GTK - WebKit performance and RAM
 
-**Status:** Upstream app **0.1.12** fixes MS sign-in AADSTS90100 from KMSI
-force-complete. **0.1.11** shipped performance work; live-ISO QA found the
-login regression. Image Flatpak pin still follows the public Pages remote.
+**Status:** Live ISO MS sign-in **confirmed** on **0.1.12** (email →
+Authenticator → signed-in SPA). **0.1.11** had AADSTS90100 from KMSI
+force-complete on `#idSIButton9` Next. Image Flatpak pin still follows the
+public Pages remote.
 
 ## Symptom
 
@@ -129,14 +130,28 @@ So the big win on a roomy host is **CPU/console + not running KMSI observers on 
   in?" / "Keep me signed in"; never map `#idSIButton9` to Yes on email/password
   steps; reset force flags when not on the KMSI page.
 
+## Live ISO QA (0.1.12 sign-in pass)
+
+- Guest Flatpak updated from Pages remote to **0.1.12**; app relaunched.
+- User completed email → Authenticator notification (prompted a **second**
+  time; likely Microsoft account / number-matching UX, not an empty-login
+  loop). Landed in the signed-in Copilot UI.
+- Guest log still shows some `load-failed: Frame load interrupted` on
+  `login.live.com/ppsecure/post.srf` during the OAuth hop. That is a
+  superseded frame navigation, not AADSTS90100, and did not block sign-in.
+- Post-login RSS ~**2.3 GiB** app tree on 6.8 GiB guest (~2.0 GiB MemAvailable),
+  many WebKitWebProcess children after auth frames. Usable; tight for smaller
+  VMs. No host thrash with QEMU at 7 GiB on this host.
+
 ## Still open
 
-- Retest full MS sign-in on live ISO after **0.1.12** (email → password → KMSI).
 - Consider raising auto low-memory MemTotal threshold to 8 GiB so 7 GiB VMs
   engage HA Never without `--low-memory`.
 - Optional later: `MemoryPressureSettings` / back-forward list capacity if
   GirCore bindings are clean; do not set kill thresholds that nuke the SPA.
 - EGL/Zink warnings under Flatpak on virtio-vga are noisy; UI still renders.
+- Double Authenticator prompt: watch if it reproduces; only chase if it is
+  clearly our WebView double-submitting (no evidence after 0.1.12 fix).
 
 ## Related
 
