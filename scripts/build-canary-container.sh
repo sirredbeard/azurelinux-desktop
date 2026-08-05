@@ -108,13 +108,48 @@ for i in "${!REPO_NAMES[@]}"; do
             echo "baseurl=${REPO_URLS[$i]}"
         fi
         echo "enabled=1"
-        # Desktop kmod Pages RPMs are project-signed (shared OpenPGP key).
-        if [ "${REPO_NAMES[$i]}" = "azl-desktop-kmods" ]; then
-            echo "gpgcheck=1"
-            echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
-        else
-            echo "gpgcheck=0"
-        fi
+        # Match live image: gpgcheck=1 with vendored keys under
+        # assets/pki/rpm-gpg (see scripts/install-rpm-gpg-keys.sh).
+        case "${REPO_NAMES[$i]}" in
+            azl-desktop-kmods)
+                echo "gpgcheck=1"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
+                ;;
+            fedora43|fedora43-updates)
+                echo "gpgcheck=1"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary"
+                ;;
+            rpmfusion-free)
+                echo "gpgcheck=1"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-2020"
+                ;;
+            rpmfusion-nonfree)
+                echo "gpgcheck=1"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020"
+                ;;
+            ms-prod|vscode|edge-canary)
+                echo "gpgcheck=1"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft"
+                ;;
+            gh-cli)
+                echo "gpgcheck=1"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-githubcli"
+                ;;
+            github-desktop)
+                echo "gpgcheck=1"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-shiftkey-desktop"
+                ;;
+            azl-base|azl-microsoft|azurelinux-base|azurelinux-microsoft|azurelinux-*)
+                echo "gpgcheck=1"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-4.0-primary"
+                ;;
+            *)
+                # Unknown third-party from kickstart: still require a key
+                # path once known; fail closed rather than gpgcheck=0.
+                echo "gpgcheck=1"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
+                ;;
+        esac
         echo "cost=${REPO_COSTS[$i]}"
         if [ "${REPO_EXCLUDES[$i]}" != "-" ]; then
             echo "excludepkgs=${REPO_EXCLUDES[$i]}"
@@ -130,10 +165,9 @@ ROOTFS="$WORKDIR/rootfs"
 REPO_DIR="$WORKDIR/repos"
 mkdir -p "$ROOTFS/etc/yum.repos.d" "$ROOTFS/etc/pki/rpm-gpg"
 cp "$REPO_FILE" "$ROOTFS/etc/yum.repos.d/azl-canary.repo"
-if [ -f "$REPO_ROOT/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop" ]; then
-    install -m 0644 "$REPO_ROOT/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop" \
-        "$ROOTFS/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
-fi
+# Full vendor key set (Fedora, AZL, Microsoft, GitHub, RPM Fusion, project).
+KEYS_SRC="$REPO_ROOT/assets/pki/rpm-gpg" \
+    "$REPO_ROOT/scripts/install-rpm-gpg-keys.sh" "$ROOTFS"
 mkdir -p "$ROOTFS/usr/share/azurelinux-desktop/gpg"
 if [ -f "$REPO_ROOT/assets/gpg/signing-key.asc" ]; then
     install -m 0644 "$REPO_ROOT/assets/gpg/signing-key.asc" \
@@ -166,12 +200,13 @@ podman run --rm \
         # container before side-load fetch. Package installroot may not
         # put them on PATH for the outer shell.
         dnf5 install -y curl tar ca-certificates python3 >/dev/null
-        # Import project RPM key into the installroot before gpgcheck=1
-        # pulls from azl-desktop-kmods.
-        if [ -s /mnt/azl/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
-            rpm --root=/mnt/azl --import \
-                /mnt/azl/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
-        fi
+        # Import every staged RPM OpenPGP key before gpgcheck=1 installs.
+        shopt -s nullglob
+        for key in /mnt/azl/etc/pki/rpm-gpg/RPM-GPG-KEY-*; do
+            [ -e "$key" ] || continue
+            rpm --root=/mnt/azl --import "$key" 2>/dev/null || true
+        done
+        shopt -u nullglob
         dnf5 install -y \
             --refresh \
             --setopt=reposdir=/work/repos \

@@ -163,6 +163,47 @@ check_vermagic "$HID_MODULE"
 echo "=== stage usbhid done ==="
 fi
 
+# --- psmouse (PS/2 mouse; CONFIG_INPUT_MOUSE unset on AZL x86_64) ---
+# GNOME Boxes / generic libvirt default to PS/2 mouse for unknown Linux.
+# i8042 + libps2 + atkbd are built-in; only the mouse protocol driver is
+# missing. aarch64 AZL already has CONFIG_MOUSE_PS2=m. Minimal set is
+# psmouse-base + always-linked synaptics/focaltech objects. See
+# findings/hypervisor-mouse-ps2-boxes.md.
+if run_stage psmouse; then
+echo "=== stage psmouse ==="
+PS2_DIR="$WORKDIR/psmouse"
+mkdir -p "$PS2_DIR"
+for f in \
+    psmouse-base.c psmouse.h \
+    synaptics.c synaptics.h \
+    focaltech.c focaltech.h \
+    trackpoint.c trackpoint.h
+do
+    if [[ -f "$SOURCE_DIR/drivers/input/mouse/$f" ]]; then
+        cp "$SOURCE_DIR/drivers/input/mouse/$f" "$PS2_DIR/"
+    fi
+done
+# Core three always build (upstream psmouse-objs). TrackPoint is small and
+# useful on ThinkPads. Skip vmmouse here — it wants HYPERVISOR_GUEST bits
+# that AZL may not export the same way; open-vm-tools covers VMware.
+cat > "$PS2_DIR/Makefile" <<'EOF'
+# Out-of-tree against AZL x86_64 where CONFIG_INPUT_MOUSE is not set.
+ccflags-y += -DCONFIG_INPUT_MOUSE=1
+ccflags-y += -DCONFIG_MOUSE_PS2_MODULE=1
+ccflags-y += -DCONFIG_MOUSE_PS2_TRACKPOINT=1
+
+obj-m += psmouse.o
+psmouse-y := psmouse-base.o synaptics.o focaltech.o trackpoint.o
+EOF
+if [[ ! -f "$PS2_DIR/trackpoint.c" ]]; then
+    sed -i '/trackpoint/d; /TRACKPOINT/d' "$PS2_DIR/Makefile"
+fi
+make -C "$BUILD_DIR" M="$PS2_DIR" modules
+PS2_MODULE="$PS2_DIR/psmouse.ko"
+check_vermagic "$PS2_MODULE"
+echo "=== stage psmouse done ==="
+fi
+
 # --- usb-storage + uas (sibling package, same kernel bind) ---
 # CONFIG_USB_STORAGE / CONFIG_USB_UAS are not set on AZL 4.0 x86_64.
 # Force module variants so IS_ENABLED() paths in the upstream sources
@@ -658,6 +699,7 @@ have_ko() {
 
 # Resolve optional module paths.
 HID_MODULE="$WORKDIR/usbhid/usbhid.ko"
+PS2_MODULE="$WORKDIR/psmouse/psmouse.ko"
 STOR_MODULE="$WORKDIR/usb-storage/usb-storage.ko"
 UAS_MODULE="$WORKDIR/usb-storage/uas.ko"
 IWL_MODULE="$WORKDIR/iwlwifi/iwlwifi.ko"
@@ -692,6 +734,10 @@ add_pkg() {
 if have_ko "$HID_MODULE"; then
     PRESENT_KOS+=("$HID_MODULE")
     add_pkg usbhid
+fi
+if have_ko "$PS2_MODULE"; then
+    PRESENT_KOS+=("$PS2_MODULE")
+    add_pkg psmouse
 fi
 if have_ko "$STOR_MODULE" && have_ko "$UAS_MODULE"; then
     PRESENT_KOS+=("$STOR_MODULE" "$UAS_MODULE")
@@ -806,6 +852,40 @@ if [ -x /usr/bin/dracut ] && [ -e /boot/initramfs-${KVERREL}.img ]; then
   /usr/bin/dracut --force --kver ${KVERREL} || :
 fi
 %postun -n azurelinux-desktop-usbhid-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled psmouse; then
+    append_requires azurelinux-desktop-psmouse-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-psmouse-kmod
+Summary:        PS/2 mouse (psmouse) for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-psmouse-kmod
+psmouse for Azure Linux kernel ${KVERREL}. Covers GNOME Boxes and other
+hypervisors that default to a PS/2 mouse for unknown Linux guests.
+"
+    INSTALL_SECTION+="$(ko_install_line psmouse.ko)"$'\n'
+    INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-psmouse.conf <<'DRACUT'
+add_drivers+=\" psmouse \"
+DRACUT"$'\n'
+    INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-psmouse.conf <<'ML'
+psmouse
+ML"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-psmouse-kmod
+$(ko_files_line psmouse.ko)
+%config(noreplace) %{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-psmouse.conf
+%config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desktop-psmouse.conf
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-psmouse-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+if [ -x /usr/bin/dracut ] && [ -e /boot/initramfs-${KVERREL}.img ]; then
+  /usr/bin/dracut --force --kver ${KVERREL} || :
+fi
+%postun -n azurelinux-desktop-psmouse-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
 "
 fi

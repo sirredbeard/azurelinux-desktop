@@ -244,6 +244,18 @@ gnome-screenshot
 evolution
 evolution-ews
 
+# Hypervisor guest integration (ship-all on every image format).
+# qcow2 is converted to VHDX/VDI/VMDK with the same package set, so agents
+# for QEMU/SPICE, Hyper-V, VMware, and VirtualBox all ride together.
+# Units no-op or udev-gate when the matching hypervisor is absent.
+# See findings/hypervisor-mouse-ps2-boxes.md and GitHub issue #1.
+spice-vdagent
+qemu-guest-agent
+hyperv-daemons
+open-vm-tools
+open-vm-tools-desktop
+virtualbox-guest-additions
+
 # Explicit excludes for weak/transitive deps observed sneaking in during
 # the no-virt live build despite not being requested anywhere - see
 # findings/fedora-azl-repo-mixing.md (weak-dep leak notes). The
@@ -502,12 +514,52 @@ set -x
 # to Fedora 43 when Azure Linux has no package. Known soname landmines get an
 # exclude here as they're discovered - add to this list, don't fight it.
 FEDORA_EXCLUDES="audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,less-color,libaio,libblkid,libcom_err,libfdisk,liblastlog2,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware"
+# Stage vendor + project RPM OpenPGP keys before writing gpgcheck=1 repos.
+# Keys live in assets/pki/rpm-gpg (Fedora, Azure Linux, Microsoft, GitHub,
+# RPM Fusion, project kmods). Without this, dnf5 prints
+# "skipped OpenPGP checks" for every unsigned-trust path.
+install -d -m 0755 /etc/pki/rpm-gpg
+for src in /workspace/assets/pki/rpm-gpg /root/assets/pki/rpm-gpg /opt/azl-desktop-assets/pki/rpm-gpg; do
+    if [ -d "$src" ]; then
+        # Preserve AZL relative symlinks (releasever/basearch key names).
+        # Skip docs so README.md never lands under /etc/pki/rpm-gpg.
+        for path in "$src"/*; do
+            [ -e "$path" ] || continue
+            base="$(basename "$path")"
+            case "$base" in
+                *.md|README*) continue ;;
+            esac
+            if [ -L "$path" ]; then
+                ln -sfn "$(readlink "$path")" "/etc/pki/rpm-gpg/$base"
+            elif [ -f "$path" ]; then
+                install -m 0644 "$path" "/etc/pki/rpm-gpg/$base"
+            fi
+        done
+        break
+    fi
+done
+for key in \
+    RPM-GPG-KEY-azurelinux-4.0-primary \
+    RPM-GPG-KEY-azurelinux-desktop \
+    RPM-GPG-KEY-fedora-43-primary \
+    RPM-GPG-KEY-microsoft \
+    RPM-GPG-KEY-githubcli \
+    RPM-GPG-KEY-shiftkey-desktop \
+    RPM-GPG-KEY-rpmfusion-free-fedora-2020 \
+    RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
+do
+    if [ -e "/etc/pki/rpm-gpg/$key" ]; then
+        rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
+    fi
+done
+
 cat > /etc/yum.repos.d/azl-desktop-fedora.repo << EOF
 [fedora43]
 name=Fedora 43 (GNOME desktop stack)
 baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary
 priority=50
 excludepkgs=$FEDORA_EXCLUDES
 
@@ -515,7 +567,8 @@ excludepkgs=$FEDORA_EXCLUDES
 name=Fedora 43 Updates
 baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/43/Everything/x86_64/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary
 priority=50
 excludepkgs=$FEDORA_EXCLUDES
 EOF
@@ -536,35 +589,40 @@ cat > /etc/yum.repos.d/azl-desktop-microsoft-github.repo << 'EOF'
 name=Microsoft RHEL 9 prod (PowerShell, .NET)
 baseurl=https://packages.microsoft.com/rhel/9/prod/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
 priority=1
 
 [vscode]
 name=Visual Studio Code Insiders
 baseurl=https://packages.microsoft.com/yumrepos/vscode
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
 priority=1
 
 [edge-canary]
 name=Microsoft Edge Canary
 baseurl=https://packages.microsoft.com/yumrepos/edge-canary
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
 priority=1
 
 [gh-cli]
 name=GitHub CLI
 baseurl=https://cli.github.com/packages/rpm
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-githubcli
 priority=1
 
 [github-desktop]
 name=GitHub Desktop (shiftkey/desktop Linux fork)
 baseurl=https://mirror.mwt.me/shiftkey-desktop/rpm
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-shiftkey-desktop
 priority=1
 EOF
 
@@ -573,14 +631,16 @@ cat > /etc/yum.repos.d/azl-desktop-rpmfusion.repo << 'EOF'
 name=RPM Fusion for Fedora 43 - Free
 baseurl=https://download1.rpmfusion.org/free/fedora/releases/43/Everything/x86_64/os/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-2020
 priority=50
 
 [rpmfusion-nonfree]
 name=RPM Fusion for Fedora 43 - Nonfree
 baseurl=https://download1.rpmfusion.org/nonfree/fedora/releases/43/Everything/x86_64/os/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
 priority=50
 EOF
 
@@ -642,6 +702,15 @@ EOF
 
 systemctl set-default graphical.target
 systemctl enable gdm.service
+
+# Hypervisor guest agents (packages listed in %packages). Enable the
+# common QEMU/SPICE units; Hyper-V daemons udev-gate; open-vm-tools and
+# VirtualBox units enable when present. Harmless on bare metal.
+systemctl enable spice-vdagentd.service 2>/dev/null || true
+systemctl enable qemu-guest-agent.service 2>/dev/null || true
+systemctl enable vmtoolsd.service 2>/dev/null || true
+systemctl enable vboxservice.service 2>/dev/null || true
+# Hyper-V: hv-*-daemon units typically start via udev when vmbus appears.
 
 # Fedora's livesys-scripts package is desktop-agnostic by design - it
 # doesn't know GNOME got installed, so /etc/sysconfig/livesys ships with

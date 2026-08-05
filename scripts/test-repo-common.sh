@@ -257,7 +257,45 @@ function quote(s) { gsub(/'"'"'/, "'"'"'\\'"'"''"'"'", s); return "'"'"'" s "'"'
                 echo "baseurl=${REPO_URLS[$i]}"
             fi
             echo "enabled=1"
-            echo "gpgcheck=0"
+            # Match product images: gpgcheck=1 + vendored keys when present.
+            case "${REPO_NAMES[$i]}" in
+                azl-desktop-kmods)
+                    echo "gpgcheck=1"
+                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
+                    ;;
+                fedora43|fedora43-updates)
+                    echo "gpgcheck=1"
+                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary"
+                    ;;
+                rpmfusion-free)
+                    echo "gpgcheck=1"
+                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-2020"
+                    ;;
+                rpmfusion-nonfree)
+                    echo "gpgcheck=1"
+                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020"
+                    ;;
+                ms-prod|vscode|edge-canary)
+                    echo "gpgcheck=1"
+                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft"
+                    ;;
+                gh-cli)
+                    echo "gpgcheck=1"
+                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-githubcli"
+                    ;;
+                github-desktop)
+                    echo "gpgcheck=1"
+                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-shiftkey-desktop"
+                    ;;
+                azl-base|azl-microsoft|azurelinux-*)
+                    echo "gpgcheck=1"
+                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-4.0-primary"
+                    ;;
+                *)
+                    echo "gpgcheck=1"
+                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
+                    ;;
+            esac
             echo "cost=${REPO_COSTS[$i]}"
             if [ "${REPO_EXCLUDES[$i]}" != "-" ]; then
                 echo "excludepkgs=${REPO_EXCLUDES[$i]}"

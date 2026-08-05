@@ -172,12 +172,34 @@ FEDORA_EXCLUDES=$(rpm -qa --qf '%{NAME}\t%{VENDOR}\n' \
     echo "Unable to determine Azure Linux package boundary" >&2
     exit 1
 }
+# Stage RPM OpenPGP keys before gpgcheck=1 repos. Assets were copied into
+# the target by the --nochroot block (/opt/azl-desktop-assets).
+install -d -m 0755 /etc/pki/rpm-gpg
+if [ -d /opt/azl-desktop-assets/pki/rpm-gpg ]; then
+    cp -a /opt/azl-desktop-assets/pki/rpm-gpg/. /etc/pki/rpm-gpg/
+fi
+for key in \
+    RPM-GPG-KEY-azurelinux-4.0-primary \
+    RPM-GPG-KEY-azurelinux-desktop \
+    RPM-GPG-KEY-fedora-43-primary \
+    RPM-GPG-KEY-microsoft \
+    RPM-GPG-KEY-githubcli \
+    RPM-GPG-KEY-shiftkey-desktop \
+    RPM-GPG-KEY-rpmfusion-free-fedora-2020 \
+    RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
+do
+    if [ -e "/etc/pki/rpm-gpg/$key" ]; then
+        rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
+    fi
+done
+
 cat > /etc/yum.repos.d/azl-desktop-fedora.repo << EOF
 [fedora43]
 name=Fedora 43 (GNOME 49 desktop stack)
 baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary
 priority=50
 excludepkgs=$FEDORA_EXCLUDES
 
@@ -185,7 +207,8 @@ excludepkgs=$FEDORA_EXCLUDES
 name=Fedora 43 Updates
 baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/43/Everything/x86_64/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary
 priority=50
 excludepkgs=$FEDORA_EXCLUDES
 EOF
@@ -205,35 +228,40 @@ cat > /etc/yum.repos.d/azl-desktop-microsoft-github.repo << 'EOF'
 name=Microsoft RHEL 9 prod (PowerShell, .NET)
 baseurl=https://packages.microsoft.com/rhel/9/prod/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
 priority=1
 
 [vscode]
 name=Visual Studio Code Insiders
 baseurl=https://packages.microsoft.com/yumrepos/vscode
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
 priority=1
 
 [edge-canary]
 name=Microsoft Edge Canary
 baseurl=https://packages.microsoft.com/yumrepos/edge-canary
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
 priority=1
 
 [gh-cli]
 name=GitHub CLI
 baseurl=https://cli.github.com/packages/rpm
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-githubcli
 priority=1
 
 [github-desktop]
 name=GitHub Desktop (shiftkey/desktop Linux fork)
 baseurl=https://mirror.mwt.me/shiftkey-desktop/rpm
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-shiftkey-desktop
 priority=1
 EOF
 
@@ -242,14 +270,16 @@ cat > /etc/yum.repos.d/azl-desktop-rpmfusion.repo << 'EOF'
 name=RPM Fusion for Fedora 43 - Free
 baseurl=https://download1.rpmfusion.org/free/fedora/releases/43/Everything/x86_64/os/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-2020
 priority=50
 
 [rpmfusion-nonfree]
 name=RPM Fusion for Fedora 43 - Nonfree
 baseurl=https://download1.rpmfusion.org/nonfree/fedora/releases/43/Everything/x86_64/os/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
 priority=50
 EOF
 
@@ -261,6 +291,12 @@ sed -i '/^\[azl-microsoft\]/,/^\[/ s/^exclude=/&grub2-tools-extra /' /etc/yum.re
 
 systemctl set-default graphical.target
 systemctl enable gdm.service
+# Hypervisor guest agents (same ship-all set as live). See
+# findings/hypervisor-mouse-ps2-boxes.md.
+systemctl enable spice-vdagentd.service 2>/dev/null || true
+systemctl enable qemu-guest-agent.service 2>/dev/null || true
+systemctl enable vmtoolsd.service 2>/dev/null || true
+systemctl enable vboxservice.service 2>/dev/null || true
 # Prevent gnome-initial-setup from running for users created by Anaconda's
 # interactive TUI. Without this, any new user's first GDM session triggers
 # the initial setup wizard, which resets system-db dconf keys (dark mode,

@@ -27,6 +27,7 @@ Work large downloads under `~/azl-work`, not `/tmp`.
 | [`build-desktop-kmods.sh`](build-desktop-kmods.sh) | Yes (`publish-desktop-kmods.yml`) | Build OOT desktop kmod RPMs for an Azure Linux kernel. |
 | [`generate-kmod-repo-index.sh`](generate-kmod-repo-index.sh) | Yes (kmods) | DNF repo index for GitHub Pages kmod repo. |
 | [`rpm-gpg-import.sh`](rpm-gpg-import.sh) | Yes (kmods) | Import shared OpenPGP key for kmod RPM signing. |
+| [`install-rpm-gpg-keys.sh`](install-rpm-gpg-keys.sh) | Yes (image/canary) | Stage vendor + project RPM OpenPGP keys into a rootfs for `gpgcheck=1`. |
 | [`sign-desktop-rpms.sh`](sign-desktop-rpms.sh) | Yes (kmods) | `rpmsign --addsign` every RPM in a dir before createrepo. |
 | [`build-qcow2-local.sh`](build-qcow2-local.sh) | No | Local disk-image build; generates disk kickstart from live.ks. |
 | [`build-fedora-kernel-live-control.sh`](build-fedora-kernel-live-control.sh) | No | Diagnostic live build with Fedora kernel (not a release path). |

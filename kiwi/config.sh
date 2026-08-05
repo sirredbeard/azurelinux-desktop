@@ -130,6 +130,15 @@ INSTALL_PKGS=(
     evolution
     evolution-ews
 
+    # Hypervisor guest integration — same ship-all set as live kickstart.
+    # One offline package set for every converted disk format.
+    spice-vdagent
+    qemu-guest-agent
+    hyperv-daemons
+    open-vm-tools
+    open-vm-tools-desktop
+    virtualbox-guest-additions
+
     adwaita-sans-fonts
     adwaita-mono-fonts
     liberation-fonts-all
@@ -567,13 +576,15 @@ if [ -f /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.r
         /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
 fi
 
-# Shared project OpenPGP key (Copilot Flatpak + desktop kmod RPMs).
-if [ -f /opt/azl-desktop-assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
-    install -d -m 0755 /etc/pki/rpm-gpg
-    install -m 0644 \
-        /opt/azl-desktop-assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
-        /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
-    rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop 2>/dev/null || true
+# Full RPM OpenPGP key set for gpgcheck=1 on Fedora / MS / GitHub /
+# RPM Fusion / project kmods (see assets/pki/rpm-gpg/).
+install -d -m 0755 /etc/pki/rpm-gpg
+if [ -d /opt/azl-desktop-assets/pki/rpm-gpg ]; then
+    for key in /opt/azl-desktop-assets/pki/rpm-gpg/RPM-GPG-KEY-*; do
+        [ -f "$key" ] || continue
+        install -m 0644 "$key" "/etc/pki/rpm-gpg/$(basename "$key")"
+        rpm --import "/etc/pki/rpm-gpg/$(basename "$key")" 2>/dev/null || true
+    done
 fi
 if [ -f /opt/azl-desktop-assets/gpg/signing-key.asc ]; then
     install -d -m 0755 /usr/share/azurelinux-desktop/gpg

@@ -70,6 +70,7 @@ CI refreshes those on successful builds via
 | [`installed-grub-skip-menu.md`](installed-grub-skip-menu.md) | Installed AZL GRUB: timeout 0, straight to Plymouth |
 | [`flatpak-untrusted-non-gpg-remote.md`](flatpak-untrusted-non-gpg-remote.md) | System Flatpak: GPG + polkit; 0.1.15 sign-before-deltas; canary gpg-verify |
 | [`gpg-key-rotation.md`](gpg-key-rotation.md) | Shared Flatpak+RPM OpenPGP key; `GPG_*` secrets; Pages resign order |
+| [`rpm-gpgcheck-vendor-keys.md`](rpm-gpgcheck-vendor-keys.md) | Stop `gpgcheck=0` on Fedora/MS/GitHub; vendored keys |
 | [`copilot-desktop-gtk-webkit-performance.md`](copilot-desktop-gtk-webkit-performance.md) | Copilot Flatpak WebKit RAM, KMSI inject, low-memory profile |
 
 ## Build, packages, parity
@@ -93,5 +94,7 @@ CI refreshes those on successful builds via
 | --- | --- |
 | [`dual-boot-nested-host-partition.md`](dual-boot-nested-host-partition.md) | Nested install on a container partition |
 | [`qemu-gnome-interactive-testing.md`](qemu-gnome-interactive-testing.md) | QEMU Wayland / SSH testing quirks |
+| [`hypervisor-mouse-ps2-boxes.md`](hypervisor-mouse-ps2-boxes.md) | Boxes/PS/2 defaults vs AZL missing psmouse |
+| [`hypervisor-guest-agents.md`](hypervisor-guest-agents.md) | Ship-all spice/qemu/hyperv/vmware/vbox agents |
 | [`test-suite.md`](test-suite.md) | What the scripts under `/scripts` cover |
 
