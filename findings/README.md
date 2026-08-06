@@ -32,6 +32,7 @@ CI refreshes those on successful builds via
 | [`bluetooth-hci-timeout-thinkpad.md`](bluetooth-hci-timeout-thinkpad.md) | BT layout fix; QEMU verified |
 | [`usb-storage-missing-initrd.md`](usb-storage-missing-initrd.md) | USB storage OOT in initrd |
 | [`gnome-software-flatpak-empty.md`](gnome-software-flatpak-empty.md) | Software catalog empty until appstream |
+| [`gnome-software-catalog-preseed.md`](gnome-software-catalog-preseed.md) | Preseed AppStream so first open is not `…` tiles |
 | [`installed-grub-missing-efi-modules.md`](installed-grub-missing-efi-modules.md) | Text GRUB without EFI modules on `/boot` |
 | [`systemd-modules-load-snd-hda.md`](systemd-modules-load-snd-hda.md) | modules-load sound unit noise |
 
@@ -67,6 +68,7 @@ CI refreshes those on successful builds via
 | [`admin-default-shell-pwsh.md`](admin-default-shell-pwsh.md) | Installer admin shell |
 | [`locale-conf-mode-600.md`](locale-conf-mode-600.md) | locale.conf mode breaks bash |
 | [`flatpak-live-session-space.md`](flatpak-live-session-space.md) | Flatpak space on live ISO |
+| [`gnome-software-catalog-preseed.md`](gnome-software-catalog-preseed.md) | Bake Flathub/RPM AppStream for first Software open |
 | [`installed-grub-skip-menu.md`](installed-grub-skip-menu.md) | Installed AZL GRUB: timeout 0, straight to Plymouth |
 | [`flatpak-untrusted-non-gpg-remote.md`](flatpak-untrusted-non-gpg-remote.md) | System Flatpak: GPG + polkit; 0.1.15 sign-before-deltas; canary gpg-verify |
 | [`gpg-key-rotation.md`](gpg-key-rotation.md) | Shared Flatpak+RPM OpenPGP key; `GPG_*` secrets; Pages resign order |
