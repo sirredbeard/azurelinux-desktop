@@ -93,7 +93,7 @@ cockpit-storaged-364-1.fc43.noarch
 cockpit-system-364-1.fc43.noarch
 cockpit-ws-364-1.fc43.x86_64
 cockpit-ws-selinux-364-1.fc43.x86_64
-code-insiders-1.132.0-1785839003.el8.x86_64
+code-insiders-1.133.0-1785907115.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -298,6 +298,7 @@ google-noto-fonts-common-20251101-3.azl4.noarch
 google-noto-sans-mono-vf-fonts-20251101-3.azl4.noarch
 google-noto-sans-vf-fonts-20251101-3.azl4.noarch
 google-noto-serif-vf-fonts-20251101-3.azl4.noarch
+gpg-pubkey-2bc94fff7015a5f28f1537ad0cd9fed33135ce90-5e6fda74.(none)
 gpgme-1.24.3-7.azl4.x86_64
 gpgmepp-1.24.3-7.azl4.x86_64
 graphene-1.10.8-4.azl4.x86_64
@@ -365,6 +366,11 @@ hunspell-en-GB-0.20201207-13.azl4.noarch
 hunspell-en-US-0.20201207-13.azl4.noarch
 hunspell-filesystem-1.7.2-11.azl4.x86_64
 hwdata-0.404-2.azl4.noarch
+hyperv-daemons-6.10-3.azl4.x86_64
+hyperv-daemons-license-6.10-3.azl4.noarch
+hypervfcopyd-6.10-3.azl4.x86_64
+hypervkvpd-6.10-3.azl4.x86_64
+hypervvssd-6.10-3.azl4.x86_64
 hyphen-2.8.8-28.azl4.x86_64
 ibus-1.5.33-6.fc43.x86_64
 ibus-gtk3-1.5.33-6.fc43.x86_64
@@ -685,6 +691,7 @@ libudisks2-2.11.1-1.fc43.x86_64
 libunibreak-6.1-4.fc43.x86_64
 libunistring-1.1-11.azl4.x86_64
 libunwind-1.8.1-4.azl4.x86_64
+liburing-2.12-2.azl4.x86_64
 libusb1-1.0.30-1.fc43.x86_64
 libusbmuxd-2.1.0-4.fc43.x86_64
 libuuid-2.41.3-10.azl4.x86_64
@@ -801,6 +808,8 @@ numactl-libs-2.0.19-4.azl4.x86_64
 nvidia-gpu-firmware-20260221-2.azl4.noarch
 nxpwireless-firmware-20260221-2.azl4.noarch
 oniguruma-6.9.10-3.fc43.x86_64
+open-vm-tools-13.1.0-2.fc43.x86_64
+open-vm-tools-desktop-13.1.0-2.fc43.x86_64
 openal-soft-1.24.2-4.fc43.x86_64
 opencore-amr-0.1.6-10.azl4.x86_64
 openjpeg-2.5.4-3.azl4.x86_64
@@ -832,6 +841,7 @@ papers-thumbnailer-49.7-1.fc43.x86_64
 parted-3.6-14.azl4.x86_64
 passim-0.1.11-1.fc43.x86_64
 passim-libs-0.1.11-1.fc43.x86_64
+pciutils-3.15.0-1.fc43.x86_64
 pciutils-libs-3.15.0-1.fc43.x86_64
 pcre2-10.47-1.fc43.x86_64
 pcre2-syntax-10.47-1.fc43.noarch
@@ -1001,6 +1011,7 @@ python3-xkbregistry-0.3-9.azl4.x86_64
 python3.12-3.12.13-3.fc43.x86_64
 python3.12-libs-3.12.13-3.fc43.x86_64
 qcom-wwan-firmware-20260221-2.azl4.noarch
+qemu-guest-agent-10.1.5-1.fc43.x86_64
 qrencode-libs-4.1.1-11.fc43.x86_64
 qt6-filesystem-6.10.3-1.fc43.x86_64
 qt6-qtbase-6.10.3-1.fc43.x86_64
@@ -1063,6 +1074,7 @@ soxr-0.1.3-21.azl4.x86_64
 speex-1.2.0-21.azl4.x86_64
 spice-glib-0.42-7.fc43.x86_64
 spice-gtk3-0.42-7.fc43.x86_64
+spice-vdagent-0.23.0-1.fc43.x86_64
 spirv-tools-libs-2026.1-3.azl4.x86_64
 sqlite-libs-3.50.2-3.azl4.x86_64
 sratom-0.6.22-1.fc43.x86_64
@@ -1122,6 +1134,7 @@ util-linux-core-2.41.3-10.azl4.x86_64
 vid.stab-1.1.1-7.fc43.x86_64
 vim-data-9.1.2146-4.azl4.noarch
 vim-minimal-9.1.2146-4.azl4.x86_64
+virtualbox-guest-additions-7.2.14-1.fc43.x86_64
 vmaf-models-3.0.0-5.azl4.x86_64
 vo-amrwbenc-0.1.3-24.azl4.x86_64
 volume_key-libs-0.3.12-29.azl4.x86_64
@@ -1167,6 +1180,8 @@ xkeyboard-config-2.46-1.fc43.noarch
 xml-common-0.6.3-68.azl4.noarch
 xmlrpc-c-1.60.04-5.azl4.x86_64
 xmlrpc-c-client-1.60.04-5.azl4.x86_64
+xmlsec1-1.2.41-3.fc43.x86_64
+xmlsec1-openssl-1.2.41-3.fc43.x86_64
 xmodmap-1.0.11-10.azl4.x86_64
 xorg-x11-server-Xwayland-24.1.13-1.fc43.x86_64
 xorg-x11-xauth-1.1.4-2.fc43.x86_64
