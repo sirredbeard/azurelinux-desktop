@@ -6,6 +6,7 @@ This puts a real GNOME desktop from [Fedora](https://fedoraproject.org/) on top 
 
 * [Azure Linux](https://github.com/microsoft/AzureLinux) 4.0 base
 * [GNOME](https://www.gnome.org/) from [Fedora](https://fedoraproject.org/)
+* [Copilot](https://github.com/sirredbeard/copilot-desktop-gtk) (unofficial Microsoft Copilot GTK Flatpak)
 * [Microsoft VS Code Insiders](https://code.visualstudio.com/insiders/)
 * [GitHub CLI](https://github.com/cli/cli)
 * [GitHub Copilot CLI](https://github.com/github/copilot-cli)
@@ -46,4 +47,4 @@ See [README](https://github.com/sirredbeard/azurelinux-desktop#readme) for more.
 
 ## License
 
-Code original to this repository is MIT licensed. The built images pull in Azure Linux, Fedora, GNOME, PowerShell, Visual Studio Code Insiders, Microsoft Edge Canary, .NET, GitHub CLI, GitHub Desktop, GitHub Copilot CLI, GitHub Copilot, and edit, each under its own license - see [LICENSE](https://github.com/sirredbeard/azurelinux-desktop/blob/main/LICENSE) in the repo for the full text, per-component attribution, and trademark disclaimers.
+Code original to this repository is MIT licensed. The built images pull in Azure Linux, Fedora, GNOME, PowerShell, Visual Studio Code Insiders, Microsoft Edge Canary, .NET, GitHub CLI, GitHub Desktop, GitHub Copilot CLI, GitHub Copilot, and edit, each under its own license, see [LICENSE](https://github.com/sirredbeard/azurelinux-desktop/blob/main/LICENSE) in the repo for the full text, per-component attribution, and trademark disclaimers.
