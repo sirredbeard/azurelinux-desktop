@@ -94,7 +94,7 @@ cockpit-storaged-364-1.fc43.noarch
 cockpit-system-364-1.fc43.noarch
 cockpit-ws-364-1.fc43.x86_64
 cockpit-ws-selinux-364-1.fc43.x86_64
-code-insiders-1.133.0-1785907115.el8.x86_64
+code-insiders-1.133.0-1785990374.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -763,7 +763,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-153.0.4198.0-1.x86_64
+microsoft-edge-canary-153.0.4202.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
