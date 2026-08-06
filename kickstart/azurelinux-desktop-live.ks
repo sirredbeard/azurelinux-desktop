@@ -706,11 +706,26 @@ systemctl enable gdm.service
 # Hypervisor guest agents (packages listed in %packages). Enable the
 # common QEMU/SPICE units; Hyper-V daemons udev-gate; open-vm-tools and
 # VirtualBox units enable when present. Harmless on bare metal.
+# spice-vdagentd upstream units often lack [Install]; prefer socket +
+# explicit wants link so Live/Boxes always activate when the virtio
+# spice port appears (udev SYSTEMD_WANTS is the other path).
+systemctl enable spice-vdagentd.socket 2>/dev/null || true
 systemctl enable spice-vdagentd.service 2>/dev/null || true
+if [ -f /usr/lib/systemd/system/spice-vdagentd.socket ]; then
+  mkdir -p /etc/systemd/system/sockets.target.wants
+  ln -sfn /usr/lib/systemd/system/spice-vdagentd.socket \
+    /etc/systemd/system/sockets.target.wants/spice-vdagentd.socket
+fi
 systemctl enable qemu-guest-agent.service 2>/dev/null || true
 systemctl enable vmtoolsd.service 2>/dev/null || true
 systemctl enable vboxservice.service 2>/dev/null || true
 # Hyper-V: hv-*-daemon units typically start via udev when vmbus appears.
+# virtio_input: in-tree; preload so a virtio-tablet hot-add (Boxes/XML)
+# binds immediately. Clicks under GNOME Wayland need a real tablet, not
+# only spice-vdagent uinput (Mutter drops uinput button events).
+cat > /etc/modules-load.d/azurelinux-desktop-virtio-input.conf << 'EOF'
+virtio_input
+EOF
 
 # Fedora's livesys-scripts package is desktop-agnostic by design - it
 # doesn't know GNOME got installed, so /etc/sysconfig/livesys ships with
@@ -793,6 +808,19 @@ gtk-theme='Adwaita-dark'
 picture-uri='file:///usr/share/backgrounds/azurelinux/adwaita-l.jpg'
 picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
 picture-options='zoom'
+
+# Live session: never lock. GNOME Boxes/SPICE often has a working client
+# cursor (spice-vdagent) but broken clicks until a tablet is present.
+# A lock screen then traps the session (empty liveuser password also fails
+# GDM unlock). Fedora livesys disables lock for other DEs; GNOME path did
+# not. Installed systems do not use this live kickstart dconf block.
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+idle-activation-enabled=false
+[org/gnome/desktop/session]
+idle-delay=uint32 0
+[org/gnome/desktop/lockdown]
+disable-lock-screen=true
 
 # Microsoft Copilot hardware key: firmware emits LeftMeta+LeftShift+F23
 # (KEY_F23). Bind that chord to the Microsoft Copilot GTK Flatpak. Newer

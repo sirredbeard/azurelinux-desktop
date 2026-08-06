@@ -851,10 +851,16 @@ The usbhid module built for Azure Linux kernel ${KVERREL}.
     INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-usbhid.conf <<'DRACUT'
 add_drivers+=\" usbhid \"
 DRACUT"$'\n'
+    # Also modules-load: USB tablet (Boxes/VBox/QEMU) needs usbhid before
+    # hid-generic can bind. Alias autoload is racy on some SPICE USB paths.
+    INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-usbhid.conf <<'ML'
+usbhid
+ML"$'\n'
     FILES_SECTIONS+="
 %files -n azurelinux-desktop-usbhid-kmod
 $(ko_files_line usbhid.ko)
 %config(noreplace) %{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-usbhid.conf
+%config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desktop-usbhid.conf
 "
     POST_SECTIONS+="
 %post -n azurelinux-desktop-usbhid-kmod

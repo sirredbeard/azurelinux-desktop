@@ -293,10 +293,19 @@ systemctl set-default graphical.target
 systemctl enable gdm.service
 # Hypervisor guest agents (same ship-all set as live). See
 # findings/hypervisor-mouse-ps2-boxes.md.
+systemctl enable spice-vdagentd.socket 2>/dev/null || true
 systemctl enable spice-vdagentd.service 2>/dev/null || true
+if [ -f /usr/lib/systemd/system/spice-vdagentd.socket ]; then
+  mkdir -p /etc/systemd/system/sockets.target.wants
+  ln -sfn /usr/lib/systemd/system/spice-vdagentd.socket \
+    /etc/systemd/system/sockets.target.wants/spice-vdagentd.socket
+fi
 systemctl enable qemu-guest-agent.service 2>/dev/null || true
 systemctl enable vmtoolsd.service 2>/dev/null || true
 systemctl enable vboxservice.service 2>/dev/null || true
+cat > /etc/modules-load.d/azurelinux-desktop-virtio-input.conf << 'EOF'
+virtio_input
+EOF
 # Prevent gnome-initial-setup from running for users created by Anaconda's
 # interactive TUI. Without this, any new user's first GDM session triggers
 # the initial setup wizard, which resets system-db dconf keys (dark mode,

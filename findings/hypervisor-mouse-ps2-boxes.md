@@ -168,8 +168,84 @@ the agent channel; Boxes defaulted to QXL here and GNOME did start.
 - CI fail (run 31061711603): `psmouse-base.c` includes every protocol
   header; first build only copied a few. Fix: copy all `*.h` from
   `drivers/input/mouse/` before compiling.
-- Still need: publish desktop kmods with psmouse, full ISO/disk rebuild,
-  Boxes runtime confirm without host tablet attach.
+- Live ISO rebuilt with psmouse + spice-vdagent (2026-08-06).
+
+## Boxes runtime (live ISO, 2026-08-06) — cursor yes, click/key no
+
+Host: `boxes-unknown-2`, media `~/azurelinux-desktop-live.iso`.
+
+### What Boxes presents
+
+```text
+input type=mouse bus=ps2
+input type=keyboard bus=ps2
+graphics spice + video qxl
+channel com.redhat.spice.0 state=connected
+mouse-mode: client
+active QEMU mouse: PS/2 only (until host hot-adds tablet)
+```
+
+No USB/virtio tablet in the default domain. SPICE client mouse mode
+means motion/resize go through **spice-vdagent**; buttons are supposed
+to as well.
+
+### Guest evidence (qemu-guest-agent channel hot-added)
+
+| Check | Result |
+| --- | --- |
+| `psmouse` loaded | yes — `ImExPS/2 Generic Explorer Mouse` |
+| AT keyboard | yes — `AT Translated Set 2 keyboard` |
+| `spice-vdagent` tablet uinput | yes — `spice vdagent tablet` |
+| `usbhid` loaded | **no** (USB tablet hot-add did not bind) |
+| packages on ISO | spice-vdagent, qemu-guest-agent, psmouse kmod, open-vm-tools, hyperv-daemons, vbox additions |
+| spice channel | connected; window resize works |
+| i8042 IRQ on HMP `sendkey` | **increments** (kernel gets keys) |
+| First GNOME session UI | **no** response to keys or clicks |
+| After `logind` session Terminate + re-login | keyboard works (GDM type, Alt+F2, Super) |
+| Empty liveuser password at GDM | **rejected** (“password authentication didn’t work”) |
+
+So: drivers and vdagent display path are largely fine. The broken
+state was **userspace session input** (and/or lock/greeter trap), not
+missing `psmouse`.
+
+### Failure mode that matches the user report
+
+1. spice-vdagent gives a visible client cursor + dynamic resize.
+2. Boxes has no tablet; click path is vdagent uinput buttons (uneven
+   under GNOME Wayland) or PS/2 mouse (relative, easy to “miss”).
+3. If the session is on the **lock/GDM password** UI and empty
+   password is rejected, you need working keys or clicks to recover.
+4. One observed session was fully wedged for input even on an unlocked
+   desktop (IRQs yes, UI no) until the session was killed.
+
+### Mitigations landed / next
+
+- Live dconf: disable screensaver lock + `disable-lock-screen` (live
+  kickstart only) so a dead click path cannot trap on the lock UI.
+- `usbhid` kmod: add `modules-load.d` so USB tablet binds reliably when
+  the hypervisor presents one.
+- Still ideal long-term: hypervisor tablet (virtio/USB) for absolute
+  clicks; Boxes does not add one for unknown OS profiles.
+- Re-login or `logind` session restart recovers a wedged input session.
+
+### Temporary host-side debug (this machine only)
+
+```bash
+# virtio tablet (in-tree virtio_input) — absolute clicks via HMP/QEMU
+virsh -c qemu:///session attach-device boxes-unknown-2 /dev/stdin --live <<'EOF'
+<input type='tablet' bus='virtio'/>
+EOF
+# guest-agent channel for diagnosis
+virsh -c qemu:///session attach-device boxes-unknown-2 /dev/stdin --live <<'EOF'
+<channel type='unix'>
+  <source mode='bind' path='/tmp/boxes-qga.sock'/>
+  <target type='virtio' name='org.qemu.guest_agent.0'/>
+</channel>
+EOF
+```
+
+Note: a debug login set liveuser password to `pass` on that running
+guest only; it is not baked into the ISO.
 
 ## Key commands (host debug)
 
