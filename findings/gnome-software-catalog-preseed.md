@@ -1,15 +1,14 @@
 # Pre-populate GNOME Software catalog (first open “…” tiles)
 
-**Status:** research only — not implemented. Tracked as a GitHub issue.
-Related (shipped partial fix): [`gnome-software-flatpak-empty.md`](gnome-software-flatpak-empty.md).
+**Status:** research only — not implemented.
 
 ## Observed
 
 Opening GNOME Software and browsing curated sections (for example **Learn**,
 **Editor’s Choice**, **New & Updated**) on first launch shows dark placeholder
-tiles with `…` instead of icons and titles. Screenshot evidence (2026-08-06):
-empty Learn carousel and grid while metadata is still missing or still
-compiling.
+tiles with `…` instead of icons and titles.
+
+<img width="1291" height="932" alt="Screenshot From 2026-08-06 19-02-48" src="https://github.com/user-attachments/assets/2b5b6375-3c27-421b-8a9e-292bcd3b90b2" />
 
 This is a **first-open UX** problem, not “Software is permanently broken.”
 After Flatpak AppStream lands and the per-user xmlb cache is rebuilt, the same
