@@ -20,6 +20,7 @@ authselect-libs-1.6.2-2.azl4.x86_64
 azurelinux-desktop-bluetooth-kmod-6.18.31-1.9.azl4.x86_64
 azurelinux-desktop-iwlwifi-kmod-6.18.31-1.9.azl4.x86_64
 azurelinux-desktop-policy-6.18.31-1.9.azl4.x86_64
+azurelinux-desktop-psmouse-kmod-6.18.31-1.9.azl4.x86_64
 azurelinux-desktop-sound-kmod-6.18.31-1.9.azl4.x86_64
 azurelinux-desktop-thinkpad-kmod-6.18.31-1.9.azl4.x86_64
 azurelinux-desktop-typec-kmod-6.18.31-1.9.azl4.x86_64
@@ -141,6 +142,7 @@ gpg-pubkey-09dcefe2212f7881ee2058088da5774c35da9bf9-6a722999.(none)
 gpg-pubkey-2bc94fff7015a5f28f1537ad0cd9fed33135ce90-5e6fda74.(none)
 gpg-pubkey-2c6106201985b60e6c7ac87323f3d4ea75716059-63172e8a.(none)
 gpg-pubkey-3f3f907f2994f2a3037e2f317650c43bba3c3a2c-5eb88cc6.(none)
+gpg-pubkey-4e02a356a18314b00a481f067fc979028b1997c1-63f265a8.(none)
 gpg-pubkey-79bdb88f9bbf73910fd4095b6a2af96194843c65-5dadbc64.(none)
 gpg-pubkey-7f38bbb59d064dbcb3d84d725612b36462313325-69d4e1f8.(none)
 gpg-pubkey-bc528686b50d79e339d3721ceb3e94adbe1229cf-5631588c.(none)
