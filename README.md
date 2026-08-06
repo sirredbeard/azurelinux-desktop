@@ -28,7 +28,7 @@ Third-party scripts/RPM packages are very likely to get confused by the repo mix
 ### Desktop Environment
 
 * [GNOME](https://www.gnome.org/) from [Fedora](https://fedoraproject.org/)
-* [Copilot](https://github.com/sirredbeard/copilot-desktop-gtk) (unofficial Microsoft Copilot GTK Flatpak; hardware Copilot key launches it)
+* [Copilot](https://github.com/sirredbeard/copilot-desktop-gtk) (unofficial Microsoft Copilot GTK Flatpak)
 
 ### Web and Email
 
