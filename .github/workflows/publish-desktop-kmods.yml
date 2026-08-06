@@ -86,6 +86,7 @@ jobs:
           for base in \
             azurelinux-desktop-policy \
             azurelinux-desktop-usbhid-kmod \
+            azurelinux-desktop-psmouse-kmod \
             azurelinux-desktop-usb-storage-kmod \
             azurelinux-desktop-iwlwifi-kmod \
             azurelinux-desktop-sound-kmod \
@@ -110,14 +111,14 @@ jobs:
           echo "build_required=$build" >> "$GITHUB_OUTPUT"
 
           # Family matrix. Keep order stable; 'all' expands to the full set.
-          all='["usbhid","usb-storage","iwlwifi","sound","bluetooth","uvc","thinkpad","typec"]'
+          all='["usbhid","psmouse","usb-storage","iwlwifi","sound","bluetooth","uvc","thinkpad","typec"]'
           if [[ "$FAMILIES_IN" == "all" || -z "$FAMILIES_IN" ]]; then
             echo "families_json=$all" >> "$GITHUB_OUTPUT"
             echo "full_set=true" >> "$GITHUB_OUTPUT"
           else
             python3 - "$FAMILIES_IN" <<'PY' >> "$GITHUB_OUTPUT"
           import json, sys
-          allowed = {"usbhid","usb-storage","iwlwifi","sound","bluetooth","uvc","thinkpad","typec"}
+          allowed = {"usbhid","psmouse","usb-storage","iwlwifi","sound","bluetooth","uvc","thinkpad","typec"}
           raw = [p.strip() for p in sys.argv[1].split(",") if p.strip()]
           bad = [p for p in raw if p not in allowed]
           if bad:
@@ -237,6 +238,7 @@ jobs:
           mkdir -p family-out
           case "$FAMILY" in
             usbhid) cp -a kmod-work/usbhid family-out/ ;;
+            psmouse) cp -a kmod-work/psmouse family-out/ ;;
             usb-storage) cp -a kmod-work/usb-storage family-out/ ;;
             iwlwifi) cp -a kmod-work/iwlwifi family-out/ ;;
             sound) cp -a kmod-work/sound family-out/ ;;
@@ -524,6 +526,9 @@ jobs:
           # Core families that already built green should be in the repo when present.
           if grep -q 'azurelinux-desktop-usbhid-kmod' site/repo/manifest.txt; then
             grep -Fq "azurelinux-desktop-usbhid-kmod" kmod-dnf-resolve.log
+          fi
+          if grep -q 'azurelinux-desktop-psmouse-kmod' site/repo/manifest.txt; then
+            grep -Fq "azurelinux-desktop-psmouse-kmod" kmod-dnf-resolve.log
           fi
           if grep -q 'azurelinux-desktop-sound-kmod' site/repo/manifest.txt; then
             grep -Fq "azurelinux-desktop-sound-kmod" kmod-dnf-resolve.log

@@ -134,13 +134,31 @@ done
 
 # This host's rootless Podman cannot install its device-filter cgroup. The
 # privileged image builders use the same rootful cgroup workaround.
+# Stage vendor keys for gpgcheck=1 (dnf --installroot reads host
+# file:///etc/pki/rpm-gpg paths).
+KEYS_SRC="$REPO_ROOT/assets/pki/rpm-gpg" \
+    "$REPO_ROOT/scripts/install-rpm-gpg-keys.sh" "$WORKDIR/keyroot"
+
 sudo podman run --rm \
     --cgroups=disabled \
     --security-opt label=disable \
     -v "$WORKDIR:/work:Z" \
+    -v "$WORKDIR/keyroot/etc/pki/rpm-gpg:/work/keys:ro,Z" \
     registry.fedoraproject.org/fedora:43 bash -exo pipefail -c '
-        mkdir -p /mnt/azl/etc/yum.repos.d
+        mkdir -p /mnt/azl/etc/yum.repos.d /etc/pki/rpm-gpg
         cp /work/azl-test.repo /mnt/azl/etc/yum.repos.d/azl-test.repo
+        shopt -s nullglob
+        for key in /work/keys/RPM-GPG-KEY-*; do
+            [ -e "$key" ] || continue
+            base="$(basename "$key")"
+            if [ -L "$key" ]; then
+                ln -sfn "$(readlink "$key")" "/etc/pki/rpm-gpg/$base"
+            else
+                install -m 0644 "$key" "/etc/pki/rpm-gpg/$base"
+            fi
+            rpm --import "/etc/pki/rpm-gpg/$base" 2>/dev/null || true
+        done
+        shopt -u nullglob
         dnf5 install -y \
             --setopt=reposdir=/mnt/azl/etc/yum.repos.d \
             --installroot=/mnt/azl --releasever=43 \

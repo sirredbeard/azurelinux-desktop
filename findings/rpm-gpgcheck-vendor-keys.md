@@ -39,6 +39,32 @@ Guest agent set also resolved with gpgcheck=1 (spice-vdagent,
 qemu-guest-agent, hyperv-daemons, open-vm-tools,
 open-vm-tools-desktop, virtualbox-guest-additions).
 
+## Canary CI fail (run 31059375276 / 31061690060)
+
+```text
+cannot open file: (2) - No such file or directory [/etc/pki/rpm-gpg/RPM-GPG-KEY-shiftkey-desktop]
+```
+
+Keys were only under the installroot (`/mnt/azl/etc/pki/rpm-gpg`).
+`dnf5 --installroot` still opens `gpgkey=file:///etc/pki/rpm-gpg/...`
+on the **build host**. Fix: stage keys from `assets/pki/rpm-gpg` onto
+the Fedora builder host path before the install transaction
+(`scripts/build-canary-container.sh`). Same pattern for
+`podman-test-azl4-fedora.sh`.
+
+## Canary CI fail (run 31062231476 on f52affb)
+
+Host path fixed; import of packagecloud key `BA3C3A2C` succeeded, then:
+
+```text
+OpenPGP check for package "github-desktop-..." has failed: Import of the key didn't help, wrong key?
+```
+
+mwt mirror RPMs are signed with Brendan Forster
+`4E02A356A18314B00A481F067FC979028B1997C1` (`https://mirror.mwt.me/shiftkey-desktop/gpgkey`),
+not the older packagecloud key alone. Vendored
+`RPM-GPG-KEY-shiftkey-desktop` now carries **both** armored keys.
+
 ## Intentional exception
 
 `scripts/build-desktop-kmods.sh` still uses

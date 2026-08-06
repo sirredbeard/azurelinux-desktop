@@ -173,19 +173,23 @@ if run_stage psmouse; then
 echo "=== stage psmouse ==="
 PS2_DIR="$WORKDIR/psmouse"
 mkdir -p "$PS2_DIR"
-for f in \
-    psmouse-base.c psmouse.h \
-    synaptics.c synaptics.h \
-    focaltech.c focaltech.h \
-    trackpoint.c trackpoint.h
-do
+# psmouse-base.c #includes every protocol header unconditionally;
+# optional .c objects stay behind IS_ENABLED(CONFIG_MOUSE_PS2_*).
+# Ship all headers from drivers/input/mouse plus the always-built
+# objects (psmouse-base, synaptics, focaltech) and trackpoint.
+shopt -s nullglob
+for f in "$SOURCE_DIR/drivers/input/mouse/"*.h; do
+    cp "$f" "$PS2_DIR/"
+done
+shopt -u nullglob
+for f in psmouse-base.c synaptics.c focaltech.c trackpoint.c; do
     if [[ -f "$SOURCE_DIR/drivers/input/mouse/$f" ]]; then
         cp "$SOURCE_DIR/drivers/input/mouse/$f" "$PS2_DIR/"
     fi
 done
 # Core three always build (upstream psmouse-objs). TrackPoint is small and
-# useful on ThinkPads. Skip vmmouse here — it wants HYPERVISOR_GUEST bits
-# that AZL may not export the same way; open-vm-tools covers VMware.
+# useful on ThinkPads. Skip vmmouse / SMBus / touchpad extras — headers
+# provide stubs when CONFIG_MOUSE_PS2_* is unset.
 cat > "$PS2_DIR/Makefile" <<'EOF'
 # Out-of-tree against AZL x86_64 where CONFIG_INPUT_MOUSE is not set.
 ccflags-y += -DCONFIG_INPUT_MOUSE=1
@@ -198,6 +202,13 @@ EOF
 if [[ ! -f "$PS2_DIR/trackpoint.c" ]]; then
     sed -i '/trackpoint/d; /TRACKPOINT/d' "$PS2_DIR/Makefile"
 fi
+# Fail early if a required always-include header is missing from the tree.
+for need in psmouse.h synaptics.h focaltech.h logips2pp.h; do
+    [[ -f "$PS2_DIR/$need" ]] || {
+        echo "error: psmouse missing $need from kernel sources" >&2
+        exit 1
+    }
+done
 make -C "$BUILD_DIR" M="$PS2_DIR" modules
 PS2_MODULE="$PS2_DIR/psmouse.ko"
 check_vermagic "$PS2_MODULE"

@@ -165,6 +165,9 @@ the agent channel; Boxes defaulted to QXL here and GNOME did start.
 - `psmouse` OOT stage + `azurelinux-desktop-psmouse-kmod` packaging in
   `build-desktop-kmods.sh` (core + trackpoint; mirrors aarch64 AZL
   `CONFIG_MOUSE_PS2=m`).
+- CI fail (run 31061711603): `psmouse-base.c` includes every protocol
+  header; first build only copied a few. Fix: copy all `*.h` from
+  `drivers/input/mouse/` before compiling.
 - Still need: publish desktop kmods with psmouse, full ISO/disk rebuild,
   Boxes runtime confirm without host tablet attach.
 

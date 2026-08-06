@@ -11,7 +11,7 @@ files use `gpgcheck=1` and `gpgkey=file:///etc/pki/rpm-gpg/...`.
 | `RPM-GPG-KEY-fedora-43-primary` | `fedora43`, `fedora43-updates` |
 | `RPM-GPG-KEY-microsoft` | ms-prod, vscode, edge-canary |
 | `RPM-GPG-KEY-githubcli` | gh-cli |
-| `RPM-GPG-KEY-shiftkey-desktop` | github-desktop |
+| `RPM-GPG-KEY-shiftkey-desktop` | github-desktop (Brendan Forster + packagecloud; mwt mirror) |
 | `RPM-GPG-KEY-rpmfusion-*-fedora-2020` | rpmfusion-free/nonfree |
 
 Do not leave third-party desktop repos at `gpgcheck=0` once the matching

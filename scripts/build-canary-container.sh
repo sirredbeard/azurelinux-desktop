@@ -200,13 +200,43 @@ podman run --rm \
         # container before side-load fetch. Package installroot may not
         # put them on PATH for the outer shell.
         dnf5 install -y curl tar ca-certificates python3 >/dev/null
-        # Import every staged RPM OpenPGP key before gpgcheck=1 installs.
+        # dnf --installroot still opens gpgkey=file:///etc/pki/rpm-gpg/...
+        # on the *build host*, not under the installroot. Stage keys onto
+        # the host from assets (authoritative) and mirror into /mnt/azl.
+        install -d -m 0755 /etc/pki/rpm-gpg /mnt/azl/etc/pki/rpm-gpg
         shopt -s nullglob
-        for key in /mnt/azl/etc/pki/rpm-gpg/RPM-GPG-KEY-*; do
+        for key in /assets/pki/rpm-gpg/RPM-GPG-KEY-*; do
             [ -e "$key" ] || continue
-            rpm --root=/mnt/azl --import "$key" 2>/dev/null || true
+            base="$(basename "$key")"
+            if [ -L "$key" ]; then
+                ln -sfn "$(readlink "$key")" "/etc/pki/rpm-gpg/$base"
+                ln -sfn "$(readlink "$key")" "/mnt/azl/etc/pki/rpm-gpg/$base"
+            else
+                install -m 0644 "$key" "/etc/pki/rpm-gpg/$base"
+                install -m 0644 "$key" "/mnt/azl/etc/pki/rpm-gpg/$base"
+            fi
+        done
+        # Import material keys (skip dangling symlinks until target exists).
+        for key in \
+            RPM-GPG-KEY-azurelinux-4.0-primary \
+            RPM-GPG-KEY-azurelinux-desktop \
+            RPM-GPG-KEY-fedora-43-primary \
+            RPM-GPG-KEY-microsoft \
+            RPM-GPG-KEY-githubcli \
+            RPM-GPG-KEY-shiftkey-desktop \
+            RPM-GPG-KEY-rpmfusion-free-fedora-2020 \
+            RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
+        do
+            if [ -f "/etc/pki/rpm-gpg/$key" ]; then
+                rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
+                rpm --root=/mnt/azl --import "/mnt/azl/etc/pki/rpm-gpg/$key" 2>/dev/null || true
+            fi
         done
         shopt -u nullglob
+        # Hard fail if a repo key path dnf will open is missing on the host.
+        test -f /etc/pki/rpm-gpg/RPM-GPG-KEY-shiftkey-desktop
+        test -f /etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary
+        test -f /etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
         dnf5 install -y \
             --refresh \
             --setopt=reposdir=/work/repos \
