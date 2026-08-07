@@ -144,6 +144,9 @@ INSTALL_PKGS=(
     liberation-fonts-all
     dejavu-sans-fonts
     google-noto-fonts-common
+    # Color emoji for Edge/Chromium and web UIs (GitHub reactions, etc.).
+    google-noto-color-emoji-fonts
+    default-fonts-core-emoji
 
     gstreamer1-plugins-good
     gstreamer1-plugins-bad-free

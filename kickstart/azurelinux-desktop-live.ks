@@ -297,6 +297,10 @@ adwaita-mono-fonts
 liberation-fonts-all
 dejavu-sans-fonts
 google-noto-fonts-common
+# Color emoji (GitHub reactions, chat, Edge/Chromium). google-noto-fonts-common
+# alone is not enough - without Noto Color Emoji, sites show empty boxes.
+google-noto-color-emoji-fonts
+default-fonts-core-emoji
 
 # Real codec support - Fedora's own gstreamer packages are the "-free"
 # builds only (no patented mp3/h264/aac decode). RPMFusion's ffmpeg and

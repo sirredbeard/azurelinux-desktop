@@ -76,6 +76,7 @@ CI refreshes those on successful builds via
 | [`copilot-desktop-gtk-webkit-performance.md`](copilot-desktop-gtk-webkit-performance.md) | Copilot Flatpak WebKit RAM, KMSI inject, low-memory profile |
 | [`github-copilot-bundled-git-libcurl.md`](github-copilot-bundled-git-libcurl.md) | GitHub Copilot GUI: force system git (LOCAL_GIT_DIRECTORY); metal clone OK |
 | [`passwordless-sudo-wheel.md`](passwordless-sudo-wheel.md) | Wheel NOPASSWD on live and installed images |
+| [`missing-color-emoji-fonts.md`](missing-color-emoji-fonts.md) | Noto Color Emoji missing; GitHub reactions tofu in Edge |
 
 ## Build, packages, parity
 

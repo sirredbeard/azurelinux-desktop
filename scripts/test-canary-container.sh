@@ -106,7 +106,8 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
         azurelinux-release dnf5 flatpak glib2 gtk4 dconf \
         gnome-backgrounds gnome-terminal \
         microsoft-edge-canary code-insiders gh github-desktop \
-        powershell azure-cli plymouth git github
+        powershell azure-cli plymouth git github \
+        google-noto-color-emoji-fonts default-fonts-core-emoji
     echo
     echo '=== GitHub Copilot GUI system-git override ==='
     test -f /etc/environment.d/50-azurelinux-desktop-github-copilot.conf

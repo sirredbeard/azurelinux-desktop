@@ -87,6 +87,9 @@ PKGS=(
     libayatana-appindicator-gtk3
     # System git for GitHub Copilot GUI (LOCAL_GIT_DIRECTORY=/usr).
     git
+    # Color emoji fonts (Edge/Chromium GitHub UI, etc.).
+    google-noto-color-emoji-fonts
+    default-fonts-core-emoji
 )
 
 WORKDIR="${AZL_CONTAINER_WORKDIR:-$HOME/azl-work/build-canary-container}"
