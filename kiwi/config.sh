@@ -127,6 +127,8 @@ INSTALL_PKGS=(
     gnome-connections
     gnome-weather
     gnome-screenshot
+    # GTK3 Adwaita-dark theme files for gtk-theme='Adwaita-dark' dconf.
+    gnome-themes-extra
     evolution
     evolution-ews
 

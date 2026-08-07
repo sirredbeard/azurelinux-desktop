@@ -107,6 +107,8 @@ PKGS=(
     vulkan-loader
     libvdpau
     libvdpau-va-gl
+    # GTK3 Adwaita-dark files for dconf gtk-theme=Adwaita-dark.
+    gnome-themes-extra
 )
 
 WORKDIR="${AZL_CONTAINER_WORKDIR:-$HOME/azl-work/build-canary-container}"

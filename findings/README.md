@@ -81,6 +81,7 @@ CI refreshes those on successful builds via
 | [`intel-hw-video-accel.md`](intel-hw-video-accel.md) | T470s HD 520: Mesa/Vulkan OK; need RPM Fusion intel-media-driver |
 | [`h264-intel-media-stack.md`](h264-intel-media-stack.md) | Full Mesa/Vulkan/iHD/gst-vaapi/mp3/H.264 on live, installer, canary |
 | [`rpm-gpg-keys-on-target.md`](rpm-gpg-keys-on-target.md) | Installer missed copying vendor RPM GPG keys onto target root |
+| [`gnome-screenshot-mixed-dark-theme.md`](gnome-screenshot-mixed-dark-theme.md) | GTK3 Screenshot mixed light/dark without gnome-themes-extra |
 
 ## Build, packages, parity
 

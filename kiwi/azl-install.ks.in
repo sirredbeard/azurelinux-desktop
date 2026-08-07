@@ -396,6 +396,8 @@ dracut --regenerate-all --force
 mkdir -p /etc/dconf/db/local.d /etc/dconf/profile
 cat > /etc/dconf/db/local.d/00-azl-desktop-defaults << 'EOF'
 [org/gnome/desktop/interface]
+# gtk-theme Adwaita-dark needs gnome-themes-extra (GTK3). See
+# findings/gnome-screenshot-mixed-dark-theme.md.
 color-scheme='prefer-dark'
 gtk-theme='Adwaita-dark'
 

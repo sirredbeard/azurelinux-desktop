@@ -241,6 +241,11 @@ gnome-logs
 gnome-connections
 gnome-weather
 gnome-screenshot
+# GTK3 Adwaita + Adwaita-dark theme files. Without this, dconf
+# gtk-theme='Adwaita-dark' points at a missing theme and GTK3 apps
+# (gnome-screenshot) render mixed light/dark chrome. libadwaita/GTK4
+# apps only need color-scheme prefer-dark.
+gnome-themes-extra
 evolution
 evolution-ews
 
@@ -830,6 +835,9 @@ EOF
 # /etc/dconf/profile/user pointing at the local db, and
 # `dconf update` to compile db/local.d/* into db/local once, at build time.
 mkdir -p /etc/dconf/db/local.d /etc/dconf/profile
+# gtk-theme Adwaita-dark needs gnome-themes-extra (GTK3 theme files).
+# color-scheme prefer-dark drives libadwaita/GTK4. See
+# findings/gnome-screenshot-mixed-dark-theme.md.
 cat > /etc/dconf/db/local.d/00-dark-mode << 'EOF'
 [org/gnome/desktop/interface]
 color-scheme='prefer-dark'
