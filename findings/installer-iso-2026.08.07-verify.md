@@ -1,86 +1,125 @@
-# Installer ISO 2026.08.07 clean-room verify
+# Installer ISO / release 2026.08.07 verify
 
 ## Status
 
-**Filesystem mount parity: PASS** (installed target vs live ISO checks).  
-**Behavioral first boot: PASS** with notes below.  
-**Boxes Standard Partition EFI:** still open — see `installer-efi-separate-partition.md`.
+**Downloader + checksums: PASS** (`Get-AzureLinuxDesktop.ps1` on tag `2026.08.07`).  
+**Mount feature parity (live ISO + installer runtime + live qcow): PASS 104 / FAIL 0.**  
+**Live qcow behavioral (GDM/GNOME, dark theme, kmods, Copilot, BBR, Plymouth strings): PASS.**  
+**Installer `reqpart` + first-boot Plymouth text + post-bootloader GRUB harden: present on published installer ISO.**  
+**Boxes Standard Partition ESP:** product fix is in this rebuild (`reqpart`); retest on this ISO.
 
-## How we installed
+## Artifacts
 
-- Release tag `2026.08.07` stock installer ISO (no custom `inst.ks`).
-- QEMU UEFI, serial TUI, disk `azl-installed-test.qcow2` (~40 GiB virtual).
-- Admin user: `azurelinux` / `azurelinux` (wheel).
-- Storage: Use All Space + **LVM** (not Standard Partition). ESP on `vda1`, `/boot` on `vda2`, LVM root.
-- After Anaconda “Installation complete”, Enter to quit, eject ISO, **UEFI boot from disk only** (do not keep installer `-kernel`/`-initrd` on reset — that re-enters the installer environment).
+Downloaded with project script into `~/azl-work/2026.08.07-fresh/` (sha256 OK):
 
-## Growroot vs bare metal
+- `azurelinux-desktop-live.iso`
+- `azurelinux-desktop-install.iso`
+- `azurelinux-desktop-live.qcow2`
 
-Growroot is for **prebuilt disk images** that CI builds small then `qemu-img resize`s.  
-On a normal installer install to a full-size disk (USB bare metal or a qcow already at final size):
+Note: `-Install` cannot combine with `-Kvm` in one invocation; run Live, Install, and Kvm as separate calls.
 
-- Anaconda already fills the disk.
-- `azl-growroot` runs once, `growpart` is NOCHANGE (or LVM path stamps and skips), writes `/var/lib/azl-growroot.done`.
-- **No expand reboot** from growroot itself (the script does not reboot).
+Installer also copied to:
 
-**SELinux:** installer `%post` still does `touch /.autorelabel`. First boot runs relabel under Plymouth (`azl-first-boot-prepare` + `SuccessAction=reboot`). That is **one** first-boot reboot, not every boot, and not the same as disk expand.
+- `~/Downloads/azurelinux-desktop-install-2026.08.07.iso`
 
-Observed on this VM:
+Older local ISOs/qcow under `~/azl-work` and prior Downloads copies were deleted before download.
 
-- `/.autorelabel` absent after boot.
-- `/var/lib/azl-growroot.done` present; `azl-growroot.service` skipped (condition unmet).
-- Kernel cmdline: `rhgb quiet` (no serial console).
+Tree commit behind this rebuild: **b43c09c** (squash of reqpart, Plymouth message, GRUB recordfail harden, verifier extras).
 
-## Mount verify (`scripts/verify-release-features.sh`)
+## Mount verify
 
-Installed LVM root mounted via nbd + `anaconda_azurelinux-desktop/root`.
+```text
+./scripts/verify-release-features.sh \
+  --live-iso .../azurelinux-desktop-live.iso \
+  --live-qcow .../azurelinux-desktop-live.qcow2 \
+  --installer-iso .../azurelinux-desktop-install.iso
+==== totals: PASS=104 FAIL=0 SKIP=1 ====
+# SKIP = installed-qcow not provided this pass
+```
 
-| Target | Result |
-| --- | --- |
-| live-iso | 43 PASS (same run) |
-| installer-runtime | 18 PASS |
-| installed-qcow | 43 PASS |
-| live-qcow | skipped once (bad path); stale nbd mount can also block remount |
+Log: `~/azl-work/feature-verify-2026.08.07-fresh2/`.
 
-**Totals that run:** `PASS=104 FAIL=0 SKIP=1` (skip = live-qcow path).
+Covered on live ISO and live qcow: performance sysctl/modules (BBR), journald, BFQ udev, all desktop kmod RPMs, dconf dark + backgrounds, emoji fonts, intel-media-driver + mediasdk + iHD link + LIBVA path, Plymouth azurelinux theme, Flathub appstream preseed, Copilot flatpak + gpg-verify remote, growroot unit/helper, GPG key, wheel sudoers, gnome-themes-extra.
 
-Installed target included: kmod families (performance, bluetooth, storage, intel, surface, sensors, psmouse, sound, plus thinkpad/typec/usbhid/uvc at runtime), gnome-themes-extra, intel-mediasdk + media-driver, iHD, GPG key, growroot unit/helper, dconf dark, journald/sysctl assets, Copilot flatpak path checks, etc.
+Installer runtime: staged assets (dconf dark, growroot, iHD helper, LIBVA, polkit), offline repo with kmods + media + emoji, product ks stages `/root/assets`.
 
-## Behavioral (SSH, user azurelinux)
+### Installer kickstart on ISO root
 
-- `systemctl is-system-running`: **degraded** only because `systemd-networkd-wait-online.service` failed. **NetworkManager is active**; typical QEMU/user-net noise, not a desktop blocker.
-- SELinux **Enforcing**.
-- **GDM + gnome-shell** active; greeter on seat0.
-- `color-scheme='prefer-dark'`, `gtk-theme='Adwaita-dark'`; Adwaita-dark theme dirs present.
-- Copilot Flatpak **0.1.17** system; remotes `copilot-desktop-gtk` + flathub; appstream refresh unit enabled; polkit flatpak rule present.
-- Copilot CLI 1.0.78; `edit` 2.0.0.
-- `net.ipv4.tcp_congestion_control = bbr`; journald `SystemMaxUse=200M`; BFQ udev rule for rotational disks.
-- Plymouth default theme **azurelinux**; Noto Color Emoji installed.
-- EFI: `/boot/efi/EFI/azurelinux/{shimx64,grubx64,...}`.
-- Wheel NOPASSWD: file `/etc/sudoers.d/90-wheel-nopasswd` mode `0440`; `sudo -n true` works for azurelinux. (Unprivileged `test -r` fails — verifier must use sudo to read.)
+`/root/azl-install.ks` on installer rootfs:
 
-## Canary note
+```text
+bootloader
+# Platform-required partitions only ...
+reqpart
+```
 
-Local `ghcr.io/.../canary:latest` was **stale** (older image): has GPG key + copilot/edit, missing growroot/sudoers paths. Treat canary as placement canary after the **release canary job** for this tag; do not treat a multi-day-old local pull as parity for this install.
+No `clearpart` / `autopart`. Matches `kiwi/azl-install.ks.in` for Standard Partition ESP scheduling.
 
-## Headless install automation notes
+### First-boot Plymouth message
 
-- Single serial chardev + logfile (dual `-serial` left the log empty).
-- After install, boot **without** installer kernel/initrd.
-- Default user shell is **pwsh** — use `bash -lc` / scp scripts for checks.
-- Host sudo for mounts: fedora/fedora.
+On live roots and installer staged assets:
 
-## Follow-ups landed in tree (next ISO)
+```text
+Finishing setup. System will reboot.
+```
 
-* Plymouth first-boot line is now generic: **Finishing setup. System will reboot.**
-  (no "expanding disk" — wrong on bare metal when only SELinux relabel runs).
-* GRUB: keep menu hidden; also clear `recordfail` / `GRUB_RECORDFAIL_TIMEOUT=0`
-  so a prior failed boot cannot force a text menu.
+In `azl-growroot` and `azl-first-boot-prepare`. No "expanding disk" wording.
 
-## Still open / next ISO
+### GRUB (installed-system path)
 
-1. **Standard Partition ESP:** `reqpart` staged in `kiwi/azl-install.ks.in`
-   (`installer-efi-separate-partition.md`). Retest Standard on next
-   installer ISO. `2026.08.07` still needs LVM or Custom ESP workaround.
-2. Optional: mask or drop `systemd-networkd-wait-online` on desktop images if degraded status is confusing (NM-only hosts).
-3. Live-qcow remount: ensure previous verify nbd mounts are unmounted before re-run.
+Installer `post-bootloader.sh` on ISO includes:
+
+- `GRUB_TIMEOUT=0` / `GRUB_TIMEOUT_STYLE=hidden`
+- `GRUB_RECORDFAIL_TIMEOUT=0`
+- `unset recordfail` in generated cfg
+- `terminal_output gfxterm`
+- `GRUB_DISABLE_OS_PROBER=true`
+
+Live ISO bootloader uses hidden timeout (ISO `grub.cfg` `timeout_style=hidden`).
+
+## Behavioral live qcow (headless QEMU)
+
+Stock live image has **`sshd` disabled** by kickstart (`services --disabled=sshd`). For this pass only, overlay was patched to enable sshd + liveuser auth. Product image itself is unchanged.
+
+Observed over SSH as `liveuser` after GDM up:
+
+- Kernel `6.18.31-1.12.azl4.x86_64`; Azure Linux 4.0 Four Beta
+- `gdm`, `NetworkManager` **active**; `gnome-shell` running
+- Only failed unit seen: `systemd-networkd-wait-online` (QEMU/user-net noise; NM is the desktop path)
+- `gsettings` color-scheme **prefer-dark**, gtk-theme **Adwaita-dark**
+- dconf system defaults: prefer-dark + Adwaita light/dark wallpapers
+- `tcp_congestion_control=bbr`, `default_qdisc=fq`, `swappiness=10`; `tcp_bbr` + `sch_fq` loaded
+- All eight desktop kmod RPMs installed (performance, bluetooth, storage, intel, surface, sensors, psmouse, sound)
+- intel-media-driver, intel-mediasdk, gnome-themes-extra; `iHD_drv_video.so` present; LIBVA dri-nonfree path
+- Copilot Flatpak **0.1.17**; CLI **1.0.78**
+- Plymouth first-boot strings as above; `azl-growroot.service` **enabled**
+- Flatpak appstream dirs for flathub + copilot; RPM GPG key present
+- Repos: azurelinux, microsoft, azl-desktop-kmods, fedora, rpmfusion, microsoft-github
+
+## Canary
+
+Focused rebuild `31172523807` ran with **canary=false** (manual product flags only). Local GHCR pull of canary was not re-verified this pass (403 / no fresh canary job). Canary remains a repo/tool canary, not a full GNOME stack. Treat next schedule or `canary=true` run as the container parity gate.
+
+## Earlier clean-room install (pre-rebuild ISO)
+
+Stock install before `reqpart` rebuild:
+
+- LVM path completed; installed mount + SSH behavioral PASS (dark theme, kmods, Copilot 0.1.17, BBR, growroot.done, SELinux relabel once).
+- Boxes **Standard Partition + use all free space** failed without ESP (`STORAGE_MUST_NOT_BE_ON_ROOT`). Fix is bare `reqpart` on **this** installer ISO — manual Boxes retest with `~/Downloads/azurelinux-desktop-install-2026.08.07.iso`.
+
+## Growroot vs bare metal (unchanged)
+
+Growroot is for resized prebuilt disk images. Full-disk installer installs usually only hit SELinux `/.autorelabel` + one first-boot reboot. Message is generic on purpose.
+
+## Ops notes
+
+- Host sudo: fedora/fedora. Guest admin on installed: azurelinux/azurelinux. Live disk user: liveuser (pwsh default shell → `bash -lc`).
+- Stale NBD mounts from prior verify break live-qcow remount; umount verify paths and `qemu-nbd -d` before re-run. Do not loop on `findmnt | grep nbd` using SOURCE lines without unmounting TARGET paths.
+- Prefer `replace_release=true` on full product rebuilds when dogfooding `Get-AzureLinuxDesktop.ps1` against a fresh dated release.
+
+## Open
+
+1. Manual Boxes: Standard Partition + use all free space on **this** installer ISO (expect ESP via `reqpart`).
+2. Optional installed-qcow mount pass after a fresh install from this ISO.
+3. Canary GHCR after next schedule/`canary=true`.
+4. Optional: quiet `systemd-networkd-wait-online` on desktop if degraded status is confusing.
