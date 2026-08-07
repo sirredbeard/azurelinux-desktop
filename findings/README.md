@@ -77,6 +77,8 @@ CI refreshes those on successful builds via
 | [`github-copilot-bundled-git-libcurl.md`](github-copilot-bundled-git-libcurl.md) | GitHub Copilot GUI: force system git (LOCAL_GIT_DIRECTORY); metal clone OK |
 | [`passwordless-sudo-wheel.md`](passwordless-sudo-wheel.md) | Wheel NOPASSWD on live and installed images |
 | [`missing-color-emoji-fonts.md`](missing-color-emoji-fonts.md) | Noto Color Emoji missing; GitHub reactions tofu in Edge |
+| [`rpmdb-permissions.md`](rpmdb-permissions.md) | rpmdb root-owned is correct; mode should be 0644 not 0600 |
+| [`intel-hw-video-accel.md`](intel-hw-video-accel.md) | T470s HD 520: Mesa/Vulkan OK; need RPM Fusion intel-media-driver |
 
 ## Build, packages, parity
 

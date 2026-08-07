@@ -377,7 +377,10 @@ brightnessctl
 # smooth, lower-power video playback in Totem/the browser rather than pure
 # software decode.
 libva
-libva-intel-media-driver
+# Full Intel VA-API driver from RPM Fusion nonfree. Fedora's
+# libva-intel-media-driver is the patent-free build (MPEG2/JPEG/VP8 only) -
+# no H.264/HEVC on Skylake+ iGPU. See findings/intel-hw-video-accel.md.
+intel-media-driver
 intel-mediasdk
 
 # Plymouth, for the boot splash - a plain kernel console with "quiet rhgb"
@@ -1115,6 +1118,15 @@ rm -f /etc/xdg/autostart/liveinst-setup.desktop
 # usermod -aG wheel) - no static build-time account is embedded. Add the
 # one thing livesys does not: passwordless sudo for wheel and GDM autologin
 echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-wheel-nopasswd
+# rpm package ghosts expect rpmdb.sqlite* mode 0644 (root-owned). Some
+# image/transaction paths leave 0600, which breaks non-root `rpm -q`.
+# Owner stays root; only restore world-read. See findings/rpmdb-permissions.md.
+if [ -d /usr/lib/sysimage/rpm ]; then
+    chmod 0755 /usr/lib/sysimage/rpm 2>/dev/null || true
+    chmod a+r /usr/lib/sysimage/rpm/rpmdb.sqlite \
+        /usr/lib/sysimage/rpm/rpmdb.sqlite-shm \
+        /usr/lib/sysimage/rpm/rpmdb.sqlite-wal 2>/dev/null || true
+fi
 chmod 0440 /etc/sudoers.d/90-wheel-nopasswd
 mkdir -p /etc/gdm
 cat > /etc/gdm/custom.conf << 'EOF'

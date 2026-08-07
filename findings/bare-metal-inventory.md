@@ -91,9 +91,11 @@ installed: Blue Recorder, GNOME Platform 50, Mesa, Intel VAAPI, codecs.
 
 * Passwordless wheel sudo is the product default (live + installed).
   This host has `/etc/sudoers.d/90-wheel-nopasswd`. Do not put the
-  account password in git. `pkexec` also works for polkit-active
-  session reads of root-only paths (`/usr/lib/sysimage/rpm`).
+  account password in git.
+* RPM DB is **root-owned** (correct). Query files should be mode
+  `0644`; if `rpmdb.sqlite` is `0600`, non-root `rpm -q` fails — use
+  `sudo rpm` or `chmod a+r` (see `rpmdb-permissions.md`).
 * Default shell is `pwsh`. Wrap POSIX one-liners in `bash -c '...'`
   when scripting over SSH or in scripts.
-* Full package snapshot from this boot: keep per-boot copies out of
-  git; regenerate with `sudo rpm -qa | sort`.
+* Full package snapshot: `rpm -qa | sort` (or `sudo rpm -qa` if DB is
+  still mode 0600).

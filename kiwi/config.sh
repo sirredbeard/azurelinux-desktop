@@ -211,7 +211,9 @@ INSTALL_PKGS=(
     microcode_ctl
 
     libva
-    libva-intel-media-driver
+    # RPM Fusion nonfree full iHD (H.264/HEVC). Not Fedora's free-only
+    # libva-intel-media-driver. See findings/intel-hw-video-accel.md.
+    intel-media-driver
     intel-mediasdk
 
     plymouth

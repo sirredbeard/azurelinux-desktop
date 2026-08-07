@@ -327,6 +327,14 @@ EOF
 # the install-time admin user in wheel (anaconda-launcher.sh).
 echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-wheel-nopasswd
 chmod 0440 /etc/sudoers.d/90-wheel-nopasswd
+# rpm ghosts expect rpmdb.sqlite* 0644 root-owned. Restore world-read if a
+# prior transaction left 0600 (blocks non-root rpm -q). Owner stays root.
+if [ -d /usr/lib/sysimage/rpm ]; then
+    chmod 0755 /usr/lib/sysimage/rpm 2>/dev/null || true
+    chmod a+r /usr/lib/sysimage/rpm/rpmdb.sqlite \
+        /usr/lib/sysimage/rpm/rpmdb.sqlite-shm \
+        /usr/lib/sysimage/rpm/rpmdb.sqlite-wal 2>/dev/null || true
+fi
 
 if [ -x /usr/sbin/plymouth-set-default-theme ]; then
     plymouth-set-default-theme azurelinux || true
