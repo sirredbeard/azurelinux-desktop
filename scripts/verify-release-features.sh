@@ -223,10 +223,11 @@ verify_root() {
   check "$label" "$root" /etc/udev/rules.d/60-azurelinux-desktop-iosched.rules 'BFQ|bfq|rotational'
   check "$label" "$root" /etc/sysctl.d/99-azurelinux-desktop-performance.conf 'swappiness|tcp_congestion|bbr' || true
   check "$label" "$root" /etc/modules-load.d/azurelinux-desktop-performance.conf 'tcp_bbr|sch_fq' || true
-  # kmod conf may ship only via RPM; still try rpm query for family names
-  check_rpm "$label" "$root" 'azurelinux-desktop-performance-kmod' || true
-  # Any desktop kmod package present is a good signal on live/installed
-  if sudo rpm --root "$root" -qa 'azurelinux-desktop-*-kmod*' 2>/dev/null | tee -a "$LOG" | grep -q .; then
+  # Any desktop kmod package present is a good signal on live/installed.
+  # rpm --root does not always expand shell-style globs in -qa args; filter.
+  kmod_list=$(sudo rpm --root "$root" -qa 2>/dev/null | grep -E '^azurelinux-desktop-.*-kmod' || true)
+  if [[ -n "$kmod_list" ]]; then
+    printf '%s\n' "$kmod_list" | tee -a "$LOG" >/dev/null
     sum "PASS  [$label] desktop kmod RPMs present"
     pass=$((pass + 1))
   else
