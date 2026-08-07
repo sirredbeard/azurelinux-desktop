@@ -349,6 +349,10 @@ EOF
         else
             /scripts/install-copilot-desktop-flatpak.sh /mnt/azl
         fi
+        # Flathub AppStream baked by install helper (issue #6).
+        test -e /mnt/azl/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml \
+            || test -e /mnt/azl/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml.gz
+        test -d /mnt/azl/var/lib/flatpak/appstream/flathub/x86_64/active/icons
 
         # Confirm the priority split held: azl-base (cost=1) should win
         # for azurelinux-release, fedora43 (cost=50) for gtk4/glib2.

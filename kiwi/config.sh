@@ -115,6 +115,10 @@ INSTALL_PKGS=(
     # repo instead of leaving Anaconda to discover a missing provider.
     flatpak-selinux
     gnome-software
+    # RPM AppStream + curated chrome; Flathub catalog is baked into the
+    # prestaged flatpak-system tree (issue #6).
+    appstream-data
+    gnome-app-list
 
     loupe
     papers
@@ -787,6 +791,10 @@ fi
 test -f "$EXTRAS/flatpak-system/repo/config"
 test -d "$EXTRAS/flatpak-system/app/com.github.sirredbeard.copilot-desktop-gtk"
 ls "$EXTRAS/flatpak-system/app" | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
+# Flathub AppStream for GNOME Software first-open catalog (issue #6).
+test -e "$EXTRAS/flatpak-system/appstream/flathub/x86_64/active/appstream.xml" \
+    || test -e "$EXTRAS/flatpak-system/appstream/flathub/x86_64/active/appstream.xml.gz"
+test -d "$EXTRAS/flatpak-system/appstream/flathub/x86_64/active/icons"
 
 #----------------------------------------------------------------------
 # Anaconda launcher symlink (script deployed via kiwi <file>) - same

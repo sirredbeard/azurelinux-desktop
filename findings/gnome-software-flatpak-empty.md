@@ -79,4 +79,6 @@ gnome-software   # search "Calculator" / "Firefox" should list Flathub
 ## Related
 
 * `flatpak-live-session-space.md` — live free-space / DM-snapshot (different issue)
+* `gnome-software-catalog-preseed.md` — issue #6: bake Flathub AppStream at
+  image build so curated tiles are not empty on first open (implemented)
 * kickstart / kiwi Flathub remote-add comments ("no flatpaks in gnome-software")

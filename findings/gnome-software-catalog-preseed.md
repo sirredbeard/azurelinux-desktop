@@ -1,146 +1,107 @@
 # Pre-populate GNOME Software catalog (first open “…” tiles)
 
-**Status:** research only — not implemented.
+**Status:** implemented (issue #6).  
+**Issue:** https://github.com/sirredbeard/azurelinux-desktop/issues/6
 
 ## Observed
 
 Opening GNOME Software and browsing curated sections (for example **Learn**,
-**Editor’s Choice**, **New & Updated**) on first launch shows dark placeholder
+**Editor’s Choice**, **New & Updated**) on first launch showed dark placeholder
 tiles with `…` instead of icons and titles.
 
-<img width="1291" height="932" alt="Screenshot From 2026-08-06 19-02-48" src="https://github.com/user-attachments/assets/2b5b6375-3c27-421b-8a9e-292bcd3b90b2" />
-
-This is a **first-open UX** problem, not “Software is permanently broken.”
-After Flatpak AppStream lands and the per-user xmlb cache is rebuilt, the same
-pages fill in. On a live session or a slow link, that wait is very visible.
+This is a **first-open UX** problem when Flathub AppStream is missing at
+session start. After metadata lands and the per-user xmlb cache is rebuilt,
+the same pages fill in. On a live session or a slow link, that wait is very
+visible. Empty `~/.cache/gnome-software/.../components.xmlb` files (~40
+bytes) built *before* AppStream existed can stick and keep results empty.
 
 ## What Software needs on open
 
-Three layers, independent of each other:
-
 | Layer | Path / source | Role in UI |
 | --- | --- | --- |
-| RPM / distro AppStream | `/usr/share/swcatalog/xml/` (+ icons), often from `appstream-data`, `gnome-app-list`, RPM Fusion `*-appstream-data` | Installed/RPM apps, some category chrome |
-| Flatpak AppStream | `/var/lib/flatpak/appstream/<remote>/<arch>/active/` after `flatpak update --appstream` | Flathub catalog, icons, most “store” content |
-| Per-user GNOME Software cache | `~/.cache/gnome-software/` (libxmlb `.xmlb` silos) | Fast second open; **empty 40-byte silos can stick** if built before AppStream exists |
+| RPM / distro AppStream | `/usr/share/swcatalog/xml/` from `appstream-data`, `gnome-app-list`, RPM Fusion `*-appstream-data` | Installed/RPM apps, curated chrome tags |
+| Flatpak AppStream | `/var/lib/flatpak/appstream/<remote>/<arch>/active/` | Flathub catalog, icons, most “store” content |
+| Per-user GNOME Software cache | `~/.cache/gnome-software/` (libxmlb `.xmlb`) | Fast second open; empty silos stick if built too early |
 
-Curated chrome (Editor’s Choice / featured tiles) comes largely from
-`gnome-app-list` (`org.gnome.App-list.xml` under swcatalog) using tags such as
-`GnomeSoftware::popular` and `GnomeSoftware::FeatureTile`. Those tags point at
-app IDs; Software still needs matching Flatpak (or RPM) AppStream records and
-icons to paint real tiles. Without Flathub AppStream, curation XML alone still
-looks empty.
+Curated chrome (`GnomeSoftware::popular` / `FeatureTile` in `gnome-app-list`)
+still needs matching Flatpak AppStream records and icons to paint real tiles.
 
-fwupd metadata does not drive Learn / Editor’s Choice.
+## Implementation
 
-Upstream vendor notes live in the GNOME Software tree (`doc/vendor-customisation.md`
-in the gnome-software repo). Fedora ships gschema overrides for official/required
-repos and packaging preference; this project already overrides those for AZL +
-Flathub (see flatpak-empty finding).
+### A. Bake Flathub AppStream at image build (primary)
 
-## What this project already does
+Shared path: `scripts/install-copilot-desktop-flatpak.sh` (used by prestage,
+canary, and any installroot that pulls the Copilot Flatpak tree).
 
-From live kickstart and installer kickstart template:
-
-1. **GSettings override** — prefer `flatpak:flathub`, clear Fedora-only
-   `required-repos`, list AZL official repos; updates disabled in Software.
-2. **`azl-flatpak-appstream.service`** — oneshot after `network-online.target`,
-   `ConditionPathExists=!/var/lib/flatpak/appstream/flathub/x86_64/active`,
-   runs `flatpak update --appstream`.
-3. **Installer `%post`** — tries `flatpak update --appstream` when network is up
-   during install (best-effort).
-4. **Live package set** already resolves `appstream-data`, `gnome-app-list`, and
-   RPM Fusion appstream-data packages (see `live-package-list.txt`). Installer
-   offline set historically tracked Azure Linux `appstream` without the full
-   Fedora `appstream-data` snapshot — parity gap to re-check on the next
-   package-list commit.
-
-Live `%post` itself is **offline** for Flathub: comment in kickstart says
-appstream refresh waits until first boot. That is why live first-open still
-races the oneshot (and any slow network).
-
-## Ideas (do not implement yet) — ranked
-
-### A. Bake Flathub AppStream into the image at build time (best for live)
-
-Same idea as thirdparty / Copilot Flatpak prestage: during the **build host**
-step (has network), run:
+After Flathub remote + Copilot app install:
 
 ```bash
-flatpak remote-add --if-not-exists flathub …/flathub.flatpakrepo
-flatpak update --appstream flathub
-# then copy into the image root:
-#   /var/lib/flatpak/appstream/flathub/
+flatpak update --user --appstream flathub
+# assert:
+#   $FLATPAK_USER_DIR/appstream/flathub/x86_64/active/appstream.xml[.gz]
+#   $FLATPAK_USER_DIR/appstream/flathub/x86_64/active/icons/
 ```
 
-Or refresh inside a prepared installroot / KIWI root with a temporary Flatpak
-system dir. Keep `azl-flatpak-appstream.service` as a fallback when the baked
-tree is missing or intentionally stripped.
+`scripts/prestage-copilot-flatpak-system.sh` fail-closes if the AppStream
+tree is missing after copy to `DEST`.
 
-- **Size:** on a reference host, Flathub appstream tree ~**100 MiB** on disk
-  (xml + icons). Squashfs will compress; still a real live ISO bump.
-- **Staleness:** metadata ages with the ISO date; first boot can still refresh
-  in the background. Prefer “good enough at open” over perfect freshness.
-- **Scope:** strongest win on **live ISO** (short session, first impression).
-  Disk images / installed target can keep oneshot-only or also bake if parity
-  is desired.
+| Artifact | Delivery |
+| --- | --- |
+| Live ISO / disk | CI runs prestage → `%post --nochroot` copies `/workspace/prestage/flatpak-system` into `/var/lib/flatpak` and asserts AppStream |
+| Installer ISO | KIWI stages same tree under offline extras; Anaconda nochroot copies to target and asserts |
+| Canary OCI | `build-canary-container.sh` runs install helper into installroot; asserts; `test-canary-container.sh` checks baked tree |
 
-### B. Confirm RPM-side AppStream packages on every artifact
+**Size:** ~**100–102 MiB** uncompressed under
+`/var/lib/flatpak/appstream/flathub` (xml ~47 MiB + icons ~46 MiB + gz).
+Squashfs compresses; still a real live ISO bump. Metadata ages with the ISO
+date; background refresh remains available.
 
-- Live: keep `appstream-data` + `gnome-app-list` (+ RPM Fusion appstream-data if
-  Fusion apps are shown).
-- Installer offline repo / installed target: ensure the same packages are in the
-  resolved set, not only bare `appstream`.
-- Optional `%post`: `appstreamcli refresh-cache --force` so system swcatalog
-  cache exists; note Software still builds **per-user** xmlb on first GUI open.
+### B. RPM AppStream parity
 
-### C. Avoid empty sticky user caches on first session
+Explicit packages on live kickstart and installer offline set (`kiwi/config.sh`):
 
-Prior bug: `~/.cache/gnome-software/flatpak-system-default/components.xmlb` at
-**40 bytes** built before AppStream existed and was not rebuilt. Mitigations to
-evaluate later:
+- `appstream-data`
+- `gnome-app-list`
 
-- Do not start Software (or a silent refresh) until
-  `/var/lib/flatpak/appstream/flathub/.../active` exists.
-- Drop empty/stale xmlb after oneshot completes (tmpfiles or oneshot
-  `ExecStartPost`).
-- Live-only: seed a **liveuser** home cache only if we can generate it
-  non-interactively without a full Wayland session (fragile; prefer A).
+(These already resolved on live via weak deps historically; listing them
+avoids silent drop.)
 
-### D. Optional live-only warmup (higher risk)
+### C. Fallback oneshot + sticky cache cleanup
 
-Some live builders run `gnome-software --gapplication-service` briefly under a
-fake session to warm caches. Fragile under headless lorax/KIWI, easy to flake
-CI, and may still need A first. Treat as last resort.
+`azl-flatpak-appstream.service` still enabled on live + installer:
 
-### E. Custom curation XML (product polish, not first fix)
+- `ConditionPathExists=!/var/lib/flatpak/appstream/flathub/x86_64/active`
+  → no-ops when bake succeeded.
+- `ExecStart=/usr/libexec/azl-flatpak-appstream-refresh` runs
+  `flatpak update --appstream` then deletes `components.xmlb` under
+  `/home/*/.cache/gnome-software/` smaller than 100 bytes.
 
-Optional `assets/` AppStream merge file to feature Copilot / project apps in
-Editor’s Choice. Does not fix empty tiles without AppStream + icons for those
-IDs. Defer until A/B work.
+Installer `%post` only runs `flatpak update --appstream` if the active
+symlink is still missing after the prestaged copy.
 
-## What not to do
+## What we did not do
 
-- Do **not** vendor the entire Flathub app/runtime set into the ISO “so Software
-  looks full.” Metadata-only is enough for browsing; installs still need
-  network (and live free space — see `flatpak-live-session-space.md`).
-- Do **not** leave Fedora’s `required-repos = ['fedora','updates']` active on
-  this image (already overridden).
-- Do **not** disable gpg-verify on Flathub to speed refresh.
-- Do **not** delete the first-boot oneshot if baking AppStream: keep it as
-  repair/refresh when the baked tree is absent.
+- Vendor entire Flathub apps/runtimes into the ISO for browse-only tiles.
+- Disable Flathub GPG verify.
+- Headless `gnome-software --gapplication-service` cache warmup in CI.
+- Custom curation XML (optional product polish later).
 
-## Suggested validation (when implementing)
+## Validation
 
-1. Fresh live boot **without** waiting: open Software → Learn / Editor’s Choice
-   show real tiles within a few seconds offline (if AppStream was baked).
-2. `test -e /var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml`
-   (or `.gz`) on the squashfs / qcow before first boot.
-3. After first open:
-   `find ~/.cache/gnome-software -name '*.xmlb' -size +1k` (no 40-byte silos).
-4. Installed system: oneshot no-ops when baked path exists; still works when
-   path is missing (simulate by removing appstream tree).
-5. ISO size delta recorded in the PR (before/after).
+1. Prestaged tree / squashfs / canary root:
+   `test -e /var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml`
+   and `.../active/icons`.
+2. Fresh live boot offline: Software Learn / Editor’s Choice show real tiles
+   within a few seconds (no wait on network oneshot).
+3. After first open: `find ~/.cache/gnome-software -name '*.xmlb' -size +1k`
+   (no 40-byte flatpak silos).
+4. Simulate missing bake: remove `appstream/flathub/.../active` → oneshot
+   pulls on network-online.
+5. ISO size: record delta on next live build (~100 MiB before squashfs).
+
+Metal reference host (this session): system AppStream already ~102 MiB after
+prior `flatpak update --appstream`; empty 40-byte user xmlb cleaned when
+found under `~/.cache/gnome-software/flatpak-user-user/`.
 
 ## Relation to prior work
 
@@ -150,20 +111,11 @@ IDs. Defer until A/B work.
 | Live Flatpak free space / DM snapshot | `flatpak-live-session-space.md` |
 | Copilot Flatpak GPG / polkit | `flatpak-untrusted-non-gpg-remote.md` |
 
-## Key log / size notes
+## Code touchpoints
 
-```text
-# Host reference (Fedora) after normal use:
-#   /var/lib/flatpak/appstream/flathub  ~102M
-# Live package list includes:
-#   appstream-data-43-*.fc43.noarch
-#   gnome-app-list-*.fc43.noarch
-# Prior nested install:
-#   ~/.cache/gnome-software/.../components.xmlb  40 bytes empty if built too early
-```
-
-## Decision (pending implementation)
-
-Prefer **A (bake Flathub AppStream at image build)** for live, keep oneshot as
-fallback, **B (AppStream RPM parity)** on installer/installed, and only then
-consider cache-warmup or custom curation. No code change in this research pass.
+- `scripts/install-copilot-desktop-flatpak.sh` — bake + assert
+- `scripts/prestage-copilot-flatpak-system.sh` — DEST assert
+- `kickstart/azurelinux-desktop-live.ks` — packages, copy assert, refresh unit
+- `kiwi/config.sh` — packages + EXTRAS assert
+- `kiwi/azl-install.ks.in` — target copy assert + refresh unit
+- `scripts/build-canary-container.sh` / `test-canary-container.sh` — assert

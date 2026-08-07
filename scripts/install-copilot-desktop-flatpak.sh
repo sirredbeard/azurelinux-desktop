@@ -153,4 +153,25 @@ if [[ ! -f "${FLATPAK_USER_DIR}/exports/share/applications/${APP_ID}.desktop" ]]
     fi
 fi
 
+# Bake Flathub AppStream into the system tree so GNOME Software curated
+# pages (Learn / Editor's Choice / …) are not empty on first open
+# (github.com/sirredbeard/azurelinux-desktop/issues/6). Metadata-only
+# (~100 MiB: appstream.xml + icons); apps still install over the network.
+# Images keep azl-flatpak-appstream.service as a fallback when this tree
+# is missing or stripped.
+echo "=== Baking Flathub AppStream into ${FLATPAK_USER_DIR} ==="
+flatpak update --user --appstream flathub
+AS_ACTIVE="${FLATPAK_USER_DIR}/appstream/flathub/x86_64/active"
+if [[ ! -e "${AS_ACTIVE}/appstream.xml" && ! -e "${AS_ACTIVE}/appstream.xml.gz" ]]; then
+    echo "error: Flathub AppStream missing after update --appstream (${AS_ACTIVE})" >&2
+    ls -la "${FLATPAK_USER_DIR}/appstream/flathub/x86_64/" 2>/dev/null || true
+    exit 1
+fi
+if [[ ! -d "${AS_ACTIVE}/icons" ]]; then
+    echo "error: Flathub AppStream icons dir missing (${AS_ACTIVE}/icons)" >&2
+    exit 1
+fi
+du -sh "${FLATPAK_USER_DIR}/appstream" 2>/dev/null || true
+echo "=== Flathub AppStream OK ==="
+
 echo "=== Copilot Flatpak install OK (${APP_ID}) ==="

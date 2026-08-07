@@ -160,12 +160,17 @@ fi
 if [ -s "$EXTRAS"/thirdparty-versions.txt ]; then
     install -m 0644 "$EXTRAS"/thirdparty-versions.txt /mnt/sysroot/root/thirdparty/thirdparty-versions.txt
 fi
-# Microsoft Copilot GTK Flatpak OSTree (pre-populated at image-build time
-# so the target install stays offline). Copy the whole system Flatpak
-# dir; remotes + Platform//50 + app land together.
+# Microsoft Copilot GTK Flatpak OSTree + Flathub AppStream (pre-populated
+# at image-build time so the target install stays offline). Copy the whole
+# system Flatpak dir; remotes + Platform//50 + app + appstream land together
+# (issue #6).
 if [ -d "$EXTRAS/flatpak-system" ] && [ -f "$EXTRAS/flatpak-system/repo/config" ]; then
     mkdir -p /mnt/sysroot/var/lib/flatpak
     cp -a "$EXTRAS/flatpak-system"/. /mnt/sysroot/var/lib/flatpak/
+    test -d /mnt/sysroot/var/lib/flatpak/app/com.github.sirredbeard.copilot-desktop-gtk
+    test -e /mnt/sysroot/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml \
+        || test -e /mnt/sysroot/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml.gz
+    test -d /mnt/sysroot/var/lib/flatpak/appstream/flathub/x86_64/active/icons
 else
     echo "error: staged Copilot Flatpak tree missing under $EXTRAS/flatpak-system" >&2
     exit 1
@@ -486,14 +491,27 @@ if [ -s /root/thirdparty/thirdparty-versions.txt ]; then
 fi
 if [ -s /root/thirdparty/flathub.flatpakrepo ]; then
     flatpak remote-add --if-not-exists flathub /root/thirdparty/flathub.flatpakrepo 2>&1 || true
-    # Installer %post usually has network; seed appstream so Software is
-    # not empty on first launch. First-boot unit covers the offline case.
-    flatpak update --appstream 2>&1 || true
+    # Prestaged tree already carries Flathub AppStream (issue #6). Best-effort
+    # refresh when install-time network is up; first-boot unit is fallback.
+    if [ ! -e /var/lib/flatpak/appstream/flathub/x86_64/active ]; then
+        flatpak update --appstream 2>&1 || true
+    fi
 else
     echo "WARNING: flathub.flatpakrepo wasn't staged - flathub remote not added" >&2
 fi
 rm -rf /root/thirdparty
 
+# Fallback when prestaged AppStream is missing (ConditionPathExists).
+# Also drop empty sticky user xmlb silos after a late pull (issue #6).
+cat > /usr/libexec/azl-flatpak-appstream-refresh << 'EOF'
+#!/bin/bash
+set -euo pipefail
+/usr/bin/flatpak update --appstream
+find /home -path '*/.cache/gnome-software/*/components.xmlb' \
+    -size -100c -delete 2>/dev/null || true
+exit 0
+EOF
+chmod 0755 /usr/libexec/azl-flatpak-appstream-refresh
 cat > /usr/lib/systemd/system/azl-flatpak-appstream.service << 'EOF'
 [Unit]
 Description=Refresh Flathub appstream on first boot
@@ -504,7 +522,7 @@ ConditionPathExists=!/var/lib/flatpak/appstream/flathub/x86_64/active
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/flatpak update --appstream
+ExecStart=/usr/libexec/azl-flatpak-appstream-refresh
 RemainAfterExit=yes
 
 [Install]

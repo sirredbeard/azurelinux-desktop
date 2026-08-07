@@ -2,10 +2,12 @@
 # prestage-copilot-flatpak-system.sh
 #
 # Purpose: Build a complete /var/lib/flatpak tree for the Microsoft Copilot
-#   GTK Flatpak (Platform//50 + app + Pages remote) into DEST_DIR. Used by
-#   CI *before* livemedia-creator/kiwi so Anaconda %post only copies the
-#   tree. Pulling OSTree inside Anaconda %post --nochroot hung for 90+ min
-#   on GHA; the same install finishes in ~30s on the build host/container.
+#   GTK Flatpak (Platform//50 + app + Pages remote) plus Flathub AppStream
+#   metadata into DEST_DIR. Used by CI *before* livemedia-creator/kiwi so
+#   Anaconda %post only copies the tree. Pulling OSTree inside Anaconda
+#   %post --nochroot hung for 90+ min on GHA; the same install finishes in
+#   ~30s on the build host/container. AppStream bake fills GNOME Software
+#   curated tiles on first open (issue #6).
 # Usage:   ./scripts/prestage-copilot-flatpak-system.sh DEST_DIR [flathub.flatpakrepo]
 # Needs:  flatpak CLI, network, install-copilot-desktop-flatpak.sh beside this
 #         script (or SCRIPTS_DIR). DEST_DIR is replaced on each run.
@@ -51,6 +53,11 @@ test -d "$DEST/app/com.github.sirredbeard.copilot-desktop-gtk"
 # Exported desktop id used in GNOME favorites.
 test -e "$DEST/exports/share/applications/com.github.sirredbeard.copilot-desktop-gtk.desktop" \
     || find "$DEST" -name 'com.github.sirredbeard.copilot-desktop-gtk.desktop' | grep -q .
+# Flathub AppStream (GNOME Software first-open catalog; issue #6).
+test -e "$DEST/appstream/flathub/x86_64/active/appstream.xml" \
+    || test -e "$DEST/appstream/flathub/x86_64/active/appstream.xml.gz"
+test -d "$DEST/appstream/flathub/x86_64/active/icons"
 
 du -sh "$DEST" || true
+du -sh "$DEST/appstream" 2>/dev/null || true
 echo "=== Prestage OK (${DEST}) ==="

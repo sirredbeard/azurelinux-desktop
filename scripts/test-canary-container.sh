@@ -183,6 +183,12 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
         | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
     flatpak remotes --system --columns=name | grep -qx 'copilot-desktop-gtk'
     flatpak remotes --system --columns=name | grep -qx 'flathub'
+    # Flathub AppStream baked at image build (GNOME Software catalog; issue #6).
+    echo '=== Flathub AppStream (preseeded) ==='
+    test -e /var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml \
+        || test -e /var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml.gz
+    test -d /var/lib/flatpak/appstream/flathub/x86_64/active/icons
+    du -sh /var/lib/flatpak/appstream/flathub 2>/dev/null || true
     # Pages stream is GPG-signed; system remote must verify signatures.
     # Pure bash: the canary image is minimal and does not ship gawk/awk.
     if [[ -f /var/lib/flatpak/repo/config ]]; then

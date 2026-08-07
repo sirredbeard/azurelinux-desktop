@@ -225,6 +225,11 @@ pipewire-pulseaudio
 wireplumber
 flatpak
 gnome-software
+# RPM AppStream + curated chrome for GNOME Software (Editor's Choice /
+# popular tags). Flathub catalog metadata is baked separately via the
+# prestaged /var/lib/flatpak/appstream tree (issue #6).
+appstream-data
+gnome-app-list
 
 # The rest of a normal GNOME desktop - default viewers, a handful of
 # core apps, nothing that pulls in an office suite or a docs/tour/parental-
@@ -522,13 +527,16 @@ install -m 0755 /workspace/scripts/install-dotnet-sdk-tarball.sh /mnt/sysimage/r
 install -m 0755 /workspace/scripts/configure-github-copilot-system-git.sh \
     /mnt/sysimage/root/thirdparty/configure-github-copilot-system-git.sh
 
-# Microsoft Copilot GTK Flatpak (updatable Pages remote). Do *not* run
-# flatpak install against /mnt/sysimage here - OSTree pulls inside Anaconda
-# %post --nochroot hung for 90+ minutes on GHA while the same pull finishes
-# in ~30s on the build host. CI (and local disk builds) prestage a full
-# /var/lib/flatpak tree at /workspace/prestage/flatpak-system via
+# Microsoft Copilot GTK Flatpak (updatable Pages remote) + Flathub
+# AppStream metadata. Do *not* run flatpak install / update --appstream
+# against /mnt/sysimage here - OSTree pulls inside Anaconda %post --nochroot
+# hung for 90+ minutes on GHA while the same pull finishes in ~30s on the
+# build host. CI (and local disk builds) prestage a full /var/lib/flatpak
+# tree at /workspace/prestage/flatpak-system via
 # scripts/prestage-copilot-flatpak-system.sh before livemedia-creator; this
-# block only copies it in.
+# block only copies it in. AppStream bake fills GNOME Software curated
+# tiles offline on first open (issue #6); azl-flatpak-appstream.service
+# remains the fallback when the active symlink is missing.
 STAGE_FP=/workspace/prestage/flatpak-system
 if [ ! -f "$STAGE_FP/repo/config" ]; then
     echo "error: staged Copilot Flatpak missing at $STAGE_FP (run prestage-copilot-flatpak-system.sh before livemedia-creator)" >&2
@@ -537,6 +545,9 @@ fi
 mkdir -p /mnt/sysimage/var/lib/flatpak
 cp -a "$STAGE_FP"/. /mnt/sysimage/var/lib/flatpak/
 test -d /mnt/sysimage/var/lib/flatpak/app/com.github.sirredbeard.copilot-desktop-gtk
+test -e /mnt/sysimage/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml \
+    || test -e /mnt/sysimage/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml.gz
+test -d /mnt/sysimage/var/lib/flatpak/appstream/flathub/x86_64/active/icons
 %end
 
 %post --log=/var/log/azl-desktop-post.log
@@ -967,7 +978,20 @@ DefaultDisabled=true
 EOF
 glib-compile-schemas /usr/share/glib-2.0/schemas
 
-# Live/install %post is offline for appstream; refresh once network is up.
+# Fallback only: prestaged images already have Flathub AppStream under
+# /var/lib/flatpak/appstream/flathub/.../active (issue #6). Condition skips
+# when baked. After a late pull, drop empty sticky user xmlb silos that
+# GNOME Software may have written before metadata existed.
+cat > /usr/libexec/azl-flatpak-appstream-refresh << 'EOF'
+#!/bin/bash
+set -euo pipefail
+/usr/bin/flatpak update --appstream
+# Empty components.xmlb (~40 bytes) built before AppStream existed sticks.
+find /home -path '*/.cache/gnome-software/*/components.xmlb' \
+    -size -100c -delete 2>/dev/null || true
+exit 0
+EOF
+chmod 0755 /usr/libexec/azl-flatpak-appstream-refresh
 cat > /usr/lib/systemd/system/azl-flatpak-appstream.service << 'EOF'
 [Unit]
 Description=Refresh Flathub appstream on first boot
@@ -978,7 +1002,7 @@ ConditionPathExists=!/var/lib/flatpak/appstream/flathub/x86_64/active
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/flatpak update --appstream
+ExecStart=/usr/libexec/azl-flatpak-appstream-refresh
 RemainAfterExit=yes
 
 [Install]
