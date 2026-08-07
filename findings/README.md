@@ -79,6 +79,7 @@ CI refreshes those on successful builds via
 
 | File | Topic |
 | --- | --- |
+| [`live-iso-erofs-evaluation.md`](live-iso-erofs-evaluation.md) | EROFS vs SquashFS for live ISO (issue #4) |
 | [`fedora-azl-repo-mixing.md`](fedora-azl-repo-mixing.md) | Repo cost/priority and excludes |
 | [`latest-vendor-packages.md`](latest-vendor-packages.md) | Always-latest Microsoft/GitHub tools and .NET 11 |
 | [`live-iso-installer-parity.md`](live-iso-installer-parity.md) | Parity matrix across deliverables |
