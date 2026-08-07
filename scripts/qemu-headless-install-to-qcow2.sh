@@ -51,21 +51,54 @@ azl_find_ovmf
 OVMF_VARS="$(azl_prepare_ovmf_vars "$WORKDIR" "${NAME}-install")"
 
 echo "Extracting installer kernel/initrd and product kickstart..."
+# Kernel/initrd live on the ISO boot tree. Product ks is inside the
+# LiveOS squashfs root (not a top-level ISO path).
 7z x -y -o"$STAGE/bootextract" "$ISO" \
   "boot/x86_64/loader/linux" \
-  "boot/x86_64/loader/initrd" \
-  "root/azl-install.ks" >/dev/null
+  "boot/x86_64/loader/initrd" >/dev/null
 KERNEL="$STAGE/bootextract/boot/x86_64/loader/linux"
 INITRD="$STAGE/bootextract/boot/x86_64/loader/initrd"
-PROD_KS="$STAGE/bootextract/root/azl-install.ks"
 if [[ ! -f "$KERNEL" || ! -f "$INITRD" ]]; then
   KERNEL="$(find "$STAGE/bootextract" -type f -name linux | head -1)"
   INITRD="$(find "$STAGE/bootextract" -type f -name initrd | head -1)"
 fi
 [[ -s "${KERNEL:-}" && -s "${INITRD:-}" ]] \
   || { echo "error: kernel/initrd missing after extract" >&2; find "$STAGE" -type f | head -40 >&2; exit 1; }
-[[ -f "$PROD_KS" ]] \
-  || { echo "error: product root/azl-install.ks not on ISO" >&2; exit 1; }
+
+PROD_KS="$STAGE/azl-install.ks"
+if [[ -n "${SUDO_ASKPASS:-}" ]]; then
+  sudo_cmd() { command sudo -A "$@"; }
+elif sudo -n true 2>/dev/null; then
+  sudo_cmd() { command sudo -n "$@"; }
+else
+  echo "error: need sudo to pull product ks from installer squashfs" >&2
+  exit 1
+fi
+ISO_MNT="$STAGE/iso_mnt"
+SQ_MNT="$STAGE/sq_mnt"
+ROOT_MNT="$STAGE/root_mnt"
+mkdir -p "$ISO_MNT" "$SQ_MNT" "$ROOT_MNT"
+extract_cleanup() {
+  sudo_cmd umount "$ROOT_MNT" 2>/dev/null || true
+  sudo_cmd umount "$SQ_MNT" 2>/dev/null || true
+  sudo_cmd umount "$ISO_MNT" 2>/dev/null || true
+}
+trap extract_cleanup EXIT
+sudo_cmd mount -o loop,ro "$ISO" "$ISO_MNT"
+sudo_cmd mount -o loop,ro "$ISO_MNT/LiveOS/squashfs.img" "$SQ_MNT"
+if sudo_cmd test -f "$SQ_MNT/LiveOS/rootfs.img"; then
+  sudo_cmd mount -o loop,ro "$SQ_MNT/LiveOS/rootfs.img" "$ROOT_MNT"
+  KS_SRC="$ROOT_MNT/root/azl-install.ks"
+else
+  KS_SRC="$SQ_MNT/root/azl-install.ks"
+fi
+sudo_cmd test -f "$KS_SRC" \
+  || { echo "error: product root/azl-install.ks missing in installer rootfs" >&2; exit 1; }
+sudo_cmd cp "$KS_SRC" "$PROD_KS"
+sudo_cmd chmod 0644 "$PROD_KS"
+extract_cleanup
+trap - EXIT
+[[ -f "$PROD_KS" ]] || { echo "error: failed to copy product kickstart" >&2; exit 1; }
 
 PASS_HASH="$(printf "%s\n" "$ADMIN_PASS" | openssl passwd -6 -stdin)"
 KS="$STAGE/test-install.ks"
