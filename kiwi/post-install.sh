@@ -61,12 +61,13 @@ touch /.autorelabel
 if [ -x /usr/local/bin/azl-link-intel-ihd ]; then
     /usr/local/bin/azl-link-intel-ihd /
 elif [ -e /usr/lib64/dri-nonfree/iHD_drv_video.so ]; then
-    install -d -m 0755 /usr/lib64/dri
+    install -d -m 0755 /usr/lib64/dri /etc/environment.d
     ln -sfn ../dri-nonfree/iHD_drv_video.so /usr/lib64/dri/iHD_drv_video.so
-    install -d -m 0755 /etc/environment.d
-    printf '%s\n' 'LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree:/usr/lib64/dri' \
-        > /etc/environment.d/50-azurelinux-desktop-libva.conf
-    chmod 0644 /etc/environment.d/50-azurelinux-desktop-libva.conf
+    if [ -f /usr/share/azurelinux-desktop/environment.d/50-azurelinux-desktop-libva.conf ]; then
+        install -m 0644 \
+            /usr/share/azurelinux-desktop/environment.d/50-azurelinux-desktop-libva.conf \
+            /etc/environment.d/50-azurelinux-desktop-libva.conf
+    fi
 fi
 
 # Desktop performance userspace (Fedora packages). Sysctl/zram conf comes

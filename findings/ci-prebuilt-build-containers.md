@@ -141,3 +141,9 @@ missing the kiwi equivalent. Fix: workflow-level
 `BUILD_KIWI_IMAGE: ghcr.io/${{ github.repository }}/build-kiwi:f43`
 
 in `build-installer-iso.yml`.
+
+## Live chroot assets (2026.08.07)
+
+Chrooted kickstart `%post` cannot use `/workspace`. Stage assets to
+`/root/assets` in nochroot. See `findings/rpm-gpg-keys-on-target.md`.
+Missing keys aborted the rest of desktop polish on disk image builds.

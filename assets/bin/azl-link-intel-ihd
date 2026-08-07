@@ -27,6 +27,21 @@ nonfree_so="${prefix}/usr/lib64/dri-nonfree/iHD_drv_video.so"
 envdir="${prefix}/etc/environment.d"
 envfile="${envdir}/50-azurelinux-desktop-libva.conf"
 
+# Static LIBVA path file: prefer image asset, then repo layout when
+# this script is run from a checkout during image build.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+asset_env=""
+for cand in \
+    "${prefix}/usr/share/azurelinux-desktop/environment.d/50-azurelinux-desktop-libva.conf" \
+    "${script_dir}/../environment.d/50-azurelinux-desktop-libva.conf" \
+    "${AZL_DESKTOP_ASSETS:-}/environment.d/50-azurelinux-desktop-libva.conf"
+do
+    if [[ -n "$cand" && -f "$cand" ]]; then
+        asset_env="$cand"
+        break
+    fi
+done
+
 if [[ -e "$nonfree_so" ]]; then
     install -d -m 0755 "$dri"
     # Relative link so the path stays valid if the root is relocated.
@@ -34,8 +49,10 @@ if [[ -e "$nonfree_so" ]]; then
 fi
 
 install -d -m 0755 "$envdir"
-# Sessions that read environment.d also pick up dri-nonfree first.
-cat > "$envfile" <<'EOF'
-LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree:/usr/lib64/dri
-EOF
-chmod 0644 "$envfile"
+if [[ -n "$asset_env" ]]; then
+    install -m 0644 "$asset_env" "$envfile"
+else
+    # Last resort when assets were not staged (should not happen in CI).
+    printf '%s\n' 'LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree:/usr/lib64/dri' >"$envfile"
+    chmod 0644 "$envfile"
+fi

@@ -689,7 +689,13 @@ if [ -f /opt/azl-desktop-assets/bin/azl-link-intel-ihd ]; then
     install -m 0755 \
         /opt/azl-desktop-assets/bin/azl-link-intel-ihd \
         /usr/local/bin/azl-link-intel-ihd
-    /usr/local/bin/azl-link-intel-ihd /
+    install -d -m 0755 /usr/share/azurelinux-desktop/environment.d
+    if [ -f /opt/azl-desktop-assets/environment.d/50-azurelinux-desktop-libva.conf ]; then
+        install -m 0644 \
+            /opt/azl-desktop-assets/environment.d/50-azurelinux-desktop-libva.conf \
+            /usr/share/azurelinux-desktop/environment.d/50-azurelinux-desktop-libva.conf
+    fi
+    AZL_DESKTOP_ASSETS=/opt/azl-desktop-assets /usr/local/bin/azl-link-intel-ihd /
 fi
 
 #----------------------------------------------------------------------

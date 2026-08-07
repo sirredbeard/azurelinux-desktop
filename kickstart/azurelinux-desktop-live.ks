@@ -493,6 +493,9 @@ install -m 0755 /workspace/assets/bin/azl-first-boot-prepare \
     /mnt/sysimage/usr/libexec/azurelinux-desktop/azl-first-boot-prepare
 install -m 0755 /workspace/assets/bin/azl-link-intel-ihd \
     /mnt/sysimage/usr/local/bin/azl-link-intel-ihd
+install -d -m 0755 /mnt/sysimage/usr/share/azurelinux-desktop/environment.d
+install -m 0644 /workspace/assets/environment.d/50-azurelinux-desktop-libva.conf \
+    /mnt/sysimage/usr/share/azurelinux-desktop/environment.d/50-azurelinux-desktop-libva.conf
 install -m 0644 /workspace/assets/systemd/selinux-autorelabel.service.d/10-azurelinux-desktop.conf \
     /mnt/sysimage/usr/lib/systemd/system/selinux-autorelabel.service.d/10-azurelinux-desktop.conf
 
@@ -561,6 +564,14 @@ test -d /mnt/sysimage/var/lib/flatpak/app/com.github.sirredbeard.copilot-desktop
 test -e /mnt/sysimage/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml \
     || test -e /mnt/sysimage/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml.gz
 test -d /mnt/sysimage/var/lib/flatpak/appstream/flathub/x86_64/active/icons
+
+# Chrooted %post cannot see the build host /workspace mount. Stage the
+# full assets tree under /root/assets so every install -m path works
+# inside the target root. Removed at the end of chrooted %post.
+rm -rf /mnt/sysimage/root/assets
+cp -a /workspace/assets /mnt/sysimage/root/assets
+test -f /mnt/sysimage/root/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+test -f /mnt/sysimage/root/assets/dconf/db/local.d/00-azl-desktop-defaults
 %end
 
 %post --log=/var/log/azl-desktop-post.log
@@ -574,8 +585,15 @@ set -x
 # Keys live in assets/pki/rpm-gpg (Fedora, Azure Linux, Microsoft, GitHub,
 # RPM Fusion, project kmods). Without this, dnf5 prints
 # "skipped OpenPGP checks" for every unsigned-trust path.
+# Source tree is /root/assets (copied in %post --nochroot); /workspace is
+# not visible in this chroot under livemedia-creator --no-virt.
+ASSETS=/root/assets
+if [ ! -d "$ASSETS" ]; then
+    echo "error: staged assets missing at $ASSETS (nochroot must copy /workspace/assets)" >&2
+    exit 1
+fi
 install -d -m 0755 /etc/pki/rpm-gpg
-for src in /workspace/assets/pki/rpm-gpg /root/assets/pki/rpm-gpg /opt/azl-desktop-assets/pki/rpm-gpg; do
+for src in "$ASSETS/pki/rpm-gpg" /opt/azl-desktop-assets/pki/rpm-gpg; do
     if [ -d "$src" ]; then
         # Preserve AZL relative symlinks (releasever/basearch key names).
         # Skip docs so README.md never lands under /etc/pki/rpm-gpg.
@@ -612,7 +630,7 @@ do
     rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
 done
 
-install -m 0644 /workspace/assets/yum.repos.d/azl-desktop-fedora.repo \
+install -m 0644 "$ASSETS/yum.repos.d/azl-desktop-fedora.repo" \
     /etc/yum.repos.d/azl-desktop-fedora.repo
 
 # The kickstart `repo --name=...` lines above (ms-prod, vscode, edge-canary,
@@ -626,10 +644,10 @@ install -m 0644 /workspace/assets/yum.repos.d/azl-desktop-fedora.repo \
 # version was current on the day this ISO was built, with no `dnf upgrade`
 # path afterward. Persist their real upstream repos too so they keep
 # receiving updates same as everything else.
-install -m 0644 /workspace/assets/yum.repos.d/azl-desktop-microsoft-github.repo \
+install -m 0644 "$ASSETS/yum.repos.d/azl-desktop-microsoft-github.repo" \
     /etc/yum.repos.d/azl-desktop-microsoft-github.repo
 
-install -m 0644 /workspace/assets/yum.repos.d/azl-desktop-rpmfusion.repo \
+install -m 0644 "$ASSETS/yum.repos.d/azl-desktop-rpmfusion.repo" \
     /etc/yum.repos.d/azl-desktop-rpmfusion.repo
 
 # Known conflicts as of this writing (see findings/fedora-azl-repo-mixing.md).
@@ -650,8 +668,8 @@ sed -i '/^\[azl-microsoft\]/,/^\[/ s/^exclude=/&grub2-tools-extra /' /etc/yum.re
 
 # Project OpenPGP key (same as Copilot Flatpak Pages). Required for gpgcheck=1.
 install -d -m 0755 /etc/pki/rpm-gpg
-if [ -f /workspace/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
-    install -m 0644 /workspace/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
+if [ -f "$ASSETS"/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
+    install -m 0644 "$ASSETS"/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
         /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
 elif [ -f /root/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
     install -m 0644 /root/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
@@ -668,8 +686,8 @@ rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop 2>/dev/null || true
 
 # Project signing public key (Flatpak remote trust helper + human path).
 install -d -m 0755 /usr/share/azurelinux-desktop/gpg
-if [ -f /workspace/assets/gpg/signing-key.asc ]; then
-    install -m 0644 /workspace/assets/gpg/signing-key.asc \
+if [ -f "$ASSETS"/gpg/signing-key.asc ]; then
+    install -m 0644 "$ASSETS"/gpg/signing-key.asc \
         /usr/share/azurelinux-desktop/gpg/signing-key.asc
 elif [ -f /root/assets/gpg/signing-key.asc ]; then
     install -m 0644 /root/assets/gpg/signing-key.asc \
@@ -678,7 +696,7 @@ elif [ -f /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
     install -m 0644 /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
         /usr/share/azurelinux-desktop/gpg/signing-key.asc
 fi
-install -m 0644 /workspace/assets/yum.repos.d/azl-desktop-kmods.repo \
+install -m 0644 "$ASSETS"/yum.repos.d/azl-desktop-kmods.repo \
     /etc/yum.repos.d/azl-desktop-kmods.repo
 
 systemctl set-default graphical.target
@@ -719,7 +737,7 @@ systemctl enable vboxservice.service 2>/dev/null || true
 # virtio_input: in-tree; preload so a virtio-tablet hot-add (Boxes/XML)
 # binds immediately. Clicks under GNOME Wayland need a real tablet, not
 # only spice-vdagent uinput (Mutter drops uinput button events).
-install -m 0644 /workspace/assets/modules-load.d/azurelinux-desktop-virtio-input.conf \
+install -m 0644 "$ASSETS"/modules-load.d/azurelinux-desktop-virtio-input.conf \
     /etc/modules-load.d/azurelinux-desktop-virtio-input.conf
 
 # Fedora's livesys-scripts package is desktop-agnostic by design - it
@@ -752,7 +770,7 @@ fi
 # plymouth/GDM take over. Omitting the module outright removes the noise
 # at the source instead of just hoping the splash covers it in time.
 mkdir -p /etc/dracut.conf.d
-install -m 0644 /workspace/assets/dracut.conf.d/no-multipath.conf \
+install -m 0644 "$ASSETS"/dracut.conf.d/no-multipath.conf \
     /etc/dracut.conf.d/no-multipath.conf
 
 # The other visible boot artifact - the custom plymouth splash working
@@ -768,7 +786,7 @@ install -m 0644 /workspace/assets/dracut.conf.d/no-multipath.conf \
 # back to a plain text framebuffer before the driver (and the real
 # root's plymouthd) come back up. Forcing virtio_gpu into the initrd's
 # module list up front (instead of loading it late) shrinks that window.
-install -m 0644 /workspace/assets/dracut.conf.d/early-kms.conf \
+install -m 0644 "$ASSETS"/dracut.conf.d/early-kms.conf \
     /etc/dracut.conf.d/early-kms.conf
 
 # plymouth-quit-wait.service fires when systemd decides the boot is
@@ -779,7 +797,7 @@ install -m 0644 /workspace/assets/dracut.conf.d/early-kms.conf \
 # graph is up, giving the animation its intended boot-duration run
 # instead of a one-second flash before the static logo.
 mkdir -p /etc/systemd/system/plymouth-quit-wait.service.d
-install -m 0644 /workspace/assets/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf \
+install -m 0644 "$ASSETS"/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf \
     /etc/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf
 
 # System-wide dark mode and background defaults. /etc/dconf/db/local.d is the
@@ -793,11 +811,11 @@ mkdir -p /etc/dconf/db/local.d /etc/dconf/profile
 # gtk-theme Adwaita-dark needs gnome-themes-extra (GTK3 theme files).
 # color-scheme prefer-dark drives libadwaita/GTK4. See
 # findings/gnome-screenshot-mixed-dark-theme.md.
-install -m 0644 /workspace/assets/dconf/db/local.d/00-azl-desktop-defaults \
+install -m 0644 "$ASSETS"/dconf/db/local.d/00-azl-desktop-defaults \
     /etc/dconf/db/local.d/00-azl-desktop-defaults
-install -m 0644 /workspace/assets/dconf/db/local.d/10-azl-live-session \
+install -m 0644 "$ASSETS"/dconf/db/local.d/10-azl-live-session \
     /etc/dconf/db/local.d/10-azl-live-session
-install -m 0644 /workspace/assets/dconf/profile/user \
+install -m 0644 "$ASSETS"/dconf/profile/user \
     /etc/dconf/profile/user
 dconf update || true
 
@@ -806,9 +824,9 @@ dconf update || true
 # use GDM. fedora-logos points org.gnome.login-screen logo at the Fedora
 # badge; this system-db replaces it without editing the schema file.
 mkdir -p /etc/dconf/db/gdm.d
-install -m 0644 /workspace/assets/dconf/profile/gdm \
+install -m 0644 "$ASSETS"/dconf/profile/gdm \
     /etc/dconf/profile/gdm
-install -m 0644 /workspace/assets/dconf/db/gdm.d/00-azl-login-screen \
+install -m 0644 "$ASSETS"/dconf/db/gdm.d/00-azl-login-screen \
     /etc/dconf/db/gdm.d/00-azl-login-screen
 dconf update || true
 
@@ -871,11 +889,11 @@ rm -rf /root/thirdparty
 # remotes and requires fedora/updates repos. This image uses Flathub +
 # Azure Linux DNF. Our override filename sorts after the Fedora one so these
 # keys win after glib-compile-schemas.
-install -m 0644 /workspace/assets/glib-2.0/schemas/org.gnome.software.gschema.override \
+install -m 0644 "$ASSETS"/glib-2.0/schemas/org.gnome.software.gschema.override \
     /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override
 rm -f /etc/xdg/autostart/org.gnome.Software.desktop
 grep -q '^DefaultDisabled=true' /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini 2>/dev/null || \
-  cat /workspace/assets/gnome-shell/search-providers/org.gnome.Software-search-provider.ini.append >> \
+  cat "$ASSETS"/gnome-shell/search-providers/org.gnome.Software-search-provider.ini.append >> \
   /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini
 glib-compile-schemas /usr/share/glib-2.0/schemas
 
@@ -883,10 +901,10 @@ glib-compile-schemas /usr/share/glib-2.0/schemas
 # /var/lib/flatpak/appstream/flathub/.../active (issue #6). Condition skips
 # when baked. After a late pull, drop empty sticky user xmlb silos that
 # GNOME Software may have written before metadata existed.
-install -m 0755 /workspace/assets/libexec/azl-flatpak-appstream-refresh \
+install -m 0755 "$ASSETS"/libexec/azl-flatpak-appstream-refresh \
     /usr/libexec/azl-flatpak-appstream-refresh
 chmod 0755 /usr/libexec/azl-flatpak-appstream-refresh
-install -m 0644 /workspace/assets/systemd/azl-flatpak-appstream.service \
+install -m 0644 "$ASSETS"/systemd/azl-flatpak-appstream.service \
     /usr/lib/systemd/system/azl-flatpak-appstream.service
 systemctl enable azl-flatpak-appstream.service
 
@@ -894,9 +912,9 @@ systemctl enable azl-flatpak-appstream.service
 # USB device often enumerates before thinkpad_acpi unblocks radio; recover
 # with a USB authorize cycle before bluetooth.service (see findings).
 # See findings/bluetooth-hci-timeout-thinkpad.md.
-install -m 0644 /workspace/assets/modules-load.d/azurelinux-desktop-bluetooth.conf \
+install -m 0644 "$ASSETS"/modules-load.d/azurelinux-desktop-bluetooth.conf \
     /etc/modules-load.d/azurelinux-desktop-bluetooth.conf
-install -m 0644 /workspace/assets/modprobe.d/azurelinux-desktop-bluetooth.conf \
+install -m 0644 "$ASSETS"/modprobe.d/azurelinux-desktop-bluetooth.conf \
     /etc/modprobe.d/azurelinux-desktop-bluetooth.conf
 if [ -x /usr/libexec/azurelinux-desktop-bt-usb-reset ]; then
     systemctl enable azurelinux-desktop-bt-recover.service 2>/dev/null || true
@@ -916,7 +934,7 @@ if [ -f /etc/locale.conf ]; then
     chmod 644 /etc/locale.conf || true
 fi
 
-install -m 0755 /workspace/assets/profile.d/default-editor.sh \
+install -m 0755 "$ASSETS"/profile.d/default-editor.sh \
     /etc/profile.d/default-editor.sh
 
 # PowerShell as the default login shell - this is a genuine departure from
@@ -941,7 +959,7 @@ fi
 # GNOME "Default Applications" panel and anything that shells out to
 # xdg-open/xdg-settings.
 mkdir -p /etc/xdg
-install -m 0644 /workspace/assets/xdg/mimeapps.list \
+install -m 0644 "$ASSETS"/xdg/mimeapps.list \
     /etc/xdg/mimeapps.list
 
 # GNOME Shell dock/favorites: the real fix has to happen in livesys-gnome
@@ -1051,7 +1069,7 @@ if [ -d /usr/lib/sysimage/rpm ]; then
 fi
 chmod 0440 /etc/sudoers.d/90-wheel-nopasswd
 mkdir -p /etc/gdm
-install -m 0644 /workspace/assets/gdm/custom-live.conf \
+install -m 0644 "$ASSETS"/gdm/custom-live.conf \
     /etc/gdm/custom.conf
 
 # GNOME Keyring "Choose password for new keyring" prompt: root-caused
@@ -1131,12 +1149,12 @@ fi
 # out of the app grid; it's idempotent so running once per session
 # alongside whichever of the three actually wins the daemon-start race is
 # fine.
-install -m 0755 /workspace/assets/libexec/azl-keyring-empty-unlock \
+install -m 0755 "$ASSETS"/libexec/azl-keyring-empty-unlock \
     /usr/libexec/azl-keyring-empty-unlock
 chmod 0755 /usr/libexec/azl-keyring-empty-unlock
 
 mkdir -p /etc/xdg/autostart
-install -m 0644 /workspace/assets/xdg/autostart/azl-keyring-empty-unlock.desktop \
+install -m 0644 "$ASSETS"/xdg/autostart/azl-keyring-empty-unlock.desktop \
     /etc/xdg/autostart/azl-keyring-empty-unlock.desktop
 # Belt-and-suspenders: make sure there's no leftover keyring file with a
 # real (non-empty) password baked in from image-build time. In practice
@@ -1153,13 +1171,13 @@ rm -f /home/liveuser/.local/share/keyrings/login.keyring 2>/dev/null || true
 # PackageKit on other dependency resolutions. Allow either backend only
 # for the active local wheel user, who already has passwordless sudo.
 mkdir -p /etc/polkit-1/rules.d
-install -m 0644 /workspace/assets/polkit-1/rules.d/49-azl-desktop-packagekit.rules \
+install -m 0644 "$ASSETS"/polkit-1/rules.d/49-azl-desktop-packagekit.rules \
     /etc/polkit-1/rules.d/49-azl-desktop-packagekit.rules
 # Flatpak system updates (GNOME Software / flatpak update): upstream
 # org.freedesktop.Flatpak.rules covers install/uninstall/modify-repo but
 # not app-update/runtime-update. Signed remotes still need Deploy allowed
 # for active local wheel sessions — see findings/flatpak-untrusted-non-gpg-remote.md.
-install -m 0644 /workspace/assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules \
+install -m 0644 "$ASSETS"/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules \
     /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
 
 # Standard livemedia-creator housekeeping (same as lorax's own
@@ -1198,11 +1216,11 @@ touch /etc/machine-id
 # /dev/sda) is deliberate: this same qcow2 gets converted to VHDX/VDI/
 # VMDK and booted under different hypervisors (virtio-blk, SATA, IDE),
 # each of which can present the root disk under a different device name.
-install -m 0755 /workspace/assets/bin/azl-growroot \
+install -m 0755 "$ASSETS"/bin/azl-growroot \
     /usr/local/sbin/azl-growroot
 chmod 755 /usr/local/sbin/azl-growroot
 
-install -m 0644 /workspace/assets/systemd/azl-growroot.service \
+install -m 0644 "$ASSETS"/systemd/azl-growroot.service \
     /usr/lib/systemd/system/azl-growroot.service
 # Deliberately NOT enabled here - see comment above. The line below is a
 # stable sed anchor for the disk-image kickstart variant to replace with
@@ -1227,5 +1245,8 @@ install -m 0644 /workspace/assets/systemd/azl-growroot.service \
 # actually got installed in the most recent real build instead of going
 # stale every time %packages changes.
 rpm -qa --qf '%{name}-%{version}-%{release}.%{arch}\n' | sort > /var/log/azl-desktop-package-list.txt
+
+# Drop build-only asset tree; final image keeps only installed paths.
+rm -rf /root/assets
 
 %end

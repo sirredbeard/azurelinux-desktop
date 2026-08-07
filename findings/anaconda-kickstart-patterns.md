@@ -28,11 +28,14 @@ both.
   (`ANACONDA_ROOT_PATH` in `pyanaconda/argument_parsing.py`). All
   curl-based downloads and `/workspace/` asset copies must live in
   `--nochroot` blocks.
-* Pattern: stage files from `/workspace/` and download from network in
-  `%post --nochroot` (writing to `/mnt/sysimage/...`), then pick up
-  inside the chroot in a regular `%post`.
-* `/workspace` is not mounted inside the chroot. Only `%post --nochroot`
-  can see it.
+* Pattern: stage files from `/workspace/` (live) or
+  `/opt/azl-desktop-assets` (installer ISO) in `%post --nochroot`, copy
+  the full assets tree to the target `/root/assets`, then chrooted
+  `%post` uses `ASSETS=/root/assets` and removes the tree at the end.
+* `/workspace` and installer `/opt/azl-desktop-assets` are not visible
+  inside the target chroot. Only `%post --nochroot` can see them.
+  See `findings/rpm-gpg-keys-on-target.md` for the disk-build failure
+  when chroot still pointed at `/workspace`.
 
 The test suite's own `%post` hit this bug. See `test-suite.md`.
 

@@ -129,8 +129,14 @@ RUN --mount=type=secret,id=github_token,required=false \
     fi; \
     rpm --root="$ROOTFS" -q intel-media-driver ffmpeg libva \
         gstreamer1-vaapi gstreamer1-plugins-ugly mesa-vulkan-drivers; \
+    install -d -m 0755 "$ROOTFS/usr/share/azurelinux-desktop/environment.d"; \
+    if [ -f /opt/azl-desktop-assets/environment.d/50-azurelinux-desktop-libva.conf ]; then \
+        install -m 0644 /opt/azl-desktop-assets/environment.d/50-azurelinux-desktop-libva.conf \
+            "$ROOTFS/usr/share/azurelinux-desktop/environment.d/50-azurelinux-desktop-libva.conf"; \
+    fi; \
     if [ -x /opt/azl-desktop-assets/bin/azl-link-intel-ihd ]; then \
-        /opt/azl-desktop-assets/bin/azl-link-intel-ihd "$ROOTFS"; \
+        AZL_DESKTOP_ASSETS=/opt/azl-desktop-assets \
+            /opt/azl-desktop-assets/bin/azl-link-intel-ihd "$ROOTFS"; \
     fi; \
     if [ -d "$ROOTFS/usr/lib/sysimage/rpm" ]; then \
         chmod 0755 "$ROOTFS/usr/lib/sysimage/rpm" 2>/dev/null || true; \

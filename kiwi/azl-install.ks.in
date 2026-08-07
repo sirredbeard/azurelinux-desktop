@@ -191,6 +191,25 @@ else
     echo "error: staged Copilot Flatpak tree missing under $EXTRAS/flatpak-system" >&2
     exit 1
 fi
+# Chrooted %post cannot see installer /opt/azl-desktop-assets. Stage the
+# full assets tree under the target /root/assets (same pattern as live).
+rm -rf /mnt/sysroot/root/assets
+if [ -d /opt/azl-desktop-assets ]; then
+    cp -a /opt/azl-desktop-assets /mnt/sysroot/root/assets
+elif [ -d /run/install/repo/azl-desktop-assets ]; then
+    cp -a /run/install/repo/azl-desktop-assets /mnt/sysroot/root/assets
+else
+    echo "error: azl-desktop-assets not found for target stage" >&2
+    exit 1
+fi
+test -f /mnt/sysroot/root/assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+test -f /mnt/sysroot/root/assets/dconf/db/local.d/00-azl-desktop-defaults
+# LIBVA env asset for azl-link-intel-ihd
+if [ -f /mnt/sysroot/root/assets/environment.d/50-azurelinux-desktop-libva.conf ]; then
+    install -d -m 0755 /mnt/sysroot/usr/share/azurelinux-desktop/environment.d
+    install -m 0644 /mnt/sysroot/root/assets/environment.d/50-azurelinux-desktop-libva.conf \
+        /mnt/sysroot/usr/share/azurelinux-desktop/environment.d/50-azurelinux-desktop-libva.conf
+fi
 %end
 
 %post --log=/var/log/azl-desktop-post.log
@@ -198,6 +217,13 @@ set -x
 # The Fedora 43 build container runs with umask 077; override so that
 # mkdir -p creates directories at 755 and heredoc/cat writes land at 644.
 umask 022
+
+# Staged by %post --nochroot. Installer /opt is not visible in this chroot.
+ASSETS=/root/assets
+if [ ! -d "$ASSETS" ]; then
+    echo "error: staged assets missing at $ASSETS" >&2
+    exit 1
+fi
 
 # Persist the same runtime repo priority policy the live ISO ships (see
 # kickstart/azurelinux-desktop-live.ks) - this machine is a real,
@@ -231,7 +257,7 @@ do
     rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
 done
 
-install -m 0644 /opt/azl-desktop-assets/yum.repos.d/azl-desktop-fedora.repo \
+install -m 0644 "$ASSETS"/yum.repos.d/azl-desktop-fedora.repo \
     /etc/yum.repos.d/azl-desktop-fedora.repo
 
 # The single azl-offline repo above only existed for this one install (it
@@ -244,10 +270,10 @@ install -m 0644 /opt/azl-desktop-assets/yum.repos.d/azl-desktop-fedora.repo \
 # RPMFusion ffmpeg/gstreamer1-plugin-libav codec packages would be frozen at
 # whatever version was current on the day this ISO was built, with no
 # `dnf upgrade` path afterward. Persist their real upstream repos too.
-install -m 0644 /opt/azl-desktop-assets/yum.repos.d/azl-desktop-microsoft-github.repo \
+install -m 0644 "$ASSETS"/yum.repos.d/azl-desktop-microsoft-github.repo \
     /etc/yum.repos.d/azl-desktop-microsoft-github.repo
 
-install -m 0644 /opt/azl-desktop-assets/yum.repos.d/azl-desktop-rpmfusion.repo \
+install -m 0644 "$ASSETS"/yum.repos.d/azl-desktop-rpmfusion.repo \
     /etc/yum.repos.d/azl-desktop-rpmfusion.repo
 
 sed -i '/^\[azl-base\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-minimal,grub2-common,shim,shim-x64,grub2 grub2-pc grub2-pc-modules grub2-efi-x64 grub2-efi-x64-modules grub2-tools grub2-tools-minimal grub2-common shim shim-x64 gsettings-desktop-schemas dnf5 dnf5daemon-server dnf5daemon-server-polkit libdnf5 libdnf5-cli libdnf5-plugin-actions libdnf5-plugin-appstream libdnf5-plugin-expired-pgp-keys libdnf5-plugin-local/' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
@@ -270,7 +296,7 @@ fi
 systemctl enable qemu-guest-agent.service 2>/dev/null || true
 systemctl enable vmtoolsd.service 2>/dev/null || true
 systemctl enable vboxservice.service 2>/dev/null || true
-install -m 0644 /opt/azl-desktop-assets/modules-load.d/azurelinux-desktop-virtio-input.conf \
+install -m 0644 "$ASSETS"/modules-load.d/azurelinux-desktop-virtio-input.conf \
   /etc/modules-load.d/azurelinux-desktop-virtio-input.conf
 # Prevent gnome-initial-setup from running for users created by Anaconda's
 # interactive TUI. Without this, any new user's first GDM session triggers
@@ -280,7 +306,7 @@ install -m 0644 /opt/azl-desktop-assets/modules-load.d/azurelinux-desktop-virtio
 # exactly this scenario - it tells gnome-initial-setup not to launch at
 # all, leaving the system-db defaults intact.
 mkdir -p /etc/gdm
-install -m 0644 /opt/azl-desktop-assets/gdm/custom.conf /etc/gdm/custom.conf
+install -m 0644 "$ASSETS"/gdm/custom.conf /etc/gdm/custom.conf
 
 # Passwordless sudo for wheel, same as the live ISO
 # (kickstart/azurelinux-desktop-live.ks). Anaconda's TUI already puts
@@ -300,14 +326,14 @@ if [ -x /usr/sbin/plymouth-set-default-theme ]; then
     plymouth-set-default-theme azurelinux || true
 fi
 mkdir -p /etc/dracut.conf.d
-install -m 0644 /opt/azl-desktop-assets/dracut.conf.d/no-multipath.conf \
+install -m 0644 "$ASSETS"/dracut.conf.d/no-multipath.conf \
     /etc/dracut.conf.d/no-multipath.conf
-install -m 0644 /opt/azl-desktop-assets/dracut.conf.d/early-kms.conf \
+install -m 0644 "$ASSETS"/dracut.conf.d/early-kms.conf \
     /etc/dracut.conf.d/early-kms.conf
 
 # Keep Plymouth animated for the full boot duration on the installed system.
 mkdir -p /etc/systemd/system/plymouth-quit-wait.service.d
-install -m 0644 /opt/azl-desktop-assets/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf \
+install -m 0644 "$ASSETS"/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf \
     /etc/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf
 
 # Regenerate the initrd for every installed kernel now that the theme
@@ -329,9 +355,9 @@ dracut --regenerate-all --force
 # standard, still user-overridable /etc/dconf/db/local.d/ mechanism
 # instead of livesys-gnome's runtime favorite-apps patch.
 mkdir -p /etc/dconf/db/local.d /etc/dconf/profile
-install -m 0644 /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults \
+install -m 0644 "$ASSETS"/dconf/db/local.d/00-azl-desktop-defaults \
     /etc/dconf/db/local.d/00-azl-desktop-defaults
-install -m 0644 /opt/azl-desktop-assets/dconf/profile/user \
+install -m 0644 "$ASSETS"/dconf/profile/user \
     /etc/dconf/profile/user
 dconf update
 # Verify the compiled binary database was actually written - if dconf update
@@ -345,19 +371,19 @@ test -s /etc/dconf/db/local
 # A dconf GDM profile + system-db keyfile overrides that at runtime without
 # touching the schema file (which would drift on fedora-logos updates).
 mkdir -p /etc/dconf/db/gdm.d
-install -m 0644 /opt/azl-desktop-assets/dconf/profile/gdm \
+install -m 0644 "$ASSETS"/dconf/profile/gdm \
     /etc/dconf/profile/gdm
-install -m 0644 /opt/azl-desktop-assets/dconf/db/gdm.d/00-azl-login-screen \
+install -m 0644 "$ASSETS"/dconf/db/gdm.d/00-azl-login-screen \
     /etc/dconf/db/gdm.d/00-azl-login-screen
 dconf update
 
 # Override Fedora's gnome-software defaults: prefer Flathub, do not
 # require fedora/updates repos that this image does not ship.
-install -m 0644 /opt/azl-desktop-assets/glib-2.0/schemas/org.gnome.software.gschema.override \
+install -m 0644 "$ASSETS"/glib-2.0/schemas/org.gnome.software.gschema.override \
     /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override
 rm -f /etc/xdg/autostart/org.gnome.Software.desktop
 grep -q '^DefaultDisabled=true' /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini 2>/dev/null || \
-  cat /opt/azl-desktop-assets/gnome-shell/search-providers/org.gnome.Software-search-provider.ini.append >> \
+  cat "$ASSETS"/gnome-shell/search-providers/org.gnome.Software-search-provider.ini.append >> \
   /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini
 glib-compile-schemas /usr/share/glib-2.0/schemas
 
@@ -398,10 +424,10 @@ rm -rf /root/thirdparty
 
 # Fallback when prestaged AppStream is missing (ConditionPathExists).
 # Also drop empty sticky user xmlb silos after a late pull (issue #6).
-install -m 0755 /opt/azl-desktop-assets/libexec/azl-flatpak-appstream-refresh \
+install -m 0755 "$ASSETS"/libexec/azl-flatpak-appstream-refresh \
     /usr/libexec/azl-flatpak-appstream-refresh
 chmod 0755 /usr/libexec/azl-flatpak-appstream-refresh
-install -m 0644 /opt/azl-desktop-assets/systemd/azl-flatpak-appstream.service \
+install -m 0644 "$ASSETS"/systemd/azl-flatpak-appstream.service \
     /usr/lib/systemd/system/azl-flatpak-appstream.service
 systemctl enable azl-flatpak-appstream.service
 
@@ -409,9 +435,9 @@ systemctl enable azl-flatpak-appstream.service
 # USB device often enumerates before thinkpad_acpi unblocks radio; recover
 # with a USB authorize cycle before bluetooth.service (see findings).
 # See findings/bluetooth-hci-timeout-thinkpad.md.
-install -m 0644 /opt/azl-desktop-assets/modules-load.d/azurelinux-desktop-bluetooth.conf \
+install -m 0644 "$ASSETS"/modules-load.d/azurelinux-desktop-bluetooth.conf \
     /etc/modules-load.d/azurelinux-desktop-bluetooth.conf
-install -m 0644 /opt/azl-desktop-assets/modprobe.d/azurelinux-desktop-bluetooth.conf \
+install -m 0644 "$ASSETS"/modprobe.d/azurelinux-desktop-bluetooth.conf \
     /etc/modprobe.d/azurelinux-desktop-bluetooth.conf
 # Assets staged by KIWI config.sh into the install tree when present.
 if [ -x /usr/libexec/azurelinux-desktop-bt-usb-reset ]; then
@@ -431,7 +457,7 @@ if [ -f /etc/locale.conf ]; then
     chmod 644 /etc/locale.conf || true
 fi
 
-install -m 0755 /opt/azl-desktop-assets/profile.d/default-editor.sh \
+install -m 0755 "$ASSETS"/profile.d/default-editor.sh \
     /etc/profile.d/default-editor.sh
 
 if [ -x /usr/bin/pwsh ]; then
@@ -442,22 +468,17 @@ if [ -x /usr/bin/pwsh ]; then
 fi
 
 mkdir -p /etc/xdg
-install -m 0644 /opt/azl-desktop-assets/xdg/mimeapps.list \
+install -m 0644 "$ASSETS"/xdg/mimeapps.list \
     /etc/xdg/mimeapps.list
 
 # GNOME Software uses DNF5 in this image. Let the locally authenticated,
 # active administrator authorize its DNF5 and PackageKit actions.
 mkdir -p /etc/polkit-1/rules.d
-install -m 0644 /opt/azl-desktop-assets/polkit-1/rules.d/49-azl-desktop-packagekit.rules \
+install -m 0644 "$ASSETS"/polkit-1/rules.d/49-azl-desktop-packagekit.rules \
     /etc/polkit-1/rules.d/49-azl-desktop-packagekit.rules
 # Flatpak system updates for active local wheel (includes app-update).
-if [ -f /run/install/repo/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules ]; then
-    install -m 0644 /run/install/repo/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules \
-        /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
-elif [ -f /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules ]; then
-    install -m 0644 /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules \
-        /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
-fi
+install -m 0644 "$ASSETS"/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules \
+    /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules
 
 # GNOME Keyring auto-unlock fix - identical mechanism to the live ISO,
 # see kickstart/azurelinux-desktop-live.ks for the full root-cause
@@ -474,12 +495,30 @@ if [ -f "$AUTOLOGIN_PAM" ]; then
     fi
 fi
 
-install -m 0755 /opt/azl-desktop-assets/libexec/azl-keyring-empty-unlock \
+install -m 0755 "$ASSETS"/libexec/azl-keyring-empty-unlock \
     /usr/libexec/azl-keyring-empty-unlock
 chmod 0755 /usr/libexec/azl-keyring-empty-unlock
 
 mkdir -p /etc/xdg/autostart
-install -m 0644 /opt/azl-desktop-assets/xdg/autostart/azl-keyring-empty-unlock.desktop \
+install -m 0644 "$ASSETS"/xdg/autostart/azl-keyring-empty-unlock.desktop \
     /etc/xdg/autostart/azl-keyring-empty-unlock.desktop
+
+# Grow root on first boot (resized disk images / larger disks).
+install -m 0755 "$ASSETS"/bin/azl-growroot /usr/local/sbin/azl-growroot
+chmod 755 /usr/local/sbin/azl-growroot
+install -m 0644 "$ASSETS"/systemd/azl-growroot.service \
+    /usr/lib/systemd/system/azl-growroot.service
+systemctl enable azl-growroot.service
+
+# Intel iHD dri link + LIBVA_DRIVERS_PATH (Azure Linux libva).
+if [ -x /usr/local/bin/azl-link-intel-ihd ]; then
+    /usr/local/bin/azl-link-intel-ihd /
+elif [ -x "$ASSETS"/bin/azl-link-intel-ihd ]; then
+    install -m 0755 "$ASSETS"/bin/azl-link-intel-ihd /usr/local/bin/azl-link-intel-ihd
+    /usr/local/bin/azl-link-intel-ihd /
+fi
 rpm -qa --qf '%{name}-%{version}-%{release}.%{arch}\n' | sort > /var/log/azl-desktop-install-package-list.txt
+
+# Drop build-only asset tree staged by nochroot.
+rm -rf /root/assets
 %end
