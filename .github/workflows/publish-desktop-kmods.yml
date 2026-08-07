@@ -88,15 +88,21 @@ jobs:
             azurelinux-desktop-usbhid-kmod \
             azurelinux-desktop-psmouse-kmod \
             azurelinux-desktop-usb-storage-kmod \
-            azurelinux-desktop-iwlwifi-kmod \
+            azurelinux-desktop-intel-kmod \
             azurelinux-desktop-sound-kmod \
             azurelinux-desktop-bluetooth-kmod \
             azurelinux-desktop-uvc-kmod \
             azurelinux-desktop-thinkpad-kmod \
-            azurelinux-desktop-typec-kmod
+            azurelinux-desktop-typec-kmod \
+            azurelinux-desktop-surface-kmod
           do
             grep -Fxq "${base}-${krel}.rpm" /tmp/manifest.txt || missing=1
           done
+          # Treat legacy iwlwifi package as incomplete once intel is expected.
+          if grep -Fxq "azurelinux-desktop-iwlwifi-kmod-${krel}.rpm" /tmp/manifest.txt \
+            && ! grep -Fxq "azurelinux-desktop-intel-kmod-${krel}.rpm" /tmp/manifest.txt; then
+            missing=1
+          fi
 
           # Push to builder/workflow always rebuilds. Schedule only when set incomplete.
           # Manual/reusable honor republish; otherwise same completeness check.
@@ -111,22 +117,28 @@ jobs:
           echo "build_required=$build" >> "$GITHUB_OUTPUT"
 
           # Family matrix. Keep order stable; 'all' expands to the full set.
-          all='["usbhid","psmouse","usb-storage","iwlwifi","sound","bluetooth","uvc","thinkpad","typec"]'
+          # 'intel' replaces legacy 'iwlwifi'; 'surface' is SSAM/HID.
+          all='["usbhid","psmouse","usb-storage","intel","sound","bluetooth","uvc","thinkpad","typec","surface"]'
           if [[ "$FAMILIES_IN" == "all" || -z "$FAMILIES_IN" ]]; then
             echo "families_json=$all" >> "$GITHUB_OUTPUT"
             echo "full_set=true" >> "$GITHUB_OUTPUT"
           else
             python3 - "$FAMILIES_IN" <<'PY' >> "$GITHUB_OUTPUT"
           import json, sys
-          allowed = {"usbhid","psmouse","usb-storage","iwlwifi","sound","bluetooth","uvc","thinkpad","typec"}
+          allowed = {"usbhid","psmouse","usb-storage","intel","iwlwifi","sound","bluetooth","uvc","thinkpad","typec","surface"}
           raw = [p.strip() for p in sys.argv[1].split(",") if p.strip()]
+          # Normalize legacy name
+          raw = ["intel" if p == "iwlwifi" else p for p in raw]
+          # de-dupe preserving order
+          seen=set(); raw=[p for p in raw if not (p in seen or seen.add(p))]
           bad = [p for p in raw if p not in allowed]
           if bad:
               raise SystemExit(f"unknown families: {bad}")
           if not raw:
               raise SystemExit("empty families list")
+          full = {"usbhid","psmouse","usb-storage","intel","sound","bluetooth","uvc","thinkpad","typec","surface"}
           print("families_json=" + json.dumps(raw))
-          print("full_set=" + ("true" if set(raw) == allowed else "false"))
+          print("full_set=" + ("true" if set(raw) == full else "false"))
           PY
           fi
 
@@ -240,7 +252,15 @@ jobs:
             usbhid) cp -a kmod-work/usbhid family-out/ ;;
             psmouse) cp -a kmod-work/psmouse family-out/ ;;
             usb-storage) cp -a kmod-work/usb-storage family-out/ ;;
-            iwlwifi) cp -a kmod-work/iwlwifi family-out/ ;;
+            intel|iwlwifi)
+              # Prefer new layout; keep legacy iwlwifi/ tree for package compat.
+              if [[ -d kmod-work/intel ]]; then
+                cp -a kmod-work/intel family-out/
+              fi
+              if [[ -d kmod-work/iwlwifi ]]; then
+                cp -a kmod-work/iwlwifi family-out/
+              fi
+              ;;
             sound) cp -a kmod-work/sound family-out/ ;;
             bluetooth)
               cp -a kmod-work/btnet family-out/
@@ -249,6 +269,7 @@ jobs:
             uvc) cp -a kmod-work/uvc family-out/ ;;
             thinkpad) cp -a kmod-work/thinkpad family-out/ ;;
             typec) cp -a kmod-work/typec family-out/ ;;
+            surface) cp -a kmod-work/surface family-out/ ;;
             *) echo "unknown family $FAMILY"; exit 1 ;;
           esac
           find family-out -name '*.ko' | tee family-out/modules.list
@@ -381,6 +402,12 @@ jobs:
               # Requires exactly the kmod RPMs present after merge logic below.
               if [[ "$rpm" == "azurelinux-desktop-policy-${krel}.rpm" ]]; then
                 continue
+              fi
+              # Drop legacy iwlwifi when this run (or merge set) ships intel.
+              if [[ "$rpm" == "azurelinux-desktop-iwlwifi-kmod-${krel}.rpm" ]]; then
+                if [[ -f "kmod-output/azurelinux-desktop-intel-kmod-${krel}.rpm" ]]; then
+                  continue
+                fi
               fi
               curl --fail --location --retry 5 --retry-delay 3 \
                 "$KMOD_REPO_URL/$rpm" -o "site/repo/$rpm" || {

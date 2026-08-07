@@ -212,8 +212,8 @@ INSTALL_PKGS=(
     # microcode_ctl already" comment was never actually true; confirmed
     # absent from that build's own transaction log.
     linux-firmware
-    # Intel WiFi: AZL splits iwlwifi firmware out of linux-firmware and
-    # puts iwlwifi.ko in kernel-modules-extra (not kernel-modules).
+    # Intel WiFi: AZL splits iwlwifi firmware out of linux-firmware;
+    # iwlwifi.ko ships via azurelinux-desktop-intel-kmod (policy pull).
     # Explicit list so Anaconda offline installs get a wlan device on
     # Intel laptops - see findings/wifi-missing-on-bare-metal.md.
     iwlwifi-mvm-firmware

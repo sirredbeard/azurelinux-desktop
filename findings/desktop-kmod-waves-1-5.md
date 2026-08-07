@@ -26,7 +26,9 @@ Companion docs:
 | `azurelinux-desktop-thinkpad-kmod` | Lenovo platform ACPI (ThinkPad family) |
 | `azurelinux-desktop-typec-kmod` | Type-C class + UCSI ACPI (docks) |
 
-Plus existing usbhid, usb-storage, iwlwifi, and policy.
+Plus existing usbhid, usb-storage, **intel** (renamed from iwlwifi),
+**surface** (SSAM/HID), and policy. See
+[`intel-surface-kmod-families.md`](intel-surface-kmod-families.md).
 
 ## Userspace / firmware (Azure first)
 

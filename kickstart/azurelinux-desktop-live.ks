@@ -370,7 +370,7 @@ linux-firmware
 # Intel Wi-Fi firmware is split out of linux-firmware on Azure Linux.
 # linux-firmware alone does not ship iwlwifi-8000C and friends. The
 # driver is out-of-tree (stock x86_64 has CONFIG_WLAN off) via
-# azurelinux-desktop-policy / iwlwifi-kmod. Without firmware + the OOT
+# azurelinux-desktop-policy / intel-kmod (iwlwifi). Without firmware + the OOT
 # modules, bare-metal Intel laptops get NM-wifi userspace and no wlan
 # device. See findings/wifi-missing-on-bare-metal.md.
 iwlwifi-mvm-firmware

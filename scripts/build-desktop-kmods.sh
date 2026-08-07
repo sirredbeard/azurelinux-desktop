@@ -269,22 +269,21 @@ check_vermagic "$STOR_MODULE" "$UAS_MODULE"
 echo "=== stage usb-storage done ==="
 fi
 
-# --- iwlwifi + opmodes (Intel Wi-Fi; CONFIG_WLAN off on AZL 4.0 x86_64) ---
-# cfg80211 and mac80211 are already =m in the stock kernel. Only the
-# vendor drivers under CONFIG_WLAN are missing. Build the full iwlwifi
-# tree as external modules.
+# --- intel family (was iwlwifi): Intel Wi-Fi + notes on GPU/HDA/BT/SOF ---
+# Stock AZL 4.0 x86_64 ships DRM i915/xe, e1000e, MEI, etc. in
+# kernel-modules{,-extra}, but leaves CONFIG_WLAN off so iwlwifi opmodes
+# are missing. BT_INTEL and SND_HDA_INTEL ship in the bluetooth/sound
+# sibling kmods (shared with non-Intel controllers). SOF Intel ASoC is
+# not rebuilt here yet (large ASoC graph); HDA path covers Skylake-class
+# and many Surfaces that still use snd-hda-intel.
 #
-# C preprocessor reads autoconf (where CONFIG_IWL* is unset). Makefile
-# obj-$(CONFIG_*) follows the make command line. Force both:
-#   - subdir-ccflags CONFIG_*_MODULE defines for IS_ENABLED()
-#   - make CONFIG_IWL*=m for object lists
-# Leave DEBUGFS and DEVICE_TRACING off: those gate struct fields in
-# headers via autoconf while still compiling the .c files if Makefile
-# thinks they are enabled.
-if run_stage iwlwifi; then
-echo "=== stage iwlwifi ==="
-IWL_DIR="$WORKDIR/iwlwifi"
-rm -rf "$IWL_DIR"
+# Family name: intel (package azurelinux-desktop-intel-kmod). Stage alias
+# iwlwifi still accepted for older workflow inputs.
+if run_stage intel || run_stage iwlwifi; then
+echo "=== stage intel (iwlwifi) ==="
+IWL_DIR="$WORKDIR/intel/iwlwifi"
+rm -rf "$WORKDIR/intel"
+mkdir -p "$WORKDIR/intel"
 cp -a "$SOURCE_DIR/drivers/net/wireless/intel/iwlwifi" "$IWL_DIR"
 {
     cat <<'EOF'
@@ -316,7 +315,18 @@ IWL_MVM="$IWL_DIR/mvm/iwlmvm.ko"
 IWL_DVM="$IWL_DIR/dvm/iwldvm.ko"
 IWL_MLD="$IWL_DIR/mld/iwlmld.ko"
 check_vermagic "$IWL_MODULE" "$IWL_MVM" "$IWL_DVM" "$IWL_MLD"
-echo "=== stage iwlwifi done ==="
+# Flatten copies for package stage path stability.
+cp -f "$IWL_MODULE" "$WORKDIR/intel/iwlwifi.ko"
+cp -f "$IWL_MVM" "$WORKDIR/intel/iwlmvm.ko"
+cp -f "$IWL_DVM" "$WORKDIR/intel/iwldvm.ko"
+cp -f "$IWL_MLD" "$WORKDIR/intel/iwlmld.ko"
+# Compatibility path used by older package assembly / CI copy steps.
+mkdir -p "$WORKDIR/iwlwifi/mvm" "$WORKDIR/iwlwifi/dvm" "$WORKDIR/iwlwifi/mld"
+cp -f "$WORKDIR/intel/iwlwifi.ko" "$WORKDIR/iwlwifi/iwlwifi.ko"
+cp -f "$WORKDIR/intel/iwlmvm.ko" "$WORKDIR/iwlwifi/mvm/iwlmvm.ko"
+cp -f "$WORKDIR/intel/iwldvm.ko" "$WORKDIR/iwlwifi/dvm/iwldvm.ko"
+cp -f "$WORKDIR/intel/iwlmld.ko" "$WORKDIR/iwlwifi/mld/iwlmld.ko"
+echo "=== stage intel done ==="
 fi
 
 # --- sound: ALSA core + Intel HDA + common codecs + USB audio ---
@@ -695,6 +705,150 @@ check_vermagic "$TYPEC_MODULE" "$TYPEC_UCSI_MODULE" "$UCSI_ACPI_MODULE"
 echo "=== stage typec done ==="
 fi
 
+# --- surface: upstream SSAM + HID (no linux-surface OOT fork) ---
+# Stock AZL leaves CONFIG_SURFACE_PLATFORMS / SERIAL_DEV_BUS / HID_MICROSOFT
+# / HID_MULTITOUCH off. Build only in-tree Microsoft Surface support from
+# the matching CBL-Mariner source tarball.
+if run_stage surface; then
+echo "=== stage surface ==="
+SURF_DIR="$WORKDIR/surface"
+rm -rf "$SURF_DIR"
+mkdir -p "$SURF_DIR/serdev" "$SURF_DIR/aggregator" "$SURF_DIR/platform" "$SURF_DIR/hid"
+
+# serdev core (SSAM transport dependency)
+cp "$SOURCE_DIR/drivers/tty/serdev/core.c" "$SURF_DIR/serdev/core.c"
+cat > "$SURF_DIR/serdev/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_SERIAL_DEV_BUS_MODULE=1
+ccflags-y += -DCONFIG_SERIAL_DEV_CTRL_TTYPORT=1
+obj-m += serdev.o
+serdev-y := core.o
+EOF
+make -C "$BUILD_DIR" M="$SURF_DIR/serdev" \
+    CONFIG_SERIAL_DEV_BUS=m CONFIG_SERIAL_DEV_CTRL_TTYPORT=y \
+    modules
+cp -f "$SURF_DIR/serdev/serdev.ko" "$SURF_DIR/serdev.ko"
+
+# SSAM aggregator core + bus
+cp -a "$SOURCE_DIR/drivers/platform/surface/aggregator/." "$SURF_DIR/aggregator/"
+cat > "$SURF_DIR/aggregator/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_BUS=1
+ccflags-y += -DCONFIG_SERIAL_DEV_BUS_MODULE=1
+CFLAGS_core.o = -I$(src)
+obj-m += surface_aggregator.o
+surface_aggregator-y := core.o ssh_parser.o ssh_packet_layer.o ssh_request_layer.o bus.o controller.o
+EOF
+make -C "$BUILD_DIR" M="$SURF_DIR/aggregator" \
+    KBUILD_EXTRA_SYMBOLS="$SURF_DIR/serdev/Module.symvers" \
+    CONFIG_SURFACE_AGGREGATOR=m CONFIG_SURFACE_AGGREGATOR_BUS=y \
+    CONFIG_SERIAL_DEV_BUS=m \
+    modules
+cp -f "$SURF_DIR/aggregator/surface_aggregator.ko" "$SURF_DIR/surface_aggregator.ko"
+
+# Client drivers living next to aggregator/ in drivers/platform/surface
+for src in \
+    surface_aggregator_cdev.c \
+    surface_aggregator_hub.c \
+    surface_aggregator_registry.c \
+    surface_aggregator_tabletsw.c \
+    surface_dtx.c \
+    surface_gpe.c \
+    surface_hotplug.c \
+    surface_platform_profile.c \
+    surface_acpi_notify.c \
+    surfacepro3_button.c \
+    surface3_power.c \
+    surface3-wmi.c
+do
+    if [[ -f "$SOURCE_DIR/drivers/platform/surface/$src" ]]; then
+        cp "$SOURCE_DIR/drivers/platform/surface/$src" "$SURF_DIR/platform/"
+    fi
+done
+# Object base names (surface3-wmi.o keeps hyphen)
+cat > "$SURF_DIR/platform/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_BUS=1
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_CDEV_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_HUB_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_REGISTRY_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_TABLET_SWITCH_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_DTX_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_GPE_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_HOTPLUG_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_PLATFORM_PROFILE_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_ACPI_NOTIFY_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_PRO3_BUTTON_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_3_POWER_OPREGION_MODULE=1
+ccflags-y += -DCONFIG_SURFACE3_WMI_MODULE=1
+obj-m += surface_aggregator_cdev.o
+obj-m += surface_aggregator_hub.o
+obj-m += surface_aggregator_registry.o
+obj-m += surface_aggregator_tabletsw.o
+obj-m += surface_dtx.o
+obj-m += surface_gpe.o
+obj-m += surface_hotplug.o
+obj-m += surface_platform_profile.o
+obj-m += surface_acpi_notify.o
+obj-m += surfacepro3_button.o
+obj-m += surface3_power.o
+obj-m += surface3-wmi.o
+EOF
+make -C "$BUILD_DIR" M="$SURF_DIR/platform" \
+    KBUILD_EXTRA_SYMBOLS="$SURF_DIR/serdev/Module.symvers $SURF_DIR/aggregator/Module.symvers" \
+    CONFIG_SURFACE_AGGREGATOR=m CONFIG_SURFACE_AGGREGATOR_BUS=y \
+    CONFIG_SURFACE_AGGREGATOR_CDEV=m CONFIG_SURFACE_AGGREGATOR_HUB=m \
+    CONFIG_SURFACE_AGGREGATOR_REGISTRY=m CONFIG_SURFACE_AGGREGATOR_TABLET_SWITCH=m \
+    CONFIG_SURFACE_DTX=m CONFIG_SURFACE_GPE=m CONFIG_SURFACE_HOTPLUG=m \
+    CONFIG_SURFACE_PLATFORM_PROFILE=m CONFIG_SURFACE_ACPI_NOTIFY=m \
+    CONFIG_SURFACE_PRO3_BUTTON=m CONFIG_SURFACE_3_POWER_OPREGION=m \
+    CONFIG_SURFACE3_WMI=m \
+    modules
+find "$SURF_DIR/platform" -name '*.ko' -exec cp -t "$SURF_DIR/" {} +
+
+# Generic Microsoft + multitouch HID (covers Type Covers / digitisers)
+cp "$SOURCE_DIR/drivers/hid/hid-microsoft.c" "$SURF_DIR/hid/"
+cp "$SOURCE_DIR/drivers/hid/hid-multitouch.c" "$SURF_DIR/hid/"
+# Optional SSAM HID transport (7th-gen+ keyboards/touchpads)
+if [[ -d "$SOURCE_DIR/drivers/hid/surface-hid" ]]; then
+    cp -a "$SOURCE_DIR/drivers/hid/surface-hid/." "$SURF_DIR/hid/"
+fi
+cat > "$SURF_DIR/hid/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_HID_MICROSOFT_MODULE=1
+ccflags-y += -DCONFIG_HID_MULTITOUCH_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_HID_CORE_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_HID_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_KBD_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_MODULE=1
+ccflags-y += -DCONFIG_SURFACE_AGGREGATOR_BUS=1
+obj-m += hid-microsoft.o
+obj-m += hid-multitouch.o
+obj-m += surface_hid_core.o
+obj-m += surface_hid.o
+obj-m += surface_kbd.o
+EOF
+# surface_hid*.c may be missing on older trees; only build present objs
+if [[ ! -f "$SURF_DIR/hid/surface_hid_core.c" ]]; then
+    sed -i '/surface_hid/d;/surface_kbd/d' "$SURF_DIR/hid/Makefile"
+fi
+make -C "$BUILD_DIR" M="$SURF_DIR/hid" \
+    KBUILD_EXTRA_SYMBOLS="$SURF_DIR/serdev/Module.symvers $SURF_DIR/aggregator/Module.symvers $SURF_DIR/platform/Module.symvers" \
+    CONFIG_HID_MICROSOFT=m CONFIG_HID_MULTITOUCH=m \
+    CONFIG_SURFACE_HID_CORE=m CONFIG_SURFACE_HID=m CONFIG_SURFACE_KBD=m \
+    CONFIG_SURFACE_AGGREGATOR=m CONFIG_SURFACE_AGGREGATOR_BUS=y \
+    modules
+find "$SURF_DIR/hid" -name '*.ko' -exec cp -t "$SURF_DIR/" {} +
+
+# Required core set
+for need in serdev.ko surface_aggregator.ko hid-microsoft.ko hid-multitouch.ko \
+    surface_aggregator_registry.ko surface_aggregator_hub.ko; do
+    test -f "$SURF_DIR/$need"
+done
+mapfile -t SURFACE_MODULES < <(find "$SURF_DIR" -maxdepth 1 -name '*.ko' | sort)
+test "${#SURFACE_MODULES[@]}" -ge 6
+check_vermagic "${SURFACE_MODULES[@]}"
+echo "=== stage surface done (${#SURFACE_MODULES[@]} modules) ==="
+fi
+
 # --- package RPMs ---
 # Adaptive: package whichever family modules are present in WORKDIR.
 # Missing families are skipped so partial CI matrix success still publishes.
@@ -713,10 +867,17 @@ HID_MODULE="$WORKDIR/usbhid/usbhid.ko"
 PS2_MODULE="$WORKDIR/psmouse/psmouse.ko"
 STOR_MODULE="$WORKDIR/usb-storage/usb-storage.ko"
 UAS_MODULE="$WORKDIR/usb-storage/uas.ko"
-IWL_MODULE="$WORKDIR/iwlwifi/iwlwifi.ko"
-IWL_MVM="$WORKDIR/iwlwifi/mvm/iwlmvm.ko"
-IWL_DVM="$WORKDIR/iwlwifi/dvm/iwldvm.ko"
-IWL_MLD="$WORKDIR/iwlwifi/mld/iwlmld.ko"
+IWL_MODULE="$WORKDIR/intel/iwlwifi.ko"
+IWL_MVM="$WORKDIR/intel/iwlmvm.ko"
+IWL_DVM="$WORKDIR/intel/iwldvm.ko"
+IWL_MLD="$WORKDIR/intel/iwlmld.ko"
+# Compat paths if only legacy iwlwifi/ tree was merged from CI artifact
+if [[ ! -f "$IWL_MODULE" && -f "$WORKDIR/iwlwifi/iwlwifi.ko" ]]; then
+    IWL_MODULE="$WORKDIR/iwlwifi/iwlwifi.ko"
+    IWL_MVM="$WORKDIR/iwlwifi/mvm/iwlmvm.ko"
+    IWL_DVM="$WORKDIR/iwlwifi/dvm/iwldvm.ko"
+    IWL_MLD="$WORKDIR/iwlwifi/mld/iwlmld.ko"
+fi
 UVC_COMMON_MODULE="$WORKDIR/uvc/uvc.ko"
 UVC_MODULE="$WORKDIR/uvc/uvcvideo.ko"
 TP_BATTERY_MODULE="$WORKDIR/thinkpad/battery.ko"
@@ -733,6 +894,7 @@ mapfile -t BT_MODULES < <(
         find "$WORKDIR/btdrv" -name '*.ko' 2>/dev/null || true
     } | sort
 )
+mapfile -t SURFACE_MODULES < <(find "$WORKDIR/surface" -maxdepth 1 -name '*.ko' 2>/dev/null | sort || true)
 
 PRESENT_PKGS=()
 PRESENT_KOS=()
@@ -756,7 +918,7 @@ if have_ko "$STOR_MODULE" && have_ko "$UAS_MODULE"; then
 fi
 if have_ko "$IWL_MODULE" && have_ko "$IWL_MVM" && have_ko "$IWL_DVM" && have_ko "$IWL_MLD"; then
     PRESENT_KOS+=("$IWL_MODULE" "$IWL_MVM" "$IWL_DVM" "$IWL_MLD")
-    add_pkg iwlwifi
+    add_pkg intel
 fi
 if ((${#SOUND_MODULES[@]} >= 12)); then
     PRESENT_KOS+=("${SOUND_MODULES[@]}")
@@ -784,6 +946,14 @@ fi
 if have_ko "$TYPEC_MODULE" && have_ko "$TYPEC_UCSI_MODULE" && have_ko "$UCSI_ACPI_MODULE"; then
     PRESENT_KOS+=("$TYPEC_MODULE" "$TYPEC_UCSI_MODULE" "$UCSI_ACPI_MODULE")
     add_pkg typec
+fi
+if ((${#SURFACE_MODULES[@]} >= 6)) \
+    && have_ko "$WORKDIR/surface/serdev.ko" \
+    && have_ko "$WORKDIR/surface/surface_aggregator.ko" \
+    && have_ko "$WORKDIR/surface/hid-microsoft.ko" \
+    && have_ko "$WORKDIR/surface/hid-multitouch.ko"; then
+    PRESENT_KOS+=("${SURFACE_MODULES[@]}")
+    add_pkg surface
 fi
 
 if ((${#PRESENT_PKGS[@]} == 0)); then
@@ -938,29 +1108,35 @@ fi
 "
 fi
 
-if pkg_enabled iwlwifi; then
-    append_requires azurelinux-desktop-iwlwifi-kmod
+if pkg_enabled intel; then
+    append_requires azurelinux-desktop-intel-kmod
     PACKAGE_SECTIONS+="
-%package -n azurelinux-desktop-iwlwifi-kmod
-Summary:        Intel Wi-Fi modules for Azure Linux ${KVERREL}
+%package -n azurelinux-desktop-intel-kmod
+Summary:        Intel Wi-Fi (iwlwifi) modules for Azure Linux ${KVERREL}
 Requires:       kernel-core-uname-r = ${KVERREL}
-%description -n azurelinux-desktop-iwlwifi-kmod
-iwlwifi family modules for Azure Linux kernel ${KVERREL}.
+# Smooth upgrades from the former package name.
+Provides:       azurelinux-desktop-iwlwifi-kmod = %{version}-%{release}
+Obsoletes:      azurelinux-desktop-iwlwifi-kmod < %{version}-%{release}
+%description -n azurelinux-desktop-intel-kmod
+Intel wireless (iwlwifi + mvm/dvm/mld opmodes) for Azure Linux ${KVERREL}.
+GPU (i915/xe), e1000e, MEI, and related DRM helpers ship in stock
+kernel-modules. Intel HDA audio is azurelinux-desktop-sound-kmod;
+Intel Bluetooth (btintel) is azurelinux-desktop-bluetooth-kmod.
 "
     for bn in iwlwifi.ko iwlmvm.ko iwldvm.ko iwlmld.ko; do
         INSTALL_SECTION+="$(ko_install_line "$bn")"$'\n'
     done
     FILES_SECTIONS+="
-%files -n azurelinux-desktop-iwlwifi-kmod
+%files -n azurelinux-desktop-intel-kmod
 $(ko_files_line iwlwifi.ko)
 $(ko_files_line iwlmvm.ko)
 $(ko_files_line iwldvm.ko)
 $(ko_files_line iwlmld.ko)
 "
     POST_SECTIONS+="
-%post -n azurelinux-desktop-iwlwifi-kmod
+%post -n azurelinux-desktop-intel-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
-%postun -n azurelinux-desktop-iwlwifi-kmod
+%postun -n azurelinux-desktop-intel-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
 "
 fi
@@ -1110,7 +1286,10 @@ Summary:        thinkpad_acpi and laptop power helpers for Azure Linux ${KVERREL
 Requires:       kernel-core-uname-r = ${KVERREL}
 %description -n azurelinux-desktop-thinkpad-kmod
 thinkpad_acpi plus ACPI battery and DRM privacy-screen class helpers
-for Azure Linux kernel ${KVERREL}.
+for Azure Linux kernel ${KVERREL}. Stock AZL already ships think-lmi,
+intel-hid, i2c-i801, thunderbolt, and related Lenovo WMI helpers in
+kernel-modules; this package only fills CONFIG_THINKPAD_ACPI /
+ACPI_BATTERY / DRM_PRIVACY_SCREEN gaps.
 "
     TP_FILES=""
     for bn in battery.ko drm_privacy_screen.ko thinkpad_acpi.ko; do
@@ -1158,6 +1337,41 @@ $(ko_files_line ucsi_acpi.ko)
 %post -n azurelinux-desktop-typec-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
 %postun -n azurelinux-desktop-typec-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled surface; then
+    append_requires azurelinux-desktop-surface-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-surface-kmod
+Summary:        Microsoft Surface SSAM/HID modules for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-surface-kmod
+Upstream Microsoft Surface platform support for ${KVERREL}: serdev,
+Surface System Aggregator (SSAM) core and clients, hid-microsoft,
+hid-multitouch, and SSAM HID transports when present. No out-of-tree
+linux-surface fork — sources match the Azure Linux kernel tarball.
+Pair with azurelinux-desktop-intel-kmod (iwlwifi), sound-kmod (HDA),
+and bluetooth-kmod (btintel) on Intel Surfaces.
+"
+    SURFACE_FILES=""
+    for m in "${SURFACE_MODULES[@]}"; do
+        bn="$(basename "$m")"
+        INSTALL_SECTION+="$(ko_install_line "$bn")"$'\n'
+        SURFACE_FILES+="$(ko_files_line "$bn")"$'\n'
+    done
+    INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-surface.conf <<'ML'
+# Surface SSAM/HID bind via ACPI/serdev/udev; do not force-load at boot.
+ML"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-surface-kmod
+${SURFACE_FILES}%config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desktop-surface.conf
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-surface-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-surface-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
 "
 fi

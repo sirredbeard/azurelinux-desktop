@@ -39,12 +39,13 @@ dnf5 install -y --refresh \
 grep -Fq "azurelinux-desktop-policy" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-usbhid-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-usb-storage-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
-grep -Fq "azurelinux-desktop-iwlwifi-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-intel-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-sound-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-bluetooth-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-uvc-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-thinkpad-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-typec-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-surface-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 kver="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/usbhid.ko"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/usb-storage.ko"
@@ -60,11 +61,21 @@ test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/thinkpad_acpi.ko"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/typec.ko"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/typec_ucsi.ko"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/ucsi_acpi.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/serdev.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/surface_aggregator.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-microsoft.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-multitouch.ko"
 # ALSA controller module name uses hyphens from upstream
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/snd-hda-intel.ko" \
     || test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/snd_hda_intel.ko"
 for name in usbhid usb-storage uas iwlwifi iwlmvm iwldvm iwlmld \
-    bluetooth btusb uvcvideo thinkpad_acpi typec typec_ucsi ucsi_acpi; do
+    bluetooth btusb uvcvideo thinkpad_acpi typec typec_ucsi ucsi_acpi \
+    serdev surface_aggregator; do
+    modinfo -F vermagic "/usr/lib/modules/$kver/extra/azurelinux-desktop/$name.ko" \
+        | grep -Fq "$kver"
+done
+# Hyphenated Surface HID module names
+for name in hid-microsoft hid-multitouch; do
     modinfo -F vermagic "/usr/lib/modules/$kver/extra/azurelinux-desktop/$name.ko" \
         | grep -Fq "$kver"
 done

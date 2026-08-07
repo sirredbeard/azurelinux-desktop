@@ -139,16 +139,21 @@ This project builds out-of-tree modules against each exact Azure `kernel-devel` 
 
 * `azurelinux-desktop-usbhid-kmod` - `usbhid.ko`
 * `azurelinux-desktop-usb-storage-kmod` - `usb-storage.ko` and `uas.ko`
-* `azurelinux-desktop-iwlwifi-kmod` - `iwlwifi.ko`, `iwlmvm.ko`,
-  `iwldvm.ko`, `iwlmld.ko`
+* `azurelinux-desktop-intel-kmod` - Intel Wi-Fi (`iwlwifi` + mvm/dvm/mld);
+  replaces `azurelinux-desktop-iwlwifi-kmod`. GPU (`i915`/`xe`) stays in
+  stock `kernel-modules`; HDA/BT stay in the sound/bluetooth kmods
 * `azurelinux-desktop-sound-kmod` - ALSA core, Intel HDA, common
   codecs, USB audio
 * `azurelinux-desktop-bluetooth-kmod` - Bluetooth core + `btusb` and
   Intel/Realtek/Broadcom/MediaTek helpers
 * `azurelinux-desktop-uvc-kmod` - `uvcvideo.ko`
-* `azurelinux-desktop-thinkpad-kmod` - `thinkpad_acpi.ko`
+* `azurelinux-desktop-thinkpad-kmod` - `thinkpad_acpi.ko` (+ battery /
+  privacy-screen helpers)
 * `azurelinux-desktop-typec-kmod` - `typec.ko`, `typec_ucsi.ko`,
   `ucsi_acpi.ko`
+* `azurelinux-desktop-surface-kmod` - upstream Microsoft Surface SSAM
+  (`surface_aggregator` + clients), `serdev`, `hid-microsoft`,
+  `hid-multitouch` (no out-of-tree linux-surface fork)
 * `azurelinux-desktop-policy` - couples every sibling kmod RPM to the
   matching `kernel-core` so a kernel-only update cannot leave you
   without desktop hardware
