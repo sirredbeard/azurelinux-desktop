@@ -270,9 +270,11 @@ README for the full backstory.
   changing an asset staging block.
 - **Installer disk partitioning**: disk partitioning is delegated to
   Anaconda's interactive TUI. Do not re-add `clearpart`/`autopart`
-  directives to the installer kickstart; Anaconda enforces minimum layout
-  requirements (/, /boot/efi on UEFI). Use bare `bootloader` (not
-  `--location=mbr`) so the directive is firmware-agnostic.
+  directives to the installer kickstart. Keep bare `bootloader` (not
+  `--location=mbr`) and bare `reqpart` so UEFI still gets an ESP when
+  the user picks Standard Partition + use all free space (without
+  `reqpart`, Anaconda can omit `/boot/efi` and fail). See
+  `findings/installer-efi-separate-partition.md`.
 - **Plymouth on installed systems**: do not include `console=ttyS0,...`
   in the installed system's kernel cmdline for desktop use. Azure Linux
   upstream inherits serial console parameters from its cloud/datacenter

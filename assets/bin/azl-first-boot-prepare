@@ -8,7 +8,11 @@
 # wall.
 set -uo pipefail
 
-MSG="Finishing setup and expanding disk. System will reboot."
+# Generic on purpose: first boot may only SELinux-relabel (bare metal /
+# full-disk install) or also grow a resized VM disk. Do not say "expanding
+# disk" — that is wrong on USB installs where the partition already fills
+# the drive.
+MSG="Finishing setup. System will reboot."
 LOG_DIR=/var/log
 FIXFILES_LOG="$LOG_DIR/azl-first-boot-fixfiles.log"
 GROW_LOG="$LOG_DIR/azl-first-boot-grow.log"

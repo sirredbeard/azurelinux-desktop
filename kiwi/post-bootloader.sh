@@ -113,21 +113,30 @@ mkdir -p "$SYSROOT/etc/default"
 cat > "$SYSROOT/etc/default/grub" << 'DEFAULTGRUB'
 GRUB_TIMEOUT=0
 GRUB_TIMEOUT_STYLE=hidden
+GRUB_RECORDFAIL_TIMEOUT=0
 GRUB_DISTRIBUTOR="Azure Linux"
 GRUB_DEFAULT=0
 GRUB_DISABLE_SUBMENU=true
 GRUB_TERMINAL_OUTPUT="gfxterm"
 GRUB_CMDLINE_LINUX="rhgb quiet"
 GRUB_DISABLE_RECOVERY=true
+GRUB_DISABLE_OS_PROBER=true
 GRUB_GFXPAYLOAD_LINUX=keep
 DEFAULTGRUB
 
 # --- Generate /boot/grub2/grub.cfg ---
+# Desktop: never paint a text menu on normal boots. timeout=0 + hidden,
+# gfxterm only (no serial/console terminal_output), and ignore recordfail
+# so a prior crash cannot force a 30s menu. Rescue/UEFI stay in the file
+# for firmware key holds; they are not shown automatically.
 mkdir -p "$SYSROOT/boot/grub2"
 cat > "$SYSROOT/boot/grub2/grub.cfg" << GRUBCFG
 set default=0
 set timeout=0
 set timeout_style=hidden
+load_env
+unset recordfail
+save_env recordfail
 insmod efi_gop
 insmod efi_uga
 insmod all_video

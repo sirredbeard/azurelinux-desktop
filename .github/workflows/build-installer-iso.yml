@@ -29,6 +29,11 @@ on:
       release_tag:
         type: string
         default: ""
+      # Multi-GB product Actions artifact. Off by default when publishing
+      # to a release. On when release_tag is empty (build-only delivery).
+      upload_actions_artifacts:
+        type: boolean
+        default: false
 
 permissions:
   # write: commit findings/installer-package-list.txt after a successful ISO build
@@ -267,7 +272,9 @@ jobs:
 
       # Deliverable first; verify/package-list bookkeeping after publish.
       - name: Upload ISO artifact
-        if: success() && inputs.release_tag == ''
+        if: >-
+          success() &&
+          (inputs.release_tag == '' || inputs.upload_actions_artifacts)
         uses: actions/upload-artifact@v4
         with:
           name: azurelinux-desktop-install-iso

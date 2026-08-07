@@ -84,7 +84,9 @@ units) over the intentional first-boot line. Repo theme must not set
 
 1. `assets/bin/azl-first-boot-prepare` keeps splash up, one
    `display-message` only:
-   "Finishing setup and expanding disk. System will reboot."
+   "Finishing setup. System will reboot."
+(Generic on purpose: bare-metal full-disk install may only SELinux-relabel;
+resized VM images may also grow root. Do not say "expanding disk".)
    Grow root when tools allow; `fixfiles` quietly to
    `/var/log/azl-first-boot-fixfiles.log`; exit 0 (no in-helper reboot).
 2. `assets/systemd/selinux-autorelabel.service.d/10-azurelinux-desktop.conf`

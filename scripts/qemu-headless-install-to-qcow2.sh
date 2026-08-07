@@ -7,15 +7,18 @@
 #     - only the virtio test disk
 #     - clearpart + standard autopart (/, ESP on UEFI)
 #     - reboot when Anaconda finishes
+#   Kickstart is delivered on a small labeled FAT virtio disk
+#   (inst.ks=hd:LABEL=AZLKS:/ks.cfg). No host HTTP — guest net is flaky
+#   early in installer initrd.
 #   Product ISO stays interactive; this ks is local-test only.
 # Usage:
 #   ./scripts/qemu-headless-install-to-qcow2.sh INSTALL.iso [name] [ram_mb] [disk_gb]
 # Env:
 #   AZL_TEST_USER / AZL_TEST_PASS  admin account (default fedora/fedora)
 #   AZL_INSTALL_DISK               guest disk name (default vda)
-#   AZL_SSH_PORT / AZL_KS_PORT     host forwards (default 2222 / 8765)
+#   AZL_SSH_PORT                   host SSH forward (default 2222)
 #   AZL_QEMU_WORKDIR               default ~/azl-work
-# Needs: qemu-kvm, OVMF, 7z, openssl, python3, ssh; sshpass recommended
+# Needs: qemu-kvm, OVMF, 7z, openssl, mkfs.vfat, mcopy, ssh; sshpass recommended
 # CI: No.
 
 set -euo pipefail
@@ -30,17 +33,17 @@ STAGE="$WORKDIR/${NAME}-headless"
 LOG="$WORKDIR/${NAME}-install-serial.log"
 PIDFILE="$WORKDIR/${NAME}-install.pid"
 SSH_PORT="${AZL_SSH_PORT:-2222}"
-KS_PORT="${AZL_KS_PORT:-8765}"
 ADMIN_USER="${AZL_TEST_USER:-fedora}"
 ADMIN_PASS="${AZL_TEST_PASS:-fedora}"
 INSTALL_DISK="${AZL_INSTALL_DISK:-vda}"
+KS_IMG="$STAGE/azl-ks.img"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=scripts/qemu-uefi-common.sh
 source "$SCRIPT_DIR/qemu-uefi-common.sh"
 
 [[ -f "$ISO" ]] || { echo "error: ISO not found: $ISO" >&2; exit 1; }
-for bin in 7z openssl python3 qemu-system-x86_64 qemu-img; do
+for bin in 7z openssl python3 qemu-system-x86_64 qemu-img mkfs.vfat mcopy; do
   command -v "$bin" >/dev/null 2>&1 || { echo "error: missing $bin" >&2; exit 1; }
 done
 
@@ -186,18 +189,18 @@ for need in \
 done
 grep -qE "user --name=.*--iscrypted" "$KS" || { echo "error: user line incomplete" >&2; exit 1; }
 
-python3 - "$STAGE" "$KS_PORT" <<'PY' &
-import http.server, socketserver, sys, os
-root, port = sys.argv[1], int(sys.argv[2])
-os.chdir(root)
-class H(http.server.SimpleHTTPRequestHandler):
-    def log_message(self, *args):
-        pass
-socketserver.TCPServer.allow_reuse_address = True
-with socketserver.TCPServer(("0.0.0.0", port), H) as httpd:
-    httpd.serve_forever()
-PY
-HTTPD_PID=$!
+# Short 8.3 name on FAT so Anaconda does not depend on long-name support.
+# mdir prints "ks       cfg", not "ks.cfg" — trust mcopy exit status.
+cp -f "$KS" "$STAGE/ks.cfg"
+qemu-img create -f raw "$KS_IMG" 4M >/dev/null
+mkfs.vfat -n AZLKS "$KS_IMG" >/dev/null
+mcopy -o -i "$KS_IMG" "$STAGE/ks.cfg" ::ks.cfg
+mdir -i "$KS_IMG" | grep -Eiq 'ks[[:space:]]+cfg' || {
+  echo "error: failed to stage ks.cfg on AZLKS FAT image" >&2
+  mdir -i "$KS_IMG" >&2 || true
+  exit 1
+}
+echo "Kickstart on virtio FAT label AZLKS:/ks.cfg ($(wc -c <"$STAGE/ks.cfg") bytes)"
 
 # Terminate a process by numeric PID only (graceful then force).
 stop_pid() {
@@ -217,7 +220,6 @@ cleanup() {
     stop_pid "$(cat "$PIDFILE" 2>/dev/null || true)"
     rm -f "$PIDFILE"
   fi
-  stop_pid "${HTTPD_PID:-}"
 }
 trap cleanup EXIT
 
@@ -230,14 +232,15 @@ CMDLINE="console=ttyS0,115200 console=tty0 earlyprintk=serial,ttyS0,115200"
 CMDLINE+=" rhgb quiet enforcing=0 audit=0 inst.lang=en_US.UTF-8"
 CMDLINE+=" root=live:CDLABEL=CDROM rd.live.image"
 CMDLINE+=" azl.autoinstall inst.nosave=all_ks"
-CMDLINE+=" inst.ks=http://10.0.2.2:${KS_PORT}/test-install.ks"
+# FAT label AZLKS on second virtio disk (vdb). ignoredisk keeps install on vda.
+CMDLINE+=" inst.ks=hd:LABEL=AZLKS:/ks.cfg"
 CMDLINE+=" inst.text"
 
 echo "=== headless install ==="
 echo "ISO:     $ISO"
 echo "Disk:    $DISK (${DISK_GB}G virtio -> guest /dev/${INSTALL_DISK})"
 echo "Admin:   ${ADMIN_USER}"
-echo "KS URL:  http://10.0.2.2:${KS_PORT}/test-install.ks"
+echo "KS:      hd:LABEL=AZLKS:/ks.cfg (virtio ${KS_IMG})"
 echo "SSH:     localhost:${SSH_PORT} after reboot"
 echo "Serial:  $LOG"
 echo
@@ -258,6 +261,8 @@ qemu-system-x86_64 \
   -device ide-cd,drive=installiso,bootindex=1 \
   -drive "id=sysdisk,if=none,file=${DISK},format=qcow2,cache=writeback,discard=unmap" \
   -device "virtio-blk-pci,drive=sysdisk,bootindex=2,serial=AZLTEST1" \
+  -drive "id=ksdisk,if=none,file=${KS_IMG},format=raw,readonly=on,cache=unsafe" \
+  -device "virtio-blk-pci,drive=ksdisk,serial=AZLKS1" \
   -device virtio-net-pci,netdev=net0 \
   -netdev "user,id=net0,hostfwd=tcp::${SSH_PORT}-:22" \
   -device virtio-rng-pci \

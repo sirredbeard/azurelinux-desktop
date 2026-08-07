@@ -24,9 +24,11 @@ name: Build live ISO and disk images (reusable)
 #   - When release_tag is set, each finished product is hashed, split, and
 #     gh release upload --clobber'd in that job (scripts/ci-upload-release-
 #     asset.sh). Callers must not run a second upload of the same asset.
-#     qcow2 stays an Actions artifact so convert jobs can download it.
-#     VHDX/VDI/VMDK are release-only when release_tag is set (no Actions
-#     artifact once the 7z is on the release).
+#     Multi-GB product Actions artifacts are off by default
+#     (upload_actions_artifacts). qcow2 is still uploaded as an Actions
+#     artifact when VHDX/VDI/VMDK convert jobs need it, or when
+#     release_tag is empty (build-only delivery). VHDX/VDI/VMDK stay
+#     release-only when release_tag is set.
 #   - Disk path stays anaconda on purpose. The old "not a bootable
 #     partition" failure was xfs/blivet + anaconda efibootmgr bugs, fixed by
 #     UEFI/GPT (not BIOS workarounds). Growroot expands root on first boot.
@@ -60,6 +62,12 @@ on:
       release_tag:
         type: string
         default: ""
+      # Multi-GB product Actions artifacts. Default off when publishing to a
+      # release. Still uploads qcow when VHDX/VDI/VMDK convert jobs need it,
+      # and still uploads when release_tag is empty (build-only delivery).
+      upload_actions_artifacts:
+        type: boolean
+        default: false
 
 permissions:
   # write: commit findings/live-package-list.txt after a successful ISO build
@@ -222,9 +230,11 @@ jobs:
         run: ls -lah "$GITHUB_WORKSPACE/live-result" || true
 
       # Deliverable first: artifact + release before package-list bookkeeping.
-      # Skip multi-GB Actions artifact when the ISO is already on the release.
+      # Multi-GB ISO artifact: build-only (no release_tag), or explicit flag.
       - name: Upload ISO artifact
-        if: success() && inputs.release_tag == ''
+        if: >-
+          success() &&
+          (inputs.release_tag == '' || inputs.upload_actions_artifacts)
         uses: actions/upload-artifact@v4
         with:
           name: azurelinux-desktop-live-iso
@@ -772,10 +782,18 @@ jobs:
           # full detail. Print it here and upload it below.
           ls -lah "$GITHUB_WORKSPACE/anaconda" || true
 
-      # Always keep qcow2 as an Actions artifact: convert jobs (vhdx/vdi/
-      # vmdk) download it. Release publish is separate and can run now.
+      # qcow2 Actions artifact only when needed: convert jobs, build-only
+      # (no release_tag), or upload_actions_artifacts. Release publish is
+      # separate and can run without this multi-GB artifact.
       - name: Upload qcow2 disk image artifact
-        if: success()
+        if: >-
+          success() && (
+            inputs.upload_actions_artifacts ||
+            inputs.release_tag == '' ||
+            inputs.build_vhdx ||
+            inputs.build_vdi ||
+            inputs.build_vmdk
+          )
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -894,9 +912,11 @@ jobs:
             "${{ inputs.release_tag }}" \
             dist/azurelinux-desktop-live.vhdx.7z
 
-      # Build-only path (no release_tag): keep an Actions artifact.
+      # Build-only or explicit flag: multi-GB VHDX Actions artifact.
       - name: Upload VHDX disk image artifact
-        if: success() && inputs.release_tag == ''
+        if: >-
+          success() &&
+          (inputs.release_tag == '' || inputs.upload_actions_artifacts)
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -964,7 +984,9 @@ jobs:
             dist/azurelinux-desktop-live.vdi.7z
 
       - name: Upload VDI disk image artifact
-        if: success() && inputs.release_tag == ''
+        if: >-
+          success() &&
+          (inputs.release_tag == '' || inputs.upload_actions_artifacts)
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -1030,7 +1052,9 @@ jobs:
             dist/azurelinux-desktop-live.vmdk.7z
 
       - name: Upload VMDK disk image artifact
-        if: success() && inputs.release_tag == ''
+        if: >-
+          success() &&
+          (inputs.release_tag == '' || inputs.upload_actions_artifacts)
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:

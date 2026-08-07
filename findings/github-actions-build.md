@@ -132,3 +132,15 @@ After successful live/installer builds, CI may commit
 - `kiwi-ng-installer-build.md`
 - `live-iso-installer-parity.md`
 - `flatpak-live-session-space.md`
+
+## Multi-GB Actions artifacts (default off)
+
+`release.yml` input `upload_actions_artifacts` (default false) controls
+whether live/installer/qcow/VHDX/VDI/VMDK product images are also uploaded
+as Actions artifacts. Release assets still publish when `release_tag` is set.
+
+Exceptions that still upload qcow2 as an Actions artifact:
+- any of `build_vhdx` / `build_vdi` / `build_vmdk` (convert jobs download it)
+- `release_tag` empty (build-only delivery path)
+
+Logs and small package-list artifacts are unchanged.

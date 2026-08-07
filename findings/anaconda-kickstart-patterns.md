@@ -73,11 +73,17 @@ staging block.
 ## Storage directives
 
 * Do not re-add `clearpart`/`autopart` to the installer kickstart.
-  Anaconda TUI handles disk selection and partitioning. It enforces
-  minimum layout (/, /boot/efi on UEFI). Encryption is a TUI choice
-  after those directives were removed (2026-07-23).
+  Anaconda TUI handles disk selection and partitioning scheme.
+  Encryption is a TUI choice after those directives were removed
+  (2026-07-23).
 * Use bare `bootloader` (not `--location=mbr`). Firmware-agnostic; the
   project targets UEFI/GPT only.
+* Installer kickstart **does** ship bare `reqpart` after `bootloader`
+  (2026-08-07). That only schedules platform-required partitions (ESP
+  on UEFI). Without it, interactive Standard Partition + use all free
+  space can omit `/boot/efi` and fail
+  `STORAGE_MUST_NOT_BE_ON_ROOT`. See
+  `installer-efi-separate-partition.md`. Still no `clearpart`/`autopart`.
 * The `[!] Installation Destination (Kickstart insufficient)` warning
   in Anaconda TUI is correct and expected after removing
   `clearpart`/`autopart`. The `[!]` marker forces the user into storage
@@ -222,3 +228,20 @@ No match for argument: grub2-tools-extra
 * `deliverable-polish-validation.md`
 * `kiwi-ng-installer-build.md`
 * `gnome-desktop-defaults.md`
+
+## Headless QEMU install (local test only)
+
+Do **not** rely on `inst.ks=http://10.0.2.2:...` for the installer initrd.
+Guest networking is not reliable early enough; Anaconda reports
+`Kickstart file http://... is missing` and drops to a shell with an empty
+target disk.
+
+Working delivery: small FAT virtio disk labeled `AZLKS` with short name
+`ks.cfg`, attached as a second virtio-blk, and:
+
+```
+inst.ks=hd:LABEL=AZLKS:/ks.cfg
+```
+
+`ignoredisk --only-use=vda` keeps clearpart/autopart off the ks disk.
+See `scripts/qemu-headless-install-to-qcow2.sh`.

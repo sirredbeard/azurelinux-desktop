@@ -432,12 +432,39 @@ verify_root() {
   check "$label" "$root" /usr/share/backgrounds/azurelinux/adwaita-d.jpg '.' || true
   check "$label" "$root" /usr/share/backgrounds/azurelinux/adwaita-l.jpg '.' || true
 
-  # Representative kmod family RPMs (live/installed)
+  # GTK3 Adwaita-dark (gnome-themes-extra) for prefer-dark
+  check_rpm "$label" "$root" gnome-themes-extra || true
+  # Intel mediasdk alongside media-driver (full H264 stack)
+  check_rpm "$label" "$root" intel-mediasdk || true
+
+  # Project RPM GPG key on target (kmod repo trust)
+  check "$label" "$root" /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop 'BEGIN PGP|PUBLIC KEY' || true
+
+  # Passwordless sudo for wheel (installer + live post).
+  # File is typically mode 0440 root:root — always read via sudo.
+  if sudo test -f "$root/etc/sudoers.d/90-wheel-nopasswd"; then
+    if sudo grep -qsE '%wheel.*NOPASSWD' "$root/etc/sudoers.d/90-wheel-nopasswd"; then
+      sum "PASS  [$label] wheel passwordless sudo drop-in"
+      pass=$((pass + 1))
+    else
+      sum "FAIL  [$label] 90-wheel-nopasswd missing NOPASSWD"
+      fail=$((fail + 1))
+    fi
+  else
+    sum "FAIL  [$label] /etc/sudoers.d/90-wheel-nopasswd missing"
+    fail=$((fail + 1))
+  fi
+
+  # Representative kmod family RPMs (live/installed) — last-12h expansion
   if [[ "$label" != installer* ]]; then
     for pkg in azurelinux-desktop-performance-kmod \
                azurelinux-desktop-bluetooth-kmod \
                azurelinux-desktop-storage-kmod \
-               azurelinux-desktop-intel-kmod; do
+               azurelinux-desktop-intel-kmod \
+               azurelinux-desktop-surface-kmod \
+               azurelinux-desktop-sensors-kmod \
+               azurelinux-desktop-psmouse-kmod \
+               azurelinux-desktop-sound-kmod; do
       check_rpm "$label" "$root" "$pkg" || true
     done
   fi

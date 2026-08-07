@@ -14,11 +14,14 @@
 # findings/gh-actions-installer-iso-build.md for the real incident this
 # comment is guarding against).
 # Differences from upstream, all deliberate:
-#   - storage directives removed entirely; Anaconda's interactive TUI
-#     handles disk selection, partitioning, and optional LUKS encryption.
-#     Anaconda enforces the minimum layout (/, /boot/efi on UEFI, swap
-#     with automatic partitioning). This avoids silently wiping the wrong
-#     disk on multi-disk desktop hardware.
+#   - no clearpart/autopart/part. Anaconda's interactive TUI handles disk
+#     selection, partitioning scheme (standard/LVM), and optional LUKS.
+#     That avoids silently wiping the wrong disk on multi-disk desktops.
+#   - bare `reqpart` only: schedules platform-required partitions (ESP on
+#     UEFI, biosboot on BIOS) so interactive Standard Partition + use all
+#     free space still gets /boot/efi. Without it Anaconda can omit the
+#     ESP and fail with STORAGE_MUST_NOT_BE_ON_ROOT. See
+#     findings/installer-efi-separate-partition.md.
 #   - a third %post --nochroot block staging this project's own
 #     branding/tooling extras (Copilot, microsoft/edit, Flathub,
 #     Plymouth theme, dock favorites, dark mode) into the installed
@@ -38,6 +41,9 @@ network --hostname=azurelinux-desktop
 services --enabled=sshd,systemd-networkd,systemd-resolved,gdm,NetworkManager
 
 bootloader
+# Platform-required partitions only (UEFI ESP / BIOS biosboot). Do not add
+# clearpart or autopart here — disk pick stays interactive.
+reqpart
 
 rootpw --lock
 

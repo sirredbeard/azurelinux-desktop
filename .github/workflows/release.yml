@@ -92,6 +92,10 @@ on:
         description: "Delete every prior GitHub release/tag and mint a fresh dated release with the notes template. Schedule always does this. Leave off to clobber assets on the current release only."
         type: boolean
         default: false
+      upload_actions_artifacts:
+        description: "Also upload multi-GB product images as Actions artifacts. Default off — release assets still publish. qcow2 still uploads as an artifact when any of VHDX/VDI/VMDK is on (convert jobs need it)."
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -137,6 +141,7 @@ jobs:
       need_live_build: ${{ steps.flags.outputs.need_live_build }}
       tool_targets: ${{ steps.flags.outputs.tool_targets }}
       need_tool_images: ${{ steps.flags.outputs.need_tool_images }}
+      upload_actions_artifacts: ${{ steps.flags.outputs.upload_actions_artifacts }}
     steps:
       - id: flags
         env:
@@ -150,6 +155,7 @@ jobs:
           IN_CANARY: ${{ inputs.canary }}
           IN_KMODS: ${{ inputs.kmods }}
           IN_REPLACE: ${{ inputs.replace_release }}
+          IN_UPLOAD_ARTIFACTS: ${{ inputs.upload_actions_artifacts }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "schedule" ]; then
@@ -158,6 +164,9 @@ jobs:
             # Nightly always rebuilds canary. Focused manual ISO/qcow runs
             # leave canary off (default false) and never force a rebuild.
             force_canary=true
+            # Schedule publishes to the release; skip multi-GB Actions
+            # product artifacts (qcow still uploads when VM converts run).
+            upload_artifacts=false
           else
             live="${IN_LIVE:-false}"
             installer="${IN_INSTALLER:-false}"
@@ -168,6 +177,7 @@ jobs:
             canary="${IN_CANARY:-false}"
             kmods="${IN_KMODS:-false}"
             replace="${IN_REPLACE:-false}"
+            upload_artifacts="${IN_UPLOAD_ARTIFACTS:-false}"
             # Manual: honor canary flag but use 7-day skip inside containers.yml
             force_canary=false
           fi
@@ -228,8 +238,9 @@ jobs:
             echo "need_github_release=$need_rel"
             echo "tool_targets=$tool_targets"
             echo "need_tool_images=$need_tool_images"
+            echo "upload_actions_artifacts=$upload_artifacts"
           } >> "$GITHUB_OUTPUT"
-          echo "plan: live=$live installer=$installer qcow2=$qcow2 vhdx=$vhdx vdi=$vdi vmdk=$vmdk canary=$canary force_canary=$force_canary kmods=$kmods replace=$replace tools=$tool_targets need_tool_images=$need_tool_images"
+          echo "plan: live=$live installer=$installer qcow2=$qcow2 vhdx=$vhdx vdi=$vdi vmdk=$vmdk canary=$canary force_canary=$force_canary kmods=$kmods replace=$replace tools=$tool_targets need_tool_images=$need_tool_images upload_artifacts=$upload_artifacts"
 
   cleanup:
     needs: plan
@@ -322,6 +333,7 @@ jobs:
       build_vmdk: ${{ needs.plan.outputs.vmdk == 'true' }}
       prepare_kernel_modules: false
       release_tag: ${{ needs.create-release.outputs.tag }}
+      upload_actions_artifacts: ${{ needs.plan.outputs.upload_actions_artifacts == 'true' }}
 
   build-installer:
     needs: [plan, kmods, create-release, tool-images]
@@ -335,6 +347,7 @@ jobs:
     with:
       prepare_kernel_modules: false
       release_tag: ${{ needs.create-release.outputs.tag }}
+      upload_actions_artifacts: ${{ needs.plan.outputs.upload_actions_artifacts == 'true' }}
 
   # Prebuilt lorax/kiwi/kmods images (7-day skip inside containers.yml).
   tool-images:

@@ -45,13 +45,17 @@ install -d -m 0755 "$MNT/usr/lib/systemd/system/selinux-autorelabel.service.d"
 install -m 0644 "$REPO/assets/systemd/selinux-autorelabel.service.d/10-azurelinux-desktop.conf" \
   "$MNT/usr/lib/systemd/system/selinux-autorelabel.service.d/10-azurelinux-desktop.conf"
 
-# GRUB: skip menu
+# GRUB: skip menu; never let recordfail force a text list
 if [[ -f "$MNT/boot/grub2/grub.cfg" ]]; then
   sed -i 's/^set timeout=.*/set timeout=0/' "$MNT/boot/grub2/grub.cfg"
   if grep -q '^set timeout_style=' "$MNT/boot/grub2/grub.cfg"; then
     sed -i 's/^set timeout_style=.*/set timeout_style=hidden/' "$MNT/boot/grub2/grub.cfg"
   else
     sed -i '/^set timeout=0/a set timeout_style=hidden' "$MNT/boot/grub2/grub.cfg"
+  fi
+  if ! grep -q '^unset recordfail' "$MNT/boot/grub2/grub.cfg"; then
+    sed -i '/^set timeout_style=hidden/a load_env\nunset recordfail\nsave_env recordfail' \
+      "$MNT/boot/grub2/grub.cfg"
   fi
 fi
 if [[ -f "$MNT/etc/default/grub" ]]; then
@@ -60,6 +64,16 @@ if [[ -f "$MNT/etc/default/grub" ]]; then
     sed -i 's/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=hidden/' "$MNT/etc/default/grub"
   else
     echo 'GRUB_TIMEOUT_STYLE=hidden' >> "$MNT/etc/default/grub"
+  fi
+  if grep -q '^GRUB_RECORDFAIL_TIMEOUT=' "$MNT/etc/default/grub"; then
+    sed -i 's/^GRUB_RECORDFAIL_TIMEOUT=.*/GRUB_RECORDFAIL_TIMEOUT=0/' "$MNT/etc/default/grub"
+  else
+    echo 'GRUB_RECORDFAIL_TIMEOUT=0' >> "$MNT/etc/default/grub"
+  fi
+  if grep -q '^GRUB_DISABLE_OS_PROBER=' "$MNT/etc/default/grub"; then
+    sed -i 's/^GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=true/' "$MNT/etc/default/grub"
+  else
+    echo 'GRUB_DISABLE_OS_PROBER=true' >> "$MNT/etc/default/grub"
   fi
 fi
 

@@ -12,7 +12,9 @@ fi
 
 if [ -x /usr/bin/plymouth ] && plymouth --ping >/dev/null 2>&1; then
     plymouth show-splash >/dev/null 2>&1 || true
-    plymouth display-message --text="Finishing setup and expanding disk. System will reboot." >/dev/null 2>&1 || true
+    # Same generic line as azl-first-boot-prepare. Grow may be a no-op on
+    # bare metal; do not claim the disk is expanding.
+    plymouth display-message --text="Finishing setup. System will reboot." >/dev/null 2>&1 || true
 fi
 
 root_src=$(findmnt -no SOURCE /)

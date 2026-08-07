@@ -52,7 +52,7 @@ sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd
 
 # Trigger SELinux relabel on first boot. Covered by Plymouth via
 # assets/bin/azl-first-boot-prepare (selinux-autorelabel.service drop-in):
-# splash stays up with one "Finishing setup and expanding disk…" line instead
+# splash stays up with one "Finishing setup. System will reboot." line instead
 # of stock fixfiles console spam.
 touch /.autorelabel
 
