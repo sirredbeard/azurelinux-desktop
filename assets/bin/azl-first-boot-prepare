@@ -8,7 +8,7 @@
 # wall.
 set -uo pipefail
 
-MSG="Expanding disk and finishing setup. The system will reboot once more."
+MSG="Finishing setup and expanding disk. System will reboot."
 LOG_DIR=/var/log
 FIXFILES_LOG="$LOG_DIR/azl-first-boot-fixfiles.log"
 GROW_LOG="$LOG_DIR/azl-first-boot-grow.log"

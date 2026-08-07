@@ -1299,7 +1299,7 @@ fi
 
 if [ -x /usr/bin/plymouth ] && plymouth --ping >/dev/null 2>&1; then
     plymouth show-splash >/dev/null 2>&1 || true
-    plymouth display-message --text="Expanding disk and finishing setup. The system will reboot once more." >/dev/null 2>&1 || true
+    plymouth display-message --text="Finishing setup and expanding disk. System will reboot." >/dev/null 2>&1 || true
 fi
 
 root_src=$(findmnt -no SOURCE /)
