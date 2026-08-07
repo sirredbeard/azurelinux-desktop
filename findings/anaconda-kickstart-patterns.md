@@ -86,6 +86,27 @@ staging block.
   `part / --size=16384` (nothing persists past squashfs capture),
   `shutdown` instead of `reboot`.
 
+## Headless QEMU install (local test only)
+
+Product installer ISO stays interactive for disk and admin account.
+Unattended install into a test qcow2 is a local overlay, not a product
+change:
+
+* `scripts/qemu-headless-install-to-qcow2.sh` extracts `root/azl-install.ks`
+  from the ISO, injects `ignoredisk`/`clearpart`/`autopart` for the
+  virtio disk (`vda`), replaces `rootpw --lock` with an iscrypted admin
+  user (default `fedora`/`fedora`), keeps product `%packages`/`%post`,
+  and serves the temporary ks over HTTP on the host.
+* Boot is direct-kernel (same pattern as `qemu-install-to-hostpart.sh`)
+  with `inst.ks=http://10.0.2.2:<port>/test-install.ks`,
+  `azl.autoinstall`, and `inst.text`. That path skips the launcher TUI.
+* After Anaconda finishes, the guest reboots into the installed disk.
+  The script waits on SSH, then shuts the guest down for mount checks
+  with `scripts/verify-release-features.sh --installed-qcow`.
+
+Do not put `clearpart`/`autopart` or a baked-in admin password back into
+`kiwi/azl-install.ks.in`.
+
 ## Cinnamon placeholder cleanup
 
 Installer templates once carried a leftover `user --name=cinnamon`
