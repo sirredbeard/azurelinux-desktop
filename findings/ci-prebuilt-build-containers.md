@@ -147,3 +147,12 @@ in `build-installer-iso.yml`.
 Chrooted kickstart `%post` cannot use `/workspace`. Stage assets to
 `/root/assets` in nochroot. See `findings/rpm-gpg-keys-on-target.md`.
 Missing keys aborted the rest of desktop polish on disk image builds.
+
+## Long quiet phases (future)
+
+Live lorax and installer kiwi both go quiet for a long time after
+"Running post-installation scripts" / "Complete!" while squashfs runs
+(`mksquashfs` with xz). Not stuck; just no progress lines. Future:
+add a low-noise heartbeat (periodic "still packing squashfs…" with
+elapsed time, or `mksquashfs -info` throttled) without dumping full
+debug. Do not raise lorax/kiwi log level globally.
