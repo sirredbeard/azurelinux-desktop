@@ -1,0 +1,7 @@
+polkit.addRule(function(action, subject) {
+    if ((action.id.indexOf("org.freedesktop.packagekit.") == 0 ||
+         action.id.indexOf("org.rpm.dnf.v0.") == 0) &&
+        subject.isInGroup("wheel") && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});

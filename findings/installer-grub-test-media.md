@@ -1,31 +1,31 @@
-# Installer ISO GRUB: "Test this media" entry missing
+# Installer ISO GRUB: Test this media entry
 
 **Status:** Resolved
 
-## Observed failure
+## Problem
 
-The installer ISO GRUB menu had no "Test this media & install" entry, even
-though `mediacheck="true"` was set in `kiwi/azl-desktop-installer.kiwi`.
+The installer ISO GRUB menu had no "Test this media & install" entry,
+even with `mediacheck="true"` in `kiwi/azl-desktop-installer.kiwi`.
 
-## Root cause
+## Cause
 
-Custom `kiwi/grub_template.cfg` fully overrides KIWI's auto-generated GRUB
-config. KIWI's `mediacheck="true"` therefore had no effect on the final menu.
+Custom `kiwi/grub_template.cfg` fully replaces KIWI's auto GRUB config.
+`mediacheck="true"` never reaches the menu.
 
-`rd.live.check` is handled by dracut's `dmsquash-live` module, which calls
-`checkisomd5` from the `isomd5sum` package. `dracut-live` alone does not pull
-`isomd5sum` on Fedora 43.
+`rd.live.check` is handled by dracut's `dmsquash-live` module, which
+calls `checkisomd5` from `isomd5sum`. `dracut-live` alone does not pull
+`isomd5sum` on Fedora.
 
-## Resolution
+## Fix
 
-1. Added a "Test this media & install Azure Linux Desktop" menu entry with
+1. Add a "Test this media & install Azure Linux Desktop" menu entry with
    `rd.live.check` to `kiwi/grub_template.cfg`.
-2. Added `isomd5sum` to the KIWI package list.
+2. Add `isomd5sum` to the KIWI package list.
 
-Azure Linux upstream's own installer ISO does not ship a media-check entry.
-This project carries the Fedora-style entry on purpose.
+Azure Linux upstream's installer ISO has no media-check entry. This
+project keeps the Fedora-style entry on purpose.
 
-## References
+## Paths
 
-- `kiwi/grub_template.cfg`
-- `kiwi/azl-desktop-installer.kiwi`
+* `kiwi/grub_template.cfg`
+* `kiwi/azl-desktop-installer.kiwi`

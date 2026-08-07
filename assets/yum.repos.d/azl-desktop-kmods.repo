@@ -1,0 +1,10 @@
+# Desktop kmod Pages repo
+
+[azl-desktop-kmods]
+name=azl-desktop-kmods
+baseurl=https://sirredbeard.github.io/azurelinux-desktop/repo
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+cost=1
+

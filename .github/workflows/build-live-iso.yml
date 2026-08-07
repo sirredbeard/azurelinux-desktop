@@ -1,18 +1,19 @@
 name: Build live ISO and disk images (reusable)
 
 # Reusable workflow. Called only from release.yml (not human-dispatched).
-# Live ISO: lorax + livemedia-creator --make-iso inside fedora:43.
-# Disk images: livemedia-creator --make-disk (UEFI/GPT), then qemu-img
-# convert for VHDX/VDI/VMDK from the resized qcow2.
+# Live ISO: lorax + livemedia-creator --make-iso inside prebuilt
+# ghcr.io/.../build-lorax (Fedora 43 + lorax/anaconda). Disk images: same
+# image with --make-disk (UEFI/GPT), then qemu-img convert for VHDX/VDI/VMDK.
 #
 # Architecture:
-#   - runs-on is a bare ubuntu-24.04 VM, not a container: job. Disk cleanup
-#     needs Ubuntu paths/apt first; privileged docker run matches local
-#     Fedora tooling better than Actions container: jobs.
-#   - Build runs in docker run --privileged -v /dev:/dev fedora:43 with
-#     lorax, lorax-lmc-novirt, anaconda, xorriso, squashfs-tools.
-#   - Pin fedora:43 (stable). Rolling rawhide-style images can churn glibc
-#     mid-transaction and break the workspace bind mount.
+#   - runs-on: ubuntu-24.04 by default (set AZL_RUNNER_HEAVY / CONVERT repo
+#     vars only if you want larger labels). Free-disk when free space is
+#     low. Convert jobs never free-disk.
+#   - Tool image from containers.yml (weekly, 7-day skip). Build runs in
+#     docker run --privileged -v /dev:/dev $BUILD_LORAX_IMAGE. No in-job
+#     dnf install of lorax (avoids glibc churn on the bind mount).
+#   - Steps split (pull image / prestage / livemedia / publish) so cancel
+#     can land between long stages more often.
 #   - LiveOS/rootfs.img is a plain ext4 image, so plain losetup works. No
 #     losetup -P. That is why this path works on GitHub-hosted runners while
 #     Azure Linux Image Customizer (partitioned loops) needs self-hosted.
@@ -65,6 +66,10 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  packages: read
+
+env:
+  BUILD_LORAX_IMAGE: ghcr.io/${{ github.repository }}/build-lorax:f43
 
 jobs:
   prepare-kernel-modules:
@@ -74,7 +79,7 @@ jobs:
   build-iso:
     needs: prepare-kernel-modules
     if: ${{ always() && inputs.build_iso && (needs.prepare-kernel-modules.result == 'success' || needs.prepare-kernel-modules.result == 'skipped') }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_HEAVY || 'ubuntu-24.04' }}
     timeout-minutes: 180
     # Keep disk/VM converts alive if the live ISO job dies. release.yml
     # upload jobs each look for their own artifact.
@@ -87,11 +92,22 @@ jobs:
           # Need the branch tip for package-list commit/push later.
           fetch-depth: 0
 
-      # Free as much disk as possible on the HOST before the Fedora
-      # container ever starts - lorax's intermediate rootfs.img alone is
-      # ~16-17GB, plus the ~2.7GB squashfs and assorted staging, and the
-      # default GH-hosted runner only guarantees ~14GB free.
+      # Larger runners (~300G) skip this. Standard runners free space first.
+      - name: Check free disk
+        id: disk
+        run: |
+          set -euo pipefail
+          df -h /
+          free_gb=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
+          echo "free_gb=${free_gb}"
+          if [ "${free_gb:-0}" -lt 50 ]; then
+            echo "need_free=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "need_free=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Free disk space
+        if: steps.disk.outputs.need_free == 'true'
         uses: jlumbroso/free-disk-space@main
         with:
           android: true
@@ -105,8 +121,38 @@ jobs:
       - name: Show disk space
         run: df -h /
 
-      - name: Pull Fedora 43 build image
-        run: docker pull fedora:43
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull lorax tool image
+        run: |
+          set -euo pipefail
+          docker pull "$BUILD_LORAX_IMAGE"
+          docker image inspect "$BUILD_LORAX_IMAGE" --format 'using {{.RepoTags}} {{.Id}}'
+
+      # Short step: cancel can land here without killing livemedia-creator.
+      - name: Prestage vendor snapshot and Copilot Flatpak
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm \
+            --privileged \
+            -v /dev:/dev \
+            --security-opt label=disable \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -e GITHUB_TOKEN \
+            -e GH_TOKEN \
+            "$BUILD_LORAX_IMAGE" \
+            bash -exo pipefail -c '
+              mkdir -p /workspace/build-meta /workspace/prestage
+              /workspace/scripts/log-latest-vendor-packages.sh \
+                /workspace/build-meta/vendor-packages-latest.txt \
+                /tmp/dotnet-channel.env
+              cat /workspace/build-meta/vendor-packages-latest.txt
+              /workspace/scripts/prestage-copilot-flatpak-system.sh \
+                /workspace/prestage/flatpak-system
+            '
 
       - name: Build live ISO (lorax + livemedia-creator --no-virt)
         env:
@@ -121,28 +167,13 @@ jobs:
             -e GITHUB_TOKEN \
             -e GH_TOKEN \
             --tmpfs /tmp:exec,size=8g \
-            fedora:43 \
+            "$BUILD_LORAX_IMAGE" \
             bash -exo pipefail -c '
-              dnf5 install -y \
-                lorax lorax-templates-generic lorax-lmc-novirt \
-                anaconda-core anaconda-install-env-deps anaconda-live \
-                squashfs-tools xorriso dosfstools shim-x64 \
-                grub2-efi-x64-cdboot policycoreutils curl python3 \
-                flatpak
-
-              # Vendor snapshot goes under build-meta, not live-result.
+              # Vendor snapshot + Copilot Flatpak prestaged in prior step.
               # livemedia-creator refuses a pre-existing --resultdir
               # ("should not exist, please delete or move its contents").
-              mkdir -p /workspace/build-meta
-              /workspace/scripts/log-latest-vendor-packages.sh \
-                /workspace/build-meta/vendor-packages-latest.txt \
-                /tmp/dotnet-channel.env
-              cat /workspace/build-meta/vendor-packages-latest.txt
-
-              # Copilot Flatpak OSTree on the build host *before* Anaconda.
-              # %post --nochroot only copies /workspace/prestage/flatpak-system.
-              /workspace/scripts/prestage-copilot-flatpak-system.sh \
-                /workspace/prestage/flatpak-system
+              test -s /workspace/build-meta/vendor-packages-latest.txt
+              test -d /workspace/prestage/flatpak-system
 
               # Default: boot straight into the real desktop, not the
               # verify-media path. Keep GRUB hidden with a one-second
@@ -191,14 +222,15 @@ jobs:
         run: ls -lah "$GITHUB_WORKSPACE/live-result" || true
 
       # Deliverable first: artifact + release before package-list bookkeeping.
+      # Skip multi-GB Actions artifact when the ISO is already on the release.
       - name: Upload ISO artifact
-        if: success()
+        if: success() && inputs.release_tag == ''
         uses: actions/upload-artifact@v4
         with:
           name: azurelinux-desktop-live-iso
           path: live-result/*.iso
           compression-level: 0
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: error
 
       - name: Publish live ISO to GitHub Release
@@ -222,22 +254,24 @@ jobs:
             live-result/*.log
             livemedia-build.log
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
+      # Bookkeeping only. Do not fail the job if the list path moved; the
+      # ISO is already published above.
       - name: Extract real resolved package list from the built ISO
         if: success()
+        continue-on-error: true
+        id: pkglist
         run: |
-          # Live squashfs only wraps LiveOS/rootfs.img (ext4). The package
-          # list is inside that rootfs at var/log/azl-desktop-package-list.txt,
-          # not as a bare path on the squashfs itself.
+          # Live squashfs only wraps LiveOS/rootfs.img (ext4). Prefer the
+          # kickstart path; fall back to any azl*package*list under /var/log.
           docker run --rm \
             --privileged \
             -v /dev:/dev \
             --security-opt label=disable \
             -v "$GITHUB_WORKSPACE:/workspace" \
-            fedora:43 \
+            "$BUILD_LORAX_IMAGE" \
             bash -exo pipefail -c '
-              dnf5 install -y xorriso squashfs-tools util-linux e2fsprogs
               ISO=$(ls /workspace/live-result/*.iso | head -1)
               mkdir -p /tmp/iso-extract /tmp/rootfs-mnt
               xorriso -osirrox on -indev "$ISO" \
@@ -246,24 +280,40 @@ jobs:
                 /tmp/iso-extract/squashfs.img LiveOS/rootfs.img
               mount -o loop,ro /tmp/iso-extract/squash-out/LiveOS/rootfs.img \
                 /tmp/rootfs-mnt
-              cp /tmp/rootfs-mnt/var/log/azl-desktop-package-list.txt \
-                /workspace/live-result/final-package-list.txt
+              src=""
+              for cand in \
+                /tmp/rootfs-mnt/var/log/azl-desktop-package-list.txt \
+                /tmp/rootfs-mnt/root/azl-desktop-package-list.txt \
+                /tmp/rootfs-mnt/var/tmp/azl-desktop-package-list.txt
+              do
+                if [ -s "$cand" ]; then src="$cand"; break; fi
+              done
+              if [ -z "$src" ]; then
+                src=$(find /tmp/rootfs-mnt/var/log -type f -name "*package*list*" 2>/dev/null | head -1 || true)
+              fi
+              if [ -z "$src" ] || [ ! -s "$src" ]; then
+                echo "package list not found in rootfs; listing /var/log:" >&2
+                ls -la /tmp/rootfs-mnt/var/log 2>/dev/null || true
+                umount /tmp/rootfs-mnt || true
+                exit 1
+              fi
+              cp "$src" /workspace/live-result/final-package-list.txt
               umount /tmp/rootfs-mnt
               test -s /workspace/live-result/final-package-list.txt
               wc -l /workspace/live-result/final-package-list.txt
             '
 
       - name: Upload resolved package list artifact
-        if: success()
+        if: steps.pkglist.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: azurelinux-desktop-live-package-list
           path: live-result/final-package-list.txt
-          retention-days: 7
-          if-no-files-found: error
+          retention-days: 3
+          if-no-files-found: warn
 
       - name: Commit live package list to findings/
-        if: success()
+        if: steps.pkglist.outcome == 'success'
         run: |
           ./scripts/ci-commit-package-list.sh \
             live-result/final-package-list.txt \
@@ -293,7 +343,7 @@ jobs:
   build-disk-image:
     needs: prepare-kernel-modules
     if: ${{ always() && (inputs.build_disk_image || inputs.build_vhdx || inputs.build_vdi || inputs.build_vmdk) && (needs.prepare-kernel-modules.result == 'success' || needs.prepare-kernel-modules.result == 'skipped') }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_HEAVY || 'ubuntu-24.04' }}
     timeout-minutes: 180
     # This build was unstable for a long time (see
     # findings/github-actions-build.md, bugs #1 through #7) but is now
@@ -315,7 +365,21 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
+      - name: Check free disk
+        id: disk
+        run: |
+          set -euo pipefail
+          df -h /
+          free_gb=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
+          echo "free_gb=${free_gb}"
+          if [ "${free_gb:-0}" -lt 50 ]; then
+            echo "need_free=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "need_free=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Free disk space
+        if: steps.disk.outputs.need_free == 'true'
         uses: jlumbroso/free-disk-space@main
         with:
           android: true
@@ -329,8 +393,14 @@ jobs:
       - name: Show disk space
         run: df -h /
 
-      - name: Pull Fedora 43 build image
-        run: docker pull fedora:43
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull lorax tool image
+        run: |
+          set -euo pipefail
+          docker pull "$BUILD_LORAX_IMAGE"
+          docker image inspect "$BUILD_LORAX_IMAGE" --format 'using {{.RepoTags}} {{.Id}}'
 
       # No --boot-drive= is set. That was tried first as --boot-drive=vda,
       # assuming the virtio device name a real virt-install boot would use
@@ -579,7 +649,7 @@ jobs:
             -e GITHUB_TOKEN \
             -e GH_TOKEN \
             --tmpfs /tmp:exec,size=8g \
-            fedora:43 \
+            "$BUILD_LORAX_IMAGE" \
             bash -exo pipefail -c '
               # Break shared mount propagation on the whole container tree
               # before anaconda gets anywhere near it. --make-disk (unlike
@@ -598,13 +668,7 @@ jobs:
               # --image path and never hit this.
               mount --make-rprivate /
 
-              dnf5 install -y \
-                lorax lorax-templates-generic lorax-lmc-novirt \
-                anaconda-core anaconda-install-env-deps \
-                qemu-img systemd-udev libguestfs-tools-c \
-                shim-x64 grub2-efi-x64-cdboot policycoreutils curl python3 \
-                flatpak
-
+              # Tools come from BUILD_LORAX_IMAGE (containers.yml).
               mkdir -p /workspace/disk-result
               /workspace/scripts/log-latest-vendor-packages.sh \
                 /workspace/disk-result/vendor-packages-latest.txt \
@@ -718,7 +782,7 @@ jobs:
           name: azurelinux-desktop-live-qcow2
           path: live-disk-result/azurelinux-desktop-live.qcow2
           compression-level: 0
-          retention-days: 7
+          retention-days: 2
           if-no-files-found: warn
 
       - name: Publish qcow2 to GitHub Release
@@ -743,7 +807,7 @@ jobs:
             livemedia-disk-build.log
             anaconda/*
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
   # VHDX/VDI/VMDK are each their own job, not steps tacked onto
   # build-disk-image, so re-running just one conversion (e.g. "the VDI
@@ -770,7 +834,7 @@ jobs:
     # Without it GHA skips this job even after a successful qcow2 build
     # (release then fails with "Artifact not found: ...-live-vhdx").
     if: ${{ always() && inputs.build_vhdx && needs.build-disk-image.result == 'success' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_CONVERT || 'ubuntu-24.04' }}
     timeout-minutes: 45
     # VHDX conversion itself is simple and has been confirmed correct
     # (64G virtual size, matches the qcow2) against two real CI builds -
@@ -839,13 +903,13 @@ jobs:
           name: azurelinux-desktop-live-vhdx
           path: dist/azurelinux-desktop-live.vhdx.7z
           compression-level: 0
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: warn
 
   build-vdi:
     needs: build-disk-image
     if: ${{ always() && inputs.build_vdi && needs.build-disk-image.result == 'success' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_CONVERT || 'ubuntu-24.04' }}
     # Was 20 with -mx=9 (timed out). 45 stays as headroom; compress is
     # now -mx=3 and should finish much faster.
     timeout-minutes: 45
@@ -907,13 +971,13 @@ jobs:
           name: azurelinux-desktop-live-vdi
           path: dist/azurelinux-desktop-live.vdi.7z
           compression-level: 0
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: warn
 
   build-vmdk:
     needs: build-disk-image
     if: ${{ always() && inputs.build_vmdk && needs.build-disk-image.result == 'success' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_CONVERT || 'ubuntu-24.04' }}
     timeout-minutes: 45
     # VMDK (VMware Workstation/Player) is new this session and NOT yet
     # verified against a real CI build, same caveat as VDI above - no
@@ -973,5 +1037,5 @@ jobs:
           name: azurelinux-desktop-live-vmdk
           path: dist/azurelinux-desktop-live.vmdk.7z
           compression-level: 0
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: warn

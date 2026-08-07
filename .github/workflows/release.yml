@@ -11,7 +11,10 @@ name: Release
 #     -> kmods (optional; Pages repo, kernel drift)
 #     -> build-live and build-installer after kmods + create-release
 #        (release_tag passed in; each product uploads as that job ends)
-#     -> canary build+test in parallel with the image builds
+#     -> containers.yml tool-images on schedule (or manual kmods=true).
+#        Focused manual ISO/VM skips tool-images and kmods; jobs pull
+#        existing GHCR tags. Optional canary: schedule always rebuilds;
+#        manual default off (7-day skip if turned on).
 #     -> finalize (notes only; no second asset upload)
 #
 # Concurrency and failure isolation:
@@ -25,7 +28,8 @@ name: Release
 # - qcow2 stays an Actions artifact so VHDX/VDI/VMDK can download it.
 #   Convert formats go to the release only (no Actions artifact when
 #   release_tag is set).
-# - Canary failure must not block image builds. Image failure must not
+# - containers.yml owns GHCR canary + build-lorax/kiwi/kmods images.
+#   Canary failure must not block image builds. Image failure must not
 #   block canary. Live ISO failure must not block qcow2/VM jobs when
 #   the disk build still produced artifacts (continue-on-error inside
 #   the reusable workflows).
@@ -33,7 +37,8 @@ name: Release
 #   build workflows. Do not strip those when editing this file.
 #
 # Internals (not dispatched by hand):
-#   build-live-iso.yml, build-installer-iso.yml, publish-desktop-kmods.yml
+#   build-live-iso.yml, build-installer-iso.yml, publish-desktop-kmods.yml,
+#   containers.yml (also weekly schedule of its own)
 #
 # Release rules:
 # - One GitHub Release is the product. Get-AzureLinuxDesktop.ps1 reads
@@ -76,13 +81,13 @@ on:
         type: boolean
         default: true
       canary:
-        description: "Build, push, and test the package-policy canary container"
+        description: "Canary container lifecycle (containers.yml). Off by default on manual runs — use when you want a canary rebuild/test. Schedule always builds and tests it."
         type: boolean
-        default: true
+        default: false
       kmods:
-        description: "Check upstream Azure Linux kernel drift; rebuild/publish desktop kmod RPMs when needed"
+        description: "Kernel drift check + kmod Pages publish. Off by default on manual focused ISO/VM runs. Schedule always runs it."
         type: boolean
-        default: true
+        default: false
       replace_release:
         description: "Delete every prior GitHub release/tag and mint a fresh dated release with the notes template. Schedule always does this. Leave off to clobber assets on the current release only."
         type: boolean
@@ -94,13 +99,28 @@ permissions:
   pages: write
   id-token: write
 
+# One group per product set so a focused installer rebuild does not wait
+# behind live/qcow (and vice versa). Schedule always uses "full". Two
+# dispatches that touch the same product still serialize.
 concurrency:
-  group: azurelinux-desktop-publication
+  group: >-
+    azurelinux-desktop-pub-${{
+      github.event_name == 'schedule' && 'full' ||
+      format('L{0}-I{1}-Q{2}-H{3}-D{4}-M{5}-C{6}-K{7}',
+        inputs.live_iso && '1' || '0',
+        inputs.installer_iso && '1' || '0',
+        inputs.qcow2 && '1' || '0',
+        inputs.vhdx && '1' || '0',
+        inputs.vdi && '1' || '0',
+        inputs.vmdk && '1' || '0',
+        inputs.canary && '1' || '0',
+        inputs.kmods && '1' || '0')
+    }}
   cancel-in-progress: false
 
 jobs:
   plan:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
     outputs:
       live_iso: ${{ steps.flags.outputs.live_iso }}
       installer_iso: ${{ steps.flags.outputs.installer_iso }}
@@ -109,11 +129,14 @@ jobs:
       vdi: ${{ steps.flags.outputs.vdi }}
       vmdk: ${{ steps.flags.outputs.vmdk }}
       canary: ${{ steps.flags.outputs.canary }}
+      force_canary: ${{ steps.flags.outputs.force_canary }}
       kmods: ${{ steps.flags.outputs.kmods }}
       replace_release: ${{ steps.flags.outputs.replace_release }}
       build_disk_image: ${{ steps.flags.outputs.build_disk_image }}
       need_github_release: ${{ steps.flags.outputs.need_github_release }}
       need_live_build: ${{ steps.flags.outputs.need_live_build }}
+      tool_targets: ${{ steps.flags.outputs.tool_targets }}
+      need_tool_images: ${{ steps.flags.outputs.need_tool_images }}
     steps:
       - id: flags
         env:
@@ -132,6 +155,9 @@ jobs:
           if [ "$EVENT_NAME" = "schedule" ]; then
             live=true; installer=true; qcow2=true; vhdx=true
             vdi=true; vmdk=true; canary=true; kmods=true; replace=true
+            # Nightly always rebuilds canary. Focused manual ISO/qcow runs
+            # leave canary off (default false) and never force a rebuild.
+            force_canary=true
           else
             live="${IN_LIVE:-false}"
             installer="${IN_INSTALLER:-false}"
@@ -142,6 +168,8 @@ jobs:
             canary="${IN_CANARY:-false}"
             kmods="${IN_KMODS:-false}"
             replace="${IN_REPLACE:-false}"
+            # Manual: honor canary flag but use 7-day skip inside containers.yml
+            force_canary=false
           fi
           disk=false
           if [ "$qcow2" = "true" ] || [ "$vhdx" = "true" ] || [ "$vdi" = "true" ] || [ "$vmdk" = "true" ]; then
@@ -155,6 +183,35 @@ jobs:
           if [ "$live" = "true" ] || [ "$installer" = "true" ] || [ "$disk" = "true" ]; then
             need_rel=true
           fi
+          # Tool images vs canary are separate containers.yml calls so a
+          # long canary build never blocks kmods or ISO jobs.
+          #
+          # Schedule (routine): ensure lorax/kiwi/kmods images and kmods.
+          # Focused manual ISO/VM: skip tool-images and kmods by default —
+          # jobs pull existing GHCR tags; weekly containers + nightly
+          # schedule keep them fresh. Turn kmods on only when you want a
+          # drift check on a manual run.
+          tools=()
+          need_tool_images=false
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            if [ "$need_live" = "true" ] || [ "$installer" = "true" ]; then
+              tools+=(lorax)
+              tools+=(kiwi)
+            fi
+            if [ "$kmods" = "true" ] || [ "$need_live" = "true" ] || [ "$installer" = "true" ]; then
+              tools+=(kmods)
+            fi
+          elif [ "$kmods" = "true" ]; then
+            # Manual kmods-only or kmods+ISO: still ensure build-kmods image.
+            tools+=(kmods)
+          fi
+          if [ "${#tools[@]}" -eq 0 ]; then
+            tool_targets=none
+            need_tool_images=false
+          else
+            IFS=,; tool_targets="${tools[*]}"; unset IFS
+            need_tool_images=true
+          fi
           {
             echo "live_iso=$live"
             echo "installer_iso=$installer"
@@ -163,18 +220,21 @@ jobs:
             echo "vdi=$vdi"
             echo "vmdk=$vmdk"
             echo "canary=$canary"
+            echo "force_canary=$force_canary"
             echo "kmods=$kmods"
             echo "replace_release=$replace"
             echo "build_disk_image=$disk"
             echo "need_live_build=$need_live"
             echo "need_github_release=$need_rel"
+            echo "tool_targets=$tool_targets"
+            echo "need_tool_images=$need_tool_images"
           } >> "$GITHUB_OUTPUT"
-          echo "plan: live=$live installer=$installer qcow2=$qcow2 vhdx=$vhdx vdi=$vdi vmdk=$vmdk canary=$canary kmods=$kmods replace=$replace"
+          echo "plan: live=$live installer=$installer qcow2=$qcow2 vhdx=$vhdx vdi=$vdi vmdk=$vmdk canary=$canary force_canary=$force_canary kmods=$kmods replace=$replace tools=$tool_targets need_tool_images=$need_tool_images"
 
   cleanup:
     needs: plan
     if: needs.plan.outputs.replace_release == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
     steps:
       - name: Check out all tags
         uses: actions/checkout@v4
@@ -205,7 +265,7 @@ jobs:
       always()
       && needs.plan.outputs.need_github_release == 'true'
       && (needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -235,22 +295,24 @@ jobs:
           make_latest: true
 
   kmods:
-    needs: [plan, cleanup]
+    needs: [plan, cleanup, tool-images]
     if: |
       always()
       && needs.plan.outputs.kmods == 'true'
       && (needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
+      && (needs.tool-images.result == 'success' || needs.tool-images.result == 'skipped')
     uses: ./.github/workflows/publish-desktop-kmods.yml
 
   # Builds wait on create-release so release_tag exists before the first
   # product finishes. Upload is in-job inside the reusable workflows.
   build-live:
-    needs: [plan, kmods, create-release]
+    needs: [plan, kmods, create-release, tool-images]
     if: |
       always()
       && needs.plan.outputs.need_live_build == 'true'
       && (needs.kmods.result == 'success' || needs.kmods.result == 'skipped')
       && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
+      && (needs.tool-images.result == 'success' || needs.tool-images.result == 'skipped')
     uses: ./.github/workflows/build-live-iso.yml
     with:
       build_iso: ${{ needs.plan.outputs.live_iso == 'true' }}
@@ -262,85 +324,52 @@ jobs:
       release_tag: ${{ needs.create-release.outputs.tag }}
 
   build-installer:
-    needs: [plan, kmods, create-release]
+    needs: [plan, kmods, create-release, tool-images]
     if: |
       always()
       && needs.plan.outputs.installer_iso == 'true'
       && (needs.kmods.result == 'success' || needs.kmods.result == 'skipped')
       && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
+      && (needs.tool-images.result == 'success' || needs.tool-images.result == 'skipped')
     uses: ./.github/workflows/build-installer-iso.yml
     with:
       prepare_kernel_modules: false
       release_tag: ${{ needs.create-release.outputs.tag }}
 
-  canary:
+  # Prebuilt lorax/kiwi/kmods images (7-day skip inside containers.yml).
+  tool-images:
+    needs: [plan, cleanup]
+    if: |
+      always()
+      && needs.plan.outputs.need_tool_images == 'true'
+      && (needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
+    uses: ./.github/workflows/containers.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      targets: ${{ needs.plan.outputs.tool_targets }}
+      force: false
+      force_canary: false
+      run_canary_test: false
+
+  # Canary lifecycle lives only in containers.yml (not inlined here).
+  canary-containers:
     needs: [plan, cleanup]
     if: |
       always()
       && needs.plan.outputs.canary == 'true'
       && (needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
-    continue-on-error: true
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Build canary container
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./scripts/build-canary-container.sh "ghcr.io/${{ github.repository }}/canary:latest"
-
-      - name: Tag with the run UTC date and push
-        run: |
-          set -euo pipefail
-          date_tag="$(date -u +%Y.%m.%d)"
-          img="ghcr.io/${{ github.repository }}/canary"
-          podman tag "${img}:latest" "${img}:${date_tag}"
-          podman push "${img}:latest"
-          podman push "${img}:${date_tag}"
-
-  canary-test:
-    needs: [plan, canary]
-    if: |
-      always()
-      && needs.plan.outputs.canary == 'true'
-      && needs.canary.result == 'success'
-    continue-on-error: true
-    runs-on: ubuntu-24.04
+    uses: ./.github/workflows/containers.yml
     permissions:
       contents: read
-      packages: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Pull canary container
-        run: podman pull "ghcr.io/${{ github.repository }}/canary:latest"
-
-      - name: Run package and Flatpak canary suite
-        run: |
-          set -euo pipefail
-          mkdir -p "$GITHUB_WORKSPACE/test-container-logs"
-          podman run --rm \
-            --user root \
-            -v "$GITHUB_WORKSPACE/scripts/test-canary-container.sh:/usr/local/bin/test-canary-container:ro,Z" \
-            -v "$GITHUB_WORKSPACE/test-container-logs:/logs:Z" \
-            "ghcr.io/${{ github.repository }}/canary:latest" \
-            /usr/local/bin/test-canary-container
-
-      - name: Upload canary logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: canary-container-logs
-          path: test-container-logs
-          retention-days: 7
-          if-no-files-found: warn
+      packages: write
+    with:
+      targets: canary
+      force: false
+      # Schedule forces a fresh canary; manual canary=true reuses if <7 days.
+      force_canary: ${{ needs.plan.outputs.force_canary == 'true' }}
+      run_canary_test: true
 
   # No parent upload-* jobs. Each build job publishes when its product is
   # ready (release_tag + scripts/ci-upload-release-asset.sh).
@@ -350,11 +379,11 @@ jobs:
       - create-release
       - build-live
       - build-installer
-      - canary
-      - canary-test
+      - tool-images
+      - canary-containers
       - kmods
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
@@ -369,8 +398,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "kmods=${{ needs.kmods.result }}"
-          echo "canary=${{ needs.canary.result }}"
-          echo "canary-test=${{ needs.canary-test.result }}"
+          echo "tool-images=${{ needs.tool-images.result }}"
+          echo "canary-containers=${{ needs.canary-containers.result }}"
           echo "build-live=${{ needs.build-live.result }}"
           echo "build-installer=${{ needs.build-installer.result }}"
           if [ "$NEED_REL" != "true" ] || [ -z "${TAG:-}" ]; then

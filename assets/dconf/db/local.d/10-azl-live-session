@@ -1,0 +1,10 @@
+# Live session only: never lock. GNOME Boxes/SPICE often has a working
+# client cursor but broken clicks until a tablet is present. A lock screen
+# then traps the session. Installed systems do not stage this file.
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+idle-activation-enabled=false
+[org/gnome/desktop/session]
+idle-delay=uint32 0
+[org/gnome/desktop/lockdown]
+disable-lock-screen=true

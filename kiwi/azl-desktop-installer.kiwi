@@ -97,6 +97,12 @@
         <package name="kernel-modules-extra" />
         <!-- Policy pulls exact-kernel sibling kmods (storage/intel/…). -->
         <package name="azurelinux-desktop-policy" />
+        <!-- zram swap; conf from azurelinux-desktop-performance-kmod. -->
+        <package name="zram-generator" />
+        <!-- Desktop power/IRQ stack; full set also in config.sh TARGET_PKGS. -->
+        <package name="tuned" />
+        <package name="tuned-ppd" />
+        <package name="irqbalance" />
         <package name="iwlwifi-mvm-firmware" />
         <package name="iwlwifi-dvm-firmware" />
         <package name="iwlwifi-mld-firmware" />

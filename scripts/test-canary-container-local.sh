@@ -3,8 +3,8 @@
 #
 # Purpose: Thin local wrapper to build/test the canary image without GHCR push.
 # Usage:   ./scripts/test-canary-container-local.sh
-# Needs:   podman; build-canary-container.sh; test-canary-container.sh.
-# CI:      No. Local twin of the release canary job.
+# Needs:   docker; build-canary-container.sh; test-canary-container.sh.
+# CI:      No. Local twin of the containers.yml canary jobs.
 
 set -euo pipefail
 
@@ -14,16 +14,15 @@ IMAGE_REF="${AZL_CANARY_IMAGE:-${AZL_HYBRID_CANARY_IMAGE:-localhost/azurelinux-d
 LOG_DIR="$WORKDIR/logs"
 
 mkdir -p "$WORKDIR"
-podman unshare rm -rf "$LOG_DIR" 2>/dev/null || rm -rf "$LOG_DIR"
+rm -rf "$LOG_DIR"
 mkdir -p "$LOG_DIR"
 
-AZL_CONTAINER_WORKDIR="$WORKDIR/build" \
-    "$REPO_ROOT/scripts/build-canary-container.sh" "$IMAGE_REF"
+"$REPO_ROOT/scripts/build-canary-container.sh" "$IMAGE_REF"
 
-podman run --rm --user root \
-    -v "$REPO_ROOT/scripts/test-canary-container.sh:/usr/local/bin/test-canary-container:ro,Z" \
-    -v "$LOG_DIR:/logs:Z" \
+docker run --rm --user root \
+    -v "$REPO_ROOT/scripts/test-canary-container.sh:/usr/local/bin/test-canary-container:ro" \
+    -v "$LOG_DIR:/logs" \
     "$IMAGE_REF" \
     /usr/local/bin/test-canary-container
 
-echo "Canary logs: $LOG_DIR"
+echo "Canary local test finished. Logs: $LOG_DIR"

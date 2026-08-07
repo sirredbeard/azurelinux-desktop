@@ -834,32 +834,88 @@ touch "$SENS_DIR/.conf-only"
 echo "=== stage sensors done ==="
 fi
 
-# --- performance: activate stock zram/BBR + desktop sysctl (no OOT .ko) ---
-# PREEMPT/THP/HUGETLBFS/SCHED_* are built-in kernel options and cannot be
-# shipped as modules. zswap is built-in. tcp_bbr2 is not in this kernel.
+# --- performance: stock modules + desktop sysctl (no OOT .ko) ---
+# Conf-only. AZL stock is cloud-leaning (HZ=100, PREEMPT_VOLUNTARY,
+# NO_HZ_FULL=y). Desktop responsiveness still needs userspace policy.
+# Stock modules we lean on when present:
+#   ZRAM=m, TCP_CONG_BBR=m, NET_SCH_FQ=m, IOSCHED_BFQ=m,
+#   LRU_GEN=y + LRU_GEN_ENABLED=y, PSI=y, SCHED_CORE=y, THP=madvise.
+# Cannot change PREEMPT/HZ/NO_HZ_FULL/THP without a kernel rebuild.
+# Sysctl + modules-load here; Fedora packages on the image do the rest
+# (zram-generator, tuned + tuned-ppd desktop profile, irqbalance).
+# Do not ship removed CFS knobs (kernel.sched_*_ns) or dirty_ratio myths.
+# Do not force BFQ as the default elevator on NVMe (none/mq-deadline is fine).
 if run_stage performance; then
 echo "=== stage performance ==="
 PERF_DIR="$WORKDIR/performance"
 rm -rf "$PERF_DIR"
 mkdir -p "$PERF_DIR"
 cat > "$PERF_DIR/azurelinux-desktop-performance.conf" <<'EOF'
-# Optional desktop responsiveness helpers (stock modules when present).
+# Stock modules when present. Missing names are ignored by modules-load.
 zram
 tcp_bbr
+sch_fq
+# BFQ only used when udev picks it for rotational disks (see assets/udev).
+bfq
 EOF
 cat > "$PERF_DIR/99-azurelinux-desktop-performance.conf" <<'EOF'
-# Prefer BBR when the module is loaded; cubic remains default until then.
+# BBR wants fq (or fq_codel). Load sch_fq first via modules-load.
 net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
-# Mild desktop VM pressure balance (safe defaults).
-vm.swappiness = 60
-vm.vfs_cache_pressure = 50
+
+# Same idea as Fedora tuned's desktop profile: group tasks by session so
+# a busy build does not starve the shell that started it.
+kernel.sched_autogroup_enabled = 1
+
+# Prefer RAM over swap under light pressure. Matches common tuned
+# performance profiles and this project's Fedora host (10). Not 0 (OOM
+# surprises). Not the cloud default of 60. With zram present, cold pages
+# still have a fast place to go when memory is actually tight.
+vm.swappiness = 10
+vm.vfs_cache_pressure = 75
+
+# Leave vm.dirty_* alone. Aggressive dirty_ratio tweaks stall writeback
+# on desktops. Leave transparent hugepages at kernel default (madvise on AZL).
+
+# Mild TCP socket caps for desktop bulk transfers (browser, flatpak, git).
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+
+# Desktop niceties that do not need a kernel rebuild:
+# - split_lock_mitigate=0 drops the multi-ms penalty on split locks (Wine,
+#   some JVMs) while still allowing detection; see kernel buslock docs.
+# - nmi_watchdog=0 frees a PMC and a little idle power on a personal box.
+kernel.split_lock_mitigate = 0
+kernel.nmi_watchdog = 0
+EOF
+# zram-generator unit config. Only applies when zram-generator is installed
+# (Fedora package on the desktop image). Size matches Fedora Workstation
+# defaults (min of RAM and 8G). Prefer zstd when the kernel has the backend.
+cat > "$PERF_DIR/zram-generator.conf" <<'EOF'
+# Azure Linux Desktop: compressed RAM swap when zram-generator is present.
+# Size matches common Fedora Workstation practice (cap 8G). zstd when available.
+[zram0]
+zram-size = min(ram, 8192)
+compression-algorithm = zstd
 EOF
 cat > "$PERF_DIR/README" <<'EOF'
-azurelinux-desktop-performance-kmod activates stock zram + tcp_bbr and
-ships sysctl defaults. Cannot OOT: PREEMPT*, THP, HUGETLBFS, zswap (=y),
-SCHED_CORE, PERF_EVENTS. crypto_*_ssse3 not enabled in AZL config and
-needs full crypto API glue — left to stock aesni-intel / crc32c.
+azurelinux-desktop-performance-kmod is conf-only:
+  modules-load: zram, tcp_bbr, sch_fq, bfq
+  sysctl: fq + bbr, sched_autogroup, swappiness=10, vfs_cache_pressure=75,
+          mild tcp mem, split_lock_mitigate=0, nmi_watchdog=0
+  zram-generator.conf when that package is installed
+
+Image packages / assets (not this RPM): zram-generator, tuned + tuned-ppd
+with the desktop profile, irqbalance, thermald, journald size caps,
+rotational-disk BFQ udev rule. SELinux stays enforcing.
+
+Already on in AZL stock kernel (no conf needed): MGLRU (LRU_GEN_ENABLED),
+PSI, SCHED_CORE. Not portable here: PREEMPT model, HZ, NO_HZ_FULL, THP
+mode. Avoid: swappiness=0, dirty_ratio tweaks, forcing elevators on NVMe,
+kernel.sched_*_ns (gone on modern kernels), dual ppd+tuned stacks,
+SELINUX=permissive.
 EOF
 touch "$PERF_DIR/.conf-only"
 echo "=== stage performance done ==="
@@ -1155,10 +1211,15 @@ if ((${#SURFACE_MODULES[@]} >= 6)) \
     PRESENT_KOS+=("${SURFACE_MODULES[@]}")
     add_pkg surface
 fi
-if [[ -f "$WORKDIR/sensors/.conf-only" ]]; then
+# Prefer conf payloads over .conf-only markers. actions/upload-artifact
+# drops hidden files unless include-hidden-files is set, so the marker
+# often never reaches the package job.
+if [[ -f "$WORKDIR/sensors/azurelinux-desktop-sensors.conf" \
+    || -f "$WORKDIR/sensors/.conf-only" ]]; then
     add_pkg sensors
 fi
-if [[ -f "$WORKDIR/performance/.conf-only" ]]; then
+if [[ -f "$WORKDIR/performance/azurelinux-desktop-performance.conf" \
+    || -f "$WORKDIR/performance/.conf-only" ]]; then
     add_pkg performance
 fi
 
@@ -1203,6 +1264,8 @@ if pkg_enabled performance; then
         cp -f "$WORKDIR/performance/azurelinux-desktop-performance.conf" "$RPMBUILD/SOURCES/"
     [[ -f "$WORKDIR/performance/99-azurelinux-desktop-performance.conf" ]] && \
         cp -f "$WORKDIR/performance/99-azurelinux-desktop-performance.conf" "$RPMBUILD/SOURCES/"
+    [[ -f "$WORKDIR/performance/zram-generator.conf" ]] && \
+        cp -f "$WORKDIR/performance/zram-generator.conf" "$RPMBUILD/SOURCES/"
 fi
 
 # Dynamic subpackage fragments.
@@ -1641,16 +1704,20 @@ if pkg_enabled performance; then
 Summary:        Desktop performance helpers for Azure Linux ${KVERREL}
 Requires:       kernel-core-uname-r = ${KVERREL}
 %description -n azurelinux-desktop-performance-kmod
-Loads stock zram and tcp_bbr and installs sysctl defaults (fq + bbr).
-Cannot ship PREEMPT/THP/zswap as modules — those are built-in kernel
-options on Azure Linux.
+Conf-only desktop helpers: load stock zram/tcp_bbr/sch_fq/bfq, sysctl for
+fq+bbr, sched_autogroup, swappiness=10, mild VM/TCP defaults,
+split_lock_mitigate/nmi_watchdog, and zram-generator.conf. Pair with
+Fedora zram-generator, tuned+tuned-ppd, and irqbalance on the image.
+Does not rebuild the kernel (PREEMPT/HZ/THP stay stock Azure Linux).
 "
     INSTALL_SECTION+="install -Dpm 0644 %{_sourcedir}/azurelinux-desktop-performance.conf %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-performance.conf"$'\n'
     INSTALL_SECTION+="install -Dpm 0644 %{_sourcedir}/99-azurelinux-desktop-performance.conf %{buildroot}%{_sysconfdir}/sysctl.d/99-azurelinux-desktop-performance.conf"$'\n'
+    INSTALL_SECTION+="install -Dpm 0644 %{_sourcedir}/zram-generator.conf %{buildroot}%{_sysconfdir}/systemd/zram-generator.conf"$'\n'
     FILES_SECTIONS+="
 %files -n azurelinux-desktop-performance-kmod
 %config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desktop-performance.conf
 %config(noreplace) %{_sysconfdir}/sysctl.d/99-azurelinux-desktop-performance.conf
+%config(noreplace) %{_sysconfdir}/systemd/zram-generator.conf
 "
     POST_SECTIONS+="
 %post -n azurelinux-desktop-performance-kmod

@@ -1,0 +1,40 @@
+if grep -q 'azl\.autoinstall' /proc/cmdline 2>/dev/null; then
+    MY_TTY=$(tty 2>/dev/null)
+    VIRT=$(systemd-detect-virt 2>/dev/null)
+    LAUNCH=false
+    if [ "$VIRT" = "microsoft" ]; then
+        [ "$MY_TTY" = "/dev/tty1" ] && LAUNCH=true
+    else
+        case "$MY_TTY" in
+            /dev/ttyS0)
+                LAUNCH=true
+                ;;
+            /dev/tty1|/dev/hvc0)
+                if ! grep -q 'console=ttyS' /proc/cmdline 2>/dev/null; then
+                    LAUNCH=true
+                fi
+                ;;
+        esac
+    fi
+    if [ "$LAUNCH" = true ]; then
+        echo ""
+        echo "========================================"
+        echo "  Azure Linux Desktop - Offline Installer"
+        echo "========================================"
+        echo ""
+        echo "  Starting installer automatically..."
+        echo ""
+        exec /usr/local/bin/anaconda-launcher.sh
+    fi
+fi
+echo ""
+echo "========================================"
+echo "  Azure Linux Desktop - Offline Installer"
+echo "========================================"
+echo ""
+echo "  To start the installer, run:"
+echo ""
+echo "    install-azl"
+echo ""
+echo "========================================"
+echo ""

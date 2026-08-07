@@ -1,35 +1,36 @@
 # Screenshot app mixed light/dark chrome
 
-**Status:** Fixed and shipped (`3e7f93e`). Live, installer, and canary
-list `gnome-themes-extra`. Metal: Screenshot consistent dark after
-install; Text Editor, Characters, Calculator, Software, Nautilus dark;
-Evolution may flash mixed chrome for a moment then go fully dark
-(GTK3 + WebKit startup — not missing theme files).
+**Status:** Fixed and shipped. Live, installer, and canary list
+`gnome-themes-extra`. Metal: Screenshot consistent dark after install.
+Text Editor, Characters, Calculator, Software, Nautilus dark. Evolution
+may flash mixed chrome briefly then go fully dark (GTK3 + WebKit
+startup, not missing theme files).
 
 ## Symptom
 
-GNOME Screenshot (`gnome-screenshot`) in a dark session shows **split
-theming**: header / “Capture Area” tiles stay light gray; lower rows
-(“Show Pointer”, “Delay”) follow dark style. Looks broken even though
+GNOME Screenshot (`gnome-screenshot`) in a dark session shows split
+theming. Header and Capture Area tiles stay light gray. Lower rows
+(Show Pointer, Delay) follow dark style. Looks broken even though
 Settings says Dark.
 
 ## Cause
 
 1. System dconf defaults set both:
-   * `org.gnome.desktop.interface color-scheme = 'prefer-dark'` (libadwaita / GTK4)
-   * `org.gnome.desktop.interface gtk-theme = 'Adwaita-dark'` (GTK3)
-2. **`gnome-screenshot` is GTK3 + libhandy**, not libadwaita.
-3. **`gnome-themes-extra` was not installed**, so `/usr/share/themes/`
-   had no `Adwaita` / `Adwaita-dark` directories (only Default, Emacs).
-4. GTK3 then partially falls back: some widgets pick dark from
-   `prefer-dark` / libhandy, others stay light Adwaita defaults → mixed UI.
+   - `org.gnome.desktop.interface color-scheme = 'prefer-dark'`
+     (libadwaita / GTK4)
+   - `org.gnome.desktop.interface gtk-theme = 'Adwaita-dark'` (GTK3)
+2. `gnome-screenshot` is GTK3 + libhandy, not libadwaita.
+3. `gnome-themes-extra` was not installed, so `/usr/share/themes/` had
+   no `Adwaita` / `Adwaita-dark` directories.
+4. GTK3 then partially falls back. Some widgets pick dark from
+   `prefer-dark` / libhandy. Others stay light Adwaita defaults.
 
-libadwaita apps (most of GNOME 49) looked fine because they ignore the
-old `gtk-theme` name and use `color-scheme` only.
+libadwaita apps looked fine because they ignore the old `gtk-theme`
+name and use `color-scheme` only.
 
 ## Fix
 
-Install **`gnome-themes-extra`** (pulls theme CSS; may pull
+Install `gnome-themes-extra` (pulls theme CSS; may pull
 `highcontrast-icon-theme`).
 
 ```
@@ -42,11 +43,9 @@ creates those dirs while dconf already had `Adwaita-dark` + `prefer-dark`.
 
 ## Product wiring
 
-| Path | Change |
-| --- | --- |
-| Live | `%packages`: `gnome-themes-extra` |
-| Installer | `kiwi/config.sh` TARGET_PKGS |
-| Canary | PKGS (dconf also sets Adwaita-dark) |
+- Live: `%packages`: `gnome-themes-extra`
+- Installer: `kiwi/config.sh` TARGET_PKGS
+- Canary: PKGS (dconf also sets Adwaita-dark)
 
 Keep both dconf keys: `prefer-dark` for modern apps, `Adwaita-dark` for
 remaining GTK3 (Screenshot, some indicators).
@@ -54,7 +53,7 @@ remaining GTK3 (Screenshot, some indicators).
 ## Evolution brief flash
 
 Evolution is GTK3 + WebKitGTK. With `gnome-themes-extra` installed it
-settles on dark; a short mixed frame at launch is WebKit/UI init, not
+settles on dark. A short mixed frame at launch is WebKit/UI init, not
 the missing-theme bug. No extra package required beyond themes-extra.
 
 ## Not the same bug as emoji tofu

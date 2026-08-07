@@ -8,16 +8,15 @@ confirmed `%wheel ALL=(ALL) NOPASSWD: ALL` via
 ## Why
 
 Live ISO and VM workflows treat the `azurelinux` / wheel user as a
-developer desktop account: agents and humans need non-interactive
-`sudo` for package and system work. Installed images from the
-installer ISO must match that behavior.
+developer desktop account. Agents and humans need non-interactive `sudo`
+for package and system work. Installed images from the installer ISO
+must match that behavior.
 
 ## Where it is set
 
-| Path | Drop-in |
-| --- | --- |
-| `kickstart/azurelinux-desktop-live.ks` | `%post` writes `/etc/sudoers.d/90-wheel-nopasswd` |
-| `kiwi/azl-install.ks.in` | same on the installed target |
+* `kickstart/azurelinux-desktop-live.ks` `%post` writes
+  `/etc/sudoers.d/90-wheel-nopasswd`
+* `kiwi/azl-install.ks.in` writes the same on the installed target
 
 Contents:
 
@@ -30,4 +29,4 @@ Mode `0440`. Do not commit account passwords.
 ## Metal note
 
 Bare-metal install from an earlier image needed the drop-in applied by
-hand once; new installer builds include it.
+hand once. New installer builds include it.

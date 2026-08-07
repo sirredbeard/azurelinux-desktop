@@ -1,0 +1,4 @@
+if [[ $- == *i* ]] && [ ! -f /tmp/.azl-banner-shown ]; then
+    touch /tmp/.azl-banner-shown
+    source /root/.bash_profile
+fi

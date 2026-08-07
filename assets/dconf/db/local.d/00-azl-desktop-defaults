@@ -1,0 +1,20 @@
+[org/gnome/desktop/interface]
+color-scheme='prefer-dark'
+gtk-theme='Adwaita-dark'
+
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/azurelinux/adwaita-l.jpg'
+picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
+picture-options='zoom'
+
+[org/gnome/shell]
+favorite-apps=['com.github.sirredbeard.copilot-desktop-gtk.desktop', 'microsoft-edge-canary.desktop', 'code-insiders.desktop', 'org.azurelinux.PowerShell.desktop', 'GitHub Copilot.desktop', 'org.gnome.Nautilus.desktop']
+welcome-dialog-last-shown-version='4294967295'
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+name='Microsoft Copilot'
+command='flatpak run com.github.sirredbeard.copilot-desktop-gtk'
+binding='<Shift><Super>F23'

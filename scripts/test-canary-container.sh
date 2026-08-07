@@ -90,6 +90,22 @@ test -f /etc/modules-load.d/azurelinux-desktop-bluetooth.conf
 test -f /etc/modules-load.d/azurelinux-desktop-sensors.conf
 test -f /etc/modules-load.d/azurelinux-desktop-performance.conf
 test -f /etc/sysctl.d/99-azurelinux-desktop-performance.conf
+grep -Eq '^[[:space:]]*vm\.swappiness[[:space:]]*=[[:space:]]*10[[:space:]]*$' \
+    /etc/sysctl.d/99-azurelinux-desktop-performance.conf
+grep -Eq '^[[:space:]]*net\.ipv4\.tcp_congestion_control[[:space:]]*=[[:space:]]*bbr[[:space:]]*$' \
+    /etc/sysctl.d/99-azurelinux-desktop-performance.conf
+grep -Eq '^[[:space:]]*kernel\.sched_autogroup_enabled[[:space:]]*=[[:space:]]*1[[:space:]]*$' \
+    /etc/sysctl.d/99-azurelinux-desktop-performance.conf
+grep -Eq '^[[:space:]]*zram[[:space:]]*$' /etc/modules-load.d/azurelinux-desktop-performance.conf
+grep -Eq '^[[:space:]]*tcp_bbr[[:space:]]*$' /etc/modules-load.d/azurelinux-desktop-performance.conf
+grep -Eq '^[[:space:]]*sch_fq[[:space:]]*$' /etc/modules-load.d/azurelinux-desktop-performance.conf
+test -f /etc/systemd/zram-generator.conf \
+    || test -f /usr/lib/systemd/zram-generator.conf
+# Project journal/iosched assets (staged at canary build; not from the kmod RPM).
+test -f /etc/systemd/journald.conf.d/50-azurelinux-desktop.conf
+grep -Fq 'SystemMaxUse=200M' /etc/systemd/journald.conf.d/50-azurelinux-desktop.conf
+test -f /etc/udev/rules.d/60-azurelinux-desktop-iosched.rules
+grep -Fq 'rotational' /etc/udev/rules.d/60-azurelinux-desktop-iosched.rules
 # Do not force-load HDA or btusb at boot (VM -ENODEV / ThinkPad HCI race).
 ! grep -qE '^[[:space:]]*snd-hda-intel[[:space:]]*$' /etc/modules-load.d/azurelinux-desktop-sound.conf
 ! grep -qE '^[[:space:]]*btusb[[:space:]]*$' /etc/modules-load.d/azurelinux-desktop-bluetooth.conf
@@ -139,7 +155,12 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
         exit 1
     fi
     rpm -q --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH} %{VENDOR}\n' intel-media-driver
+    # RPM Fusion nonfree puts iHD in dri-nonfree/. Product post links it into
+    # dri/ so Azure Linux libva (no dri-nonfree search path) can load it.
+    test -e /usr/lib64/dri-nonfree/iHD_drv_video.so
     test -e /usr/lib64/dri/iHD_drv_video.so
+    test -f /etc/environment.d/50-azurelinux-desktop-libva.conf
+    grep -Fq 'dri-nonfree' /etc/environment.d/50-azurelinux-desktop-libva.conf
     test -d /usr/lib64/gstreamer-1.0
     # rpmdb should be world-readable for non-root queries
     if [[ -f /usr/lib/sysimage/rpm/rpmdb.sqlite ]]; then

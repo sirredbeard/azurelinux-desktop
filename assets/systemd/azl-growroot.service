@@ -1,0 +1,14 @@
+[Unit]
+Description=Grow root partition and filesystem to fill the real disk (first boot only)
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+ConditionPathExists=!/var/lib/azl-growroot.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/azl-growroot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

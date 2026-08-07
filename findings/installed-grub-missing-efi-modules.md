@@ -1,23 +1,18 @@
-# Installed GRUB stays in text mode (missing EFI modules on /boot)
+# Installed GRUB stays in text mode
 
 **Status:** Fix staged in `kiwi/post-bootloader.sh`. Nested install
-patched in place 2026-08-03 for reboot proof. Needs installer ISO
-rebuild for release artifacts.
+patched in place for reboot proof. Needs installer ISO rebuild for
+release artifacts.
 
 ## Observed failure
 
-After growroot/SELinux reboot of a fresh installer target, the screen
-showed:
+After growroot/SELinux reboot of a fresh installer target:
 
 1. UEFI `BdsDxe: loading/starting ...` text
-2. **Text-mode GRUB menu** (GRUB 2.12, ASCII box, entries Azure Linux /
-   rescue / UEFI Firmware Settings)
+2. Text-mode GRUB menu (GRUB 2.12, ASCII box)
 3. Black frame
-4. Then Plymouth (logo + spinner) at 1280x800
+4. Then Plymouth (logo + spinner)
 5. GDM
-
-Screendumps: `~/azl-work/boot-watch/t013.png` (BdsDxe), `t014.png`
-(text GRUB), `t015.png` (black), `t016.png` (Plymouth OK).
 
 `/boot/grub2/grub.cfg` already had the intended gfxterm block from
 `post-bootloader.sh`:
@@ -31,8 +26,8 @@ set gfxpayload=keep
 terminal_output gfxterm
 ```
 
-So this was not a "forgot to switch off serial terminal_output" regression
-in the generated menu script itself.
+So this was not a "forgot to switch off serial terminal_output"
+regression in the menu script itself.
 
 ## Root cause
 
@@ -43,13 +38,12 @@ set prefix=($dev)/grub2
 configfile $prefix/grub.cfg
 ```
 
-`insmod` therefore loads modules from **`/boot/grub2/x86_64-efi/`** on
-the boot filesystem. On the nested install:
+`insmod` loads modules from `/boot/grub2/x86_64-efi/` on the boot
+filesystem. On the nested install:
 
-| Path | State |
-|------|--------|
-| `/usr/lib/grub/x86_64-efi/*.mod` | Present (293 modules, RPM `grub2-efi-x64-modules`) |
-| `/boot/grub2/x86_64-efi/` | **Missing** (only `grub.cfg`, `grubenv`, `fonts/`) |
+- `/usr/lib/grub/x86_64-efi/*.mod`: present (RPM `grub2-efi-x64-modules`)
+- `/boot/grub2/x86_64-efi/`: missing (only `grub.cfg`, `grubenv`,
+  `fonts/`)
 
 With no modules next to `prefix`, `insmod efi_gop` / `gfxterm` fail and
 GRUB keeps the firmware text console. Menu content still matches our
@@ -67,8 +61,7 @@ Our static `grub.cfg` ignored that for the menu we write, but a later
 `console=tty0 rhgb quiet` without `ttyS0`.
 
 Related earlier work (`uefi-bdsdxe-text-before-plymouth.md`) fixed the
-**cfg text** (`terminal_output gfxterm`). This issue is the missing
-**module payload** on `/boot` for the installed system path.
+cfg text. This issue is the missing module payload on `/boot`.
 
 ## Fix
 
@@ -83,9 +76,9 @@ In `kiwi/post-bootloader.sh`, before writing `grub.cfg`:
 
 ## Verification
 
-- Nested before: `ls /boot/grub2/x86_64-efi` empty/absent; text GRUB on
+- Nested before: `/boot/grub2/x86_64-efi` empty/absent; text GRUB on
   reboot path.
-- Nested after in-place patch: 293 modules including `efi_gop.mod` and
+- Nested after in-place patch: modules including `efi_gop.mod` and
   `gfxterm.mod`; cfg has `clear`.
 - Next QEMU reboot should show graphical GRUB (or a brief clear
   framebuffer) then Plymouth without the ASCII menu.
@@ -95,5 +88,4 @@ In `kiwi/post-bootloader.sh`, before writing `grub.cfg`:
 ## References
 
 - `kiwi/post-bootloader.sh`, `kiwi/grub_template.cfg`
-- `findings/uefi-bdsdxe-text-before-plymouth.md`
-- Evidence: `~/azl-work/boot-watch/`, `~/azl-work/boot-investigate/fs/`
+- `uefi-bdsdxe-text-before-plymouth.md`

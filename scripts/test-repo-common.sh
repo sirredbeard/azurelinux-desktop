@@ -175,35 +175,49 @@ azl_combined_install_packages() {
 # aznfs/mdatp) are outright removals, not a family assertion. Emits
 # "pkg family" pairs, one per line.
 azl_derive_repo_assertions() {
-    local ks="$1"
-    awk '
-    /^repo --name=/ {
-        name = ""; excl = "";
-        n = split($0, parts, " --");
-        for (i = 1; i <= n; i++) {
-            p = parts[i];
-            if (p ~ /^name=/) { name = substr(p, 6) }
-            else if (p ~ /^excludepkgs=/) { excl = substr(p, 13) }
-        }
-        if (excl == "") { next }
-        if (name ~ /^azl-/) { family = "fedora" }
-        else if (name ~ /^fedora43/) { family = "azl" }
-        else { next }
-        n2 = split(excl, pkgs, ",");
-        for (j = 1; j <= n2; j++) { print pkgs[j], family }
+    # Read excludepkgs from assets/yum.repos.d (or a path passed as $1).
+    # Prefer static .repo files over kickstart awk parsing.
+    local src="${1:-}"
+    local repo_root
+    repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    local repo_file="$repo_root/assets/yum.repos.d/azurelinux-desktop.repo"
+    if [[ -n "$src" && -f "$src" && "$src" == *.repo ]]; then
+        repo_file="$src"
+    elif [[ -n "$src" && -d "$src" ]]; then
+        repo_file="$src/azurelinux-desktop.repo"
+    fi
+    [[ -f "$repo_file" ]] || {
+        echo "azl_derive_repo_assertions: missing $repo_file" >&2
+        return 1
     }
-    ' "$ks"
+    local name="" excl="" line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        case "$line" in
+            \[*\])
+                name="${line#\[}"; name="${name%\]}"
+                excl=""
+                ;;
+            excludepkgs=*)
+                excl="${line#excludepkgs=}"
+                if [[ -n "$excl" ]]; then
+                    if [[ "$name" == azl-* ]]; then
+                        family=fedora
+                    elif [[ "$name" == fedora43* ]]; then
+                        family=azl
+                    else
+                        continue
+                    fi
+                    IFS=',' read -r -a pkgs <<< "$excl"
+                    for pkg in "${pkgs[@]}"; do
+                        [[ -n "$pkg" ]] || continue
+                        printf '%s %s\n' "$pkg" "$family"
+                    done
+                fi
+                ;;
+        esac
+    done < "$repo_file"
 }
 
-# Merges the derived excludepkgs-based assertions above with the small
-# curated fallback list (azl_repo_origin_packages/azl_repo_expected_family)
-# for packages that win by "azl just does not build this at all" rather
-# than an explicit excludepkgs= claw-back (glibc, gdm, gnome-shell,
-# gnome-software, flatpak, wpa_supplicant, fwupd - none of these appear in
-# any excludepkgs list). Emits "pkg family" pairs, one per line, and does
-# NOT itself detect conflicts between the two sources - callers should
-# check for a package appearing twice with two different families before
-# trusting this output, since that would mean the two sources disagree.
 azl_full_repo_assertions() {
     local ks="$1"
     {
@@ -216,91 +230,17 @@ azl_full_repo_assertions() {
 }
 
 azl_write_repo_file_from_kickstart() {
-    local ks="$1"
+    # Name kept for callers. Copies the static canary/live-aligned repo file.
+    local _ks_unused="${1:-}"
     local repo_file="$2"
-    local repo_setup
-    local i
-
-    # shellcheck disable=SC1003
-    repo_setup=$(awk '
-function quote(s) { gsub(/'"'"'/, "'"'"'\\'"'"''"'"'", s); return "'"'"'" s "'"'"'" }
-/^repo --name=/ {
-    name=""; url=""; cost=""; excl=""; ismirror=0;
-    n=split($0, parts, " --");
-    for (i=1;i<=n;i++) {
-        p=parts[i];
-        if (p ~ /^name=/) { name=substr(p,6) }
-        else if (p ~ /^baseurl=/) { url=substr(p,9) }
-        else if (p ~ /^mirrorlist=/) { url=substr(p,12); ismirror=1 }
-        else if (p ~ /^cost=/) { cost=substr(p,6) }
-        else if (p ~ /^excludepkgs=/) { excl=substr(p,13) }
+    local repo_root
+    repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    local src="$repo_root/assets/yum.repos.d/azurelinux-desktop.repo"
+    [[ -f "$src" ]] || {
+        echo "azl_write_repo_file_from_kickstart: missing $src" >&2
+        return 1
     }
-    printf "REPO_NAMES+=(%s)\n", quote(name);
-    printf "REPO_URLS+=(%s)\n", quote(url);
-    printf "REPO_COSTS+=(%s)\n", quote(cost == "" ? "50" : cost);
-    printf "REPO_EXCLUDES+=(%s)\n", quote(excl == "" ? "-" : excl);
-    printf "REPO_MIRROR+=(%s)\n", quote(ismirror == 1 ? "1" : "0");
+    install -m 0644 "$src" "$repo_file"
 }
-' "$ks")
 
-    declare -a REPO_NAMES=() REPO_URLS=() REPO_COSTS=() REPO_EXCLUDES=() REPO_MIRROR=()
-    eval "$repo_setup"
 
-    : > "$repo_file"
-    for i in "${!REPO_NAMES[@]}"; do
-        {
-            echo "[${REPO_NAMES[$i]}]"
-            echo "name=${REPO_NAMES[$i]}"
-            if [ "${REPO_MIRROR[$i]}" = "1" ]; then
-                echo "mirrorlist=${REPO_URLS[$i]}"
-            else
-                echo "baseurl=${REPO_URLS[$i]}"
-            fi
-            echo "enabled=1"
-            # Match product images: gpgcheck=1 + vendored keys when present.
-            case "${REPO_NAMES[$i]}" in
-                azl-desktop-kmods)
-                    echo "gpgcheck=1"
-                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
-                    ;;
-                fedora43|fedora43-updates)
-                    echo "gpgcheck=1"
-                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary"
-                    ;;
-                rpmfusion-free)
-                    echo "gpgcheck=1"
-                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-2020"
-                    ;;
-                rpmfusion-nonfree)
-                    echo "gpgcheck=1"
-                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020"
-                    ;;
-                ms-prod|vscode|edge-canary)
-                    echo "gpgcheck=1"
-                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft"
-                    ;;
-                gh-cli)
-                    echo "gpgcheck=1"
-                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-githubcli"
-                    ;;
-                github-desktop)
-                    echo "gpgcheck=1"
-                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-shiftkey-desktop"
-                    ;;
-                azl-base|azl-microsoft|azurelinux-*)
-                    echo "gpgcheck=1"
-                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-4.0-primary"
-                    ;;
-                *)
-                    echo "gpgcheck=1"
-                    echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
-                    ;;
-            esac
-            echo "cost=${REPO_COSTS[$i]}"
-            if [ "${REPO_EXCLUDES[$i]}" != "-" ]; then
-                echo "excludepkgs=${REPO_EXCLUDES[$i]}"
-            fi
-            echo
-        } >> "$repo_file"
-    done
-}

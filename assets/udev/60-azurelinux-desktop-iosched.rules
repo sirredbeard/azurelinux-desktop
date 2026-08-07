@@ -1,0 +1,5 @@
+# Leave NVMe on kernel default (none). Only pick a software elevator when
+# the device is a spinning disk. BFQ is fairer for mixed desktop I/O on HDD.
+# Do not force mq-deadline on NVMe or SATA SSD.
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd[a-z]|vd[a-z]|hd[a-z]", \
+  ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"

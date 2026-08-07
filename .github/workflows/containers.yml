@@ -1,0 +1,442 @@
+name: Build GHCR containers
+
+# After plan, build-lorax, build-kiwi, build-kmods, and canary run in
+# parallel via docker build. canary-test waits on canary only.
+# Prefer ubuntu-24.04 for GHCR image jobs (faster pickup than 16-core).
+# Dockerfile checks stay local before push (not a CI job).
+
+on:
+  schedule:
+    - cron: "15 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild every selected image even if younger than 7 days"
+        type: boolean
+        default: false
+      force_canary:
+        description: "Always rebuild canary (release path uses this)"
+        type: boolean
+        default: false
+      targets:
+        description: "tools | canary | all | comma list (lorax,kiwi,kmods,canary)"
+        type: string
+        default: all
+      run_canary_test:
+        description: "After canary is in scope, run test-canary-container.sh"
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      force:
+        type: boolean
+        default: false
+      force_canary:
+        type: boolean
+        default: false
+      targets:
+        type: string
+        default: tools
+      run_canary_test:
+        type: boolean
+        default: true
+    outputs:
+      built_lorax:
+        value: ${{ jobs.summary.outputs.built_lorax }}
+      built_kiwi:
+        value: ${{ jobs.summary.outputs.built_kiwi }}
+      built_kmods:
+        value: ${{ jobs.summary.outputs.built_kmods }}
+      built_canary:
+        value: ${{ jobs.summary.outputs.built_canary }}
+      canary_test:
+        value: ${{ jobs.summary.outputs.canary_test }}
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  # One group per target set so release can run tool-images and
+  # canary-containers in parallel without queueing on each other.
+  group: azurelinux-desktop-containers-${{ inputs.targets || github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
+    outputs:
+      build_lorax: ${{ steps.decide.outputs.build_lorax }}
+      build_kiwi: ${{ steps.decide.outputs.build_kiwi }}
+      build_kmods: ${{ steps.decide.outputs.build_kmods }}
+      build_canary: ${{ steps.decide.outputs.build_canary }}
+      run_canary_test: ${{ steps.decide.outputs.run_canary_test }}
+      any: ${{ steps.decide.outputs.any }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide which images to rebuild
+        id: decide
+        env:
+          FORCE: ${{ inputs.force || 'false' }}
+          FORCE_CANARY: ${{ inputs.force_canary || 'false' }}
+          TARGETS_IN: ${{ inputs.targets || 'all' }}
+          RUN_TEST_IN: ${{ inputs.run_canary_test == false && 'false' || 'true' }}
+          MAX_AGE_DAYS: "7"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/ghcr-image-age-days.sh
+
+          targets_raw="${TARGETS_IN:-all}"
+          targets_raw="${targets_raw,,}"
+          want_lorax=false
+          want_kiwi=false
+          want_kmods=false
+          want_canary=false
+          case "$targets_raw" in
+            all)
+              want_lorax=true; want_kiwi=true; want_kmods=true; want_canary=true
+              ;;
+            tools)
+              want_lorax=true; want_kiwi=true; want_kmods=true
+              ;;
+            *)
+              IFS=',' read -r -a parts <<< "$targets_raw"
+              for p in "${parts[@]}"; do
+                p="${p// /}"
+                case "$p" in
+                  lorax|build-lorax) want_lorax=true ;;
+                  kiwi|build-kiwi) want_kiwi=true ;;
+                  kmods|build-kmods|kmod) want_kmods=true ;;
+                  canary) want_canary=true ;;
+                  tools) want_lorax=true; want_kiwi=true; want_kmods=true ;;
+                  all) want_lorax=true; want_kiwi=true; want_kmods=true; want_canary=true ;;
+                  "") ;;
+                  *) echo "unknown target: $p" >&2; exit 2 ;;
+                esac
+              done
+              ;;
+          esac
+
+          need() {
+            local pkg="$1"
+            local label="$2"
+            local force_this="${3:-false}"
+            if [[ "$FORCE" == "true" || "$force_this" == "true" ]]; then
+              echo "$label: force rebuild" >&2
+              echo true
+              return
+            fi
+            age=$(GHCR_PACKAGE="$pkg" ./scripts/ghcr-image-age-days.sh latest || echo missing)
+            echo "$label: age_days=${age}" >&2
+            if [[ "$age" == "missing" ]]; then
+              echo true
+              return
+            fi
+            if ! [[ "$age" =~ ^[0-9]+$ ]]; then
+              echo "$label: bad age '$age', rebuild" >&2
+              echo true
+              return
+            fi
+            if ((age >= MAX_AGE_DAYS)); then
+              echo true
+            else
+              echo false
+            fi
+          }
+
+          build_lorax=false
+          build_kiwi=false
+          build_kmods=false
+          build_canary=false
+          if [[ "$want_lorax" == "true" ]]; then
+            build_lorax=$(need "azurelinux-desktop/build-lorax" lorax false)
+          fi
+          if [[ "$want_kiwi" == "true" ]]; then
+            build_kiwi=$(need "azurelinux-desktop/build-kiwi" kiwi false)
+          fi
+          if [[ "$want_kmods" == "true" ]]; then
+            build_kmods=$(need "azurelinux-desktop/build-kmods" kmods false)
+          fi
+          if [[ "$want_canary" == "true" ]]; then
+            build_canary=$(need "azurelinux-desktop/canary" canary "$FORCE_CANARY")
+          fi
+
+          run_test=false
+          if [[ "$want_canary" == "true" && "$RUN_TEST_IN" == "true" ]]; then
+            run_test=true
+          fi
+
+          any=false
+          if [[ "$build_lorax" == "true" || "$build_kiwi" == "true" || "$build_kmods" == "true" || "$build_canary" == "true" || "$run_test" == "true" ]]; then
+            any=true
+          fi
+
+          {
+            echo "build_lorax=$build_lorax"
+            echo "build_kiwi=$build_kiwi"
+            echo "build_kmods=$build_kmods"
+            echo "build_canary=$build_canary"
+            echo "run_canary_test=$run_test"
+            echo "any=$any"
+          } >> "$GITHUB_OUTPUT"
+          echo "plan: lorax=$build_lorax kiwi=$build_kiwi kmods=$build_kmods canary=$build_canary test=$run_test force=$FORCE force_canary=$FORCE_CANARY targets=$targets_raw"
+
+  build-lorax:
+    needs: plan
+    if: needs.plan.outputs.build_lorax == 'true'
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check free disk
+        id: disk
+        run: |
+          set -euo pipefail
+          free_gb=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
+          echo "free_gb=${free_gb}"
+          if [ "${free_gb:-0}" -lt 40 ]; then echo "need_free=true" >> "$GITHUB_OUTPUT"
+          else echo "need_free=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Free disk space
+        if: steps.disk.outputs.need_free == 'true'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+          tool-cache: false
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build build-lorax image
+        uses: docker/build-push-action@v6
+        with:
+          context: containers/build-lorax
+          file: containers/build-lorax/Dockerfile
+          load: true
+          tags: azurelinux-desktop-build-lorax:local
+          cache-from: type=gha,scope=build-lorax
+          cache-to: type=gha,mode=max,scope=build-lorax
+      - name: Tag and push (latest + date + f43)
+        run: |
+          set -euo pipefail
+          chmod +x scripts/ghcr-tag-push.sh
+          ./scripts/ghcr-tag-push.sh \
+            azurelinux-desktop-build-lorax:local \
+            "ghcr.io/${{ github.repository }}/build-lorax" f43
+      - name: Prune old build-lorax versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/prune-ghcr-container.sh
+          ./scripts/prune-ghcr-container.sh azurelinux-desktop/build-lorax 2
+
+  build-kiwi:
+    needs: plan
+    if: needs.plan.outputs.build_kiwi == 'true'
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check free disk
+        id: disk
+        run: |
+          set -euo pipefail
+          free_gb=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
+          echo "free_gb=${free_gb}"
+          if [ "${free_gb:-0}" -lt 40 ]; then echo "need_free=true" >> "$GITHUB_OUTPUT"
+          else echo "need_free=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Free disk space
+        if: steps.disk.outputs.need_free == 'true'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+          tool-cache: false
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build build-kiwi image
+        uses: docker/build-push-action@v6
+        with:
+          context: containers/build-kiwi
+          file: containers/build-kiwi/Dockerfile
+          load: true
+          tags: azurelinux-desktop-build-kiwi:local
+          cache-from: type=gha,scope=build-kiwi
+          cache-to: type=gha,mode=max,scope=build-kiwi
+      - name: Tag and push (latest + date + f43)
+        run: |
+          set -euo pipefail
+          chmod +x scripts/ghcr-tag-push.sh
+          ./scripts/ghcr-tag-push.sh \
+            azurelinux-desktop-build-kiwi:local \
+            "ghcr.io/${{ github.repository }}/build-kiwi" f43
+      - name: Prune old build-kiwi versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/prune-ghcr-container.sh
+          ./scripts/prune-ghcr-container.sh azurelinux-desktop/build-kiwi 2
+
+  build-kmods:
+    needs: plan
+    if: needs.plan.outputs.build_kmods == 'true'
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build build-kmods image
+        uses: docker/build-push-action@v6
+        with:
+          context: containers/build-kmods
+          file: containers/build-kmods/Dockerfile
+          load: true
+          tags: azurelinux-desktop-build-kmods:local
+          cache-from: type=gha,scope=build-kmods
+          cache-to: type=gha,mode=max,scope=build-kmods
+      - name: Tag and push (latest + date + azl4)
+        run: |
+          set -euo pipefail
+          chmod +x scripts/ghcr-tag-push.sh
+          ./scripts/ghcr-tag-push.sh \
+            azurelinux-desktop-build-kmods:local \
+            "ghcr.io/${{ github.repository }}/build-kmods" azl4
+      - name: Prune old build-kmods versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/prune-ghcr-container.sh
+          ./scripts/prune-ghcr-container.sh azurelinux-desktop/build-kmods 2
+
+  build-canary:
+    needs: plan
+    if: needs.plan.outputs.build_canary == 'true'
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build canary image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: containers/canary/Dockerfile
+          load: true
+          tags: azurelinux-desktop-canary:local
+          cache-from: type=gha,scope=canary
+          cache-to: type=gha,mode=max,scope=canary
+          secret-envs: github_token=GITHUB_TOKEN
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag and push (latest + date)
+        run: |
+          set -euo pipefail
+          chmod +x scripts/ghcr-tag-push.sh
+          ./scripts/ghcr-tag-push.sh \
+            azurelinux-desktop-canary:local \
+            "ghcr.io/${{ github.repository }}/canary"
+      - name: Prune old canary versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/prune-ghcr-container.sh
+          ./scripts/prune-ghcr-container.sh azurelinux-desktop/canary 2
+
+  canary-test:
+    needs: [plan, build-canary]
+    if: |
+      always()
+      && needs.plan.outputs.run_canary_test == 'true'
+      && (needs.build-canary.result == 'success' || needs.build-canary.result == 'skipped')
+    continue-on-error: true
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Pull canary container
+        run: docker pull "ghcr.io/${{ github.repository }}/canary:latest"
+      - name: Run package and Flatpak canary suite
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/test-container-logs"
+          docker run --rm \
+            --user root \
+            -v "$GITHUB_WORKSPACE/scripts/test-canary-container.sh:/usr/local/bin/test-canary-container:ro" \
+            -v "$GITHUB_WORKSPACE/test-container-logs:/logs" \
+            "ghcr.io/${{ github.repository }}/canary:latest" \
+            /usr/local/bin/test-canary-container
+      - name: Upload canary logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-container-logs
+          path: test-container-logs
+          retention-days: 3
+          if-no-files-found: warn
+
+  summary:
+    needs: [plan, build-lorax, build-kiwi, build-kmods, build-canary, canary-test]
+    if: always()
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
+    outputs:
+      built_lorax: ${{ steps.out.outputs.built_lorax }}
+      built_kiwi: ${{ steps.out.outputs.built_kiwi }}
+      built_kmods: ${{ steps.out.outputs.built_kmods }}
+      built_canary: ${{ steps.out.outputs.built_canary }}
+      canary_test: ${{ steps.out.outputs.canary_test }}
+    steps:
+      - id: out
+        run: |
+          set -euo pipefail
+          echo "lorax=${{ needs.build-lorax.result }} want=${{ needs.plan.outputs.build_lorax }}"
+          echo "kiwi=${{ needs.build-kiwi.result }} want=${{ needs.plan.outputs.build_kiwi }}"
+          echo "kmods=${{ needs.build-kmods.result }} want=${{ needs.plan.outputs.build_kmods }}"
+          echo "canary=${{ needs.build-canary.result }} want=${{ needs.plan.outputs.build_canary }}"
+          echo "canary-test=${{ needs.canary-test.result }} want=${{ needs.plan.outputs.run_canary_test }}"
+          {
+            echo "built_lorax=${{ needs.build-lorax.result }}"
+            echo "built_kiwi=${{ needs.build-kiwi.result }}"
+            echo "built_kmods=${{ needs.build-kmods.result }}"
+            echo "built_canary=${{ needs.build-canary.result }}"
+            echo "canary_test=${{ needs.canary-test.result }}"
+          } >> "$GITHUB_OUTPUT"
+          fail=0
+          if [ "${{ needs.plan.outputs.build_lorax }}" = "true" ] && [ "${{ needs.build-lorax.result }}" != "success" ]; then fail=1; fi
+          if [ "${{ needs.plan.outputs.build_kiwi }}" = "true" ] && [ "${{ needs.build-kiwi.result }}" != "success" ]; then fail=1; fi
+          if [ "${{ needs.plan.outputs.build_kmods }}" = "true" ] && [ "${{ needs.build-kmods.result }}" != "success" ]; then fail=1; fi
+          if [ "${{ needs.plan.outputs.build_canary }}" = "true" ] && [ "${{ needs.build-canary.result }}" != "success" ]; then fail=1; fi
+          exit "$fail"

@@ -38,10 +38,23 @@ README for the full backstory.
    issue.
    Keep **one findings file per issue or durable topic** under `findings/`
    (search `findings/*.md` by symptom). Do not recreate `final_polish.md` /
-   `final_polish_finished.md` megafiles. When an issue is confirmed resolved
+   `final_polish_finished.md` megafiles. Do **not** create or restore a
+   `findings/README.md` index. When an issue is confirmed resolved
    (filesystem + runtime/programmatic/manual confirmation), mark **Status:**
    in that issue file (or merge unique detail into the existing topic file)
    rather than archiving into a second megafile.
+   **Findings style (hard):** keep files simple and readable. Basic
+   markdown only: short headings, bullets, fenced code blocks for commands
+   and log excerpts. No tables, no wide comparison grids, no HTML, no
+   badge walls, no changelog novels. Write in the same plain voice as the
+   main README. When editing an existing findings file, **do not drop
+   durable facts** (root causes, paths, config knobs, verified fixes,
+   key log lines). Tighten wording and cut stale blow-by-blow, but keep
+   the lessons. Prefer symptom-oriented filenames agents can find via
+   GitHub code search / MCP (`wifi-missing-on-bare-metal.md`,
+   `ghcr-canary-prune.md`), not vague names like `notes.md` or
+   `misc-debug.md`. Put searchable keywords (component, failure mode,
+   package name) in the title and first paragraph.
 5. **Key log lines live in the topic file.** When a CI run, journal, or
    local script fails or proves a fix, copy the smallest useful excerpt
    (command, error, or success signature) into the matching
@@ -90,9 +103,10 @@ README for the full backstory.
     be resolved. CI may snapshot NEVRAs with
     `scripts/log-latest-vendor-packages.sh`. See
     `findings/latest-vendor-packages.md`.
-13. **Catalogs for agents.** Topic notes live as `findings/*.md` (no
-    central index). `scripts/README.md` indexes build/test helpers.
-    Prefer those over rediscovering paths by grep alone.
+13. **Catalogs for agents.** Topic notes live as `findings/*.md` only
+    (no central index, no `findings/README.md`). Filename + first
+    heading are the catalog. `scripts/README.md` indexes build/test
+    helpers. Prefer those over rediscovering paths by grep alone.
 
 
 ## Problem-solving approach
@@ -202,8 +216,10 @@ README for the full backstory.
   workflow file, and no 3-day canary cron.
   `publish-desktop-kmods.yml` stays a hybrid on purpose: its own early
   kernel-drift schedule/dispatch plus `workflow_call` from `release.yml`
-  when `kmods` is on. Do not fold it into `release.yml` only; kernel
-  drift must refresh the Pages DNF repo without a full ISO night.
+  when `kmods` is on. No push triggers on any workflow — spend budget on
+  daily release, weekly containers, and the kmod drift schedule only.
+  Do not fold kmods into `release.yml` only; kernel drift must refresh
+  the Pages DNF repo without a full ISO night.
   `build-live-iso.yml` / `build-installer-iso.yml` are reusable only
   (`prepare_kernel_modules` defaults off when release already ran kmods).
   `Get-AzureLinuxDesktop.ps1` reads `/releases/latest`. Download released
@@ -220,6 +236,23 @@ README for the full backstory.
   pushing workflow or script changes, lint all Bash with ShellCheck, all
   workflow files with actionlint (after confirming ShellCheck is on PATH), and
   all PowerShell with PSScriptAnalyzer.
+- **No subdirectory README.md files.** Keep documentation in the root
+  `README.md`, `findings/*.md`, and `.github/copilot-instructions.md`.
+  Do not create or recreate `scripts/README.md`, `containers/README.md`,
+  `kickstart/README.md`, or other nested README index files.
+- **Config files live under `assets/`, then `install -m`.** Do not build
+  product config with `cat > ... << EOF` or kickstart-parsing `awk` in
+  image/canary paths. Put `.repo`, dconf, systemd drop-ins, and scripts
+  in `assets/` and copy them with `install -m 0644` / `0755`.
+- **Canary is a real Dockerfile.** `containers/canary/Dockerfile` builds
+  with docker from the repo root (static `assets/yum.repos.d`, pkglist).
+  Do not nest podman inside docker for GHCR builds; CI uses docker only
+  for containers.yml.
+- **Runner pickup over peak core count.** All workflow defaults use
+  `ubuntu-24.04` (`AZL_RUNNER_LIGHT` / `AZL_RUNNER_HEAVY` /
+  `AZL_RUNNER_CONVERT` / `AZL_RUNNER_KMOD` overrides only when you set
+  repo vars). Prefer starting soon on a standard runner over waiting on
+  larger labels.
 - **Wallpaper/background scope**: do not introduce a new RPM/package solely
   for wallpaper or desktop background changes while closing final-polish
   issues. Resolve background behavior within existing image assets,
@@ -406,16 +439,20 @@ GitHub never returns values. Keep a private offline backup. Detail:
 
 ## Where things live
 
-- `.github/workflows/` - four workflows only:
-  `release.yml` (only human-facing publication path: schedule full run
-  or manual per-artifact flags), `build-live-iso.yml` /
-  `build-installer-iso.yml` (reusable builds called by `release.yml`),
-  `publish-desktop-kmods.yml` (Pages DNF repo; hybrid schedule/dispatch
-  and `workflow_call` from `release.yml` - keep separate from release). Local preflight lives under `scripts/`
+- `.github/workflows/` - five workflows, none on push:
+  `release.yml` (daily publication + manual flags), `containers.yml`
+  (weekly GHCR lifecycle for build-lorax/kiwi/kmods/canary plus
+  `workflow_call` from release), `build-live-iso.yml` /
+  `build-installer-iso.yml` (reusable only; pull prebuilt tool images),
+  `publish-desktop-kmods.yml` (Pages DNF repo; nightly drift schedule,
+  dispatch, and `workflow_call` from `release.yml` — keep separate;
+  uses build-kmods image). Local preflight lives under `scripts/`
   (for example `run-preflight-split.sh`, `test-container-repos.sh`);
   there is no separate preflight Actions workflow. Guest boot testing
   stays local; do not add a GitHub Actions KVM or TCG guest-test
   workflow.
+- `containers/` - Dockerfiles / canary build script for GHCR images.
+  See `findings/ci-prebuilt-build-containers.md`.
 - `kickstart/` - the kickstart(s) driving the ISO builds, the disk-image
   build, and (indirectly, via `scripts/build-canary-container.sh` parsing
   its repo/package setup) the canary container.

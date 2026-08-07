@@ -1,0 +1,6 @@
+[org.gnome.software]
+allow-updates=false
+download-updates=false
+packaging-format-preference=['flatpak:flathub', 'flatpak', 'rpm']
+required-repos=[]
+official-repos=['azl-base', 'azl-microsoft', 'azl-desktop-kmods']

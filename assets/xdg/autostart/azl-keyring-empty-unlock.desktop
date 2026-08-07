@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Azure Linux Desktop keyring auto-unlock
+Comment=Silently creates/unlocks the login keyring with an empty password so autologin sessions never see the "Choose password for new keyring" prompt
+Exec=/usr/libexec/azl-keyring-empty-unlock
+OnlyShowIn=GNOME;
+NoDisplay=true
+X-GNOME-Autostart-Notify=false

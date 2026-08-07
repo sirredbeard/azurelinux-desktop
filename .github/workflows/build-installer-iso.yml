@@ -7,8 +7,10 @@ name: Build installer ISO (reusable)
 # kiwi/config.sh.
 #
 # Architecture:
-#   - Bare ubuntu-24.04 runner; build inside docker run --privileged fedora:43.
-#   - Pin fedora:43 for stable package metadata (same reason as live ISO).
+#   - Standard ubuntu-24.04 by default (AZL_RUNNER_HEAVY override). Free-disk if free < 50G.
+#   - Build inside docker run --privileged $BUILD_KIWI_IMAGE (prebuilt via
+#     containers.yml). No in-job dnf install of python3-kiwi.
+#   - Steps split (assets pack / pull image / kiwi / verify) for cleaner cancel.
 #   - kiwi-ng needs root + loop devices for squashfs/ISO assembly.
 #   - assets.tar.gz is built from assets/ before kiwi runs; config.sh is
 #     chrooted with no git checkout view.
@@ -30,9 +32,15 @@ on:
 
 permissions:
   # write: commit findings/installer-package-list.txt after a successful ISO build
+  # packages:read — pull BUILD_KIWI_IMAGE from GHCR; nested prepare_kernel_modules
+  # also needs packages:read for build-kmods (caller may only grant what we list).
   contents: write
   pages: write
   id-token: write
+  packages: read
+
+env:
+  BUILD_KIWI_IMAGE: ghcr.io/${{ github.repository }}/build-kiwi:f43
 
 jobs:
   prepare-kernel-modules:
@@ -42,7 +50,7 @@ jobs:
   build-iso:
     needs: prepare-kernel-modules
     if: ${{ always() && (needs.prepare-kernel-modules.result == 'success' || needs.prepare-kernel-modules.result == 'skipped') }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_HEAVY || 'ubuntu-24.04' }}
     timeout-minutes: 180
     continue-on-error: true
 
@@ -53,7 +61,21 @@ jobs:
           # Need the branch tip for package-list commit/push later.
           fetch-depth: 0
 
+      - name: Check free disk
+        id: disk
+        run: |
+          set -euo pipefail
+          df -h /
+          free_gb=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
+          echo "free_gb=${free_gb}"
+          if [ "${free_gb:-0}" -lt 50 ]; then
+            echo "need_free=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "need_free=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Free disk space
+        if: steps.disk.outputs.need_free == 'true'
         uses: jlumbroso/free-disk-space@main
         with:
           android: true
@@ -66,9 +88,6 @@ jobs:
 
       - name: Show disk space
         run: df -h /
-
-      - name: Pull Fedora 43 build image
-        run: docker pull fedora:43
 
       # kiwi's <archive name="assets.tar.gz"/> unpacks straight onto the
       # image root ("/") - the transform below lands our checked-out
@@ -119,6 +138,15 @@ jobs:
           echo "=== staged thirdparty (from tar listing) ==="
           tar -tzf "$GITHUB_WORKSPACE/kiwi/assets.tar.gz" | grep thirdparty || true
 
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull kiwi tool image
+        run: |
+          set -euo pipefail
+          docker pull "$BUILD_KIWI_IMAGE"
+          docker image inspect "$BUILD_KIWI_IMAGE" --format 'using {{.RepoTags}} {{.Id}}'
+
       - name: Build installer ISO (KIWI-NG)
         id: kiwi-build
         continue-on-error: true
@@ -135,24 +163,13 @@ jobs:
             -e GITHUB_TOKEN \
             -e GH_TOKEN \
             --tmpfs /tmp:exec,size=8g \
-            fedora:43 \
+            "$BUILD_KIWI_IMAGE" \
             bash -exo pipefail -c '
               # Create the result dir on the bind-mounted /workspace
-              # BEFORE the dnf5 install below, not after. Twice in a
-              # row, `mkdir -p /workspace/installer-result` run right
-              # after that install (which replaces glibc/coreutils/
-              # rpm/systemd-libs mid-transaction to satisfy the newly-
-              # requested packages) failed with "Permission denied" on
-              # /workspace itself on the GitHub-hosted runner, even
-              # though the exact same docker/dnf5 invocation (same
-              # package list, same glibc/coreutils replace) could not
-              # be reproduced locally via podman - pointing at a
-              # runner/Docker-specific bind-mount quirk triggered by
-              # that package churn, not a bug in this repo. Touching
-              # the mount while calm, before the churn, plus a short
-              # retry loop as defense-in-depth, sidesteps it without
-              # depending on fully root-causing the runner behavior.
-              # See findings/kiwi-ng-installer-build.md.
+              # early. Prebuilt image avoids the old dnf5 glibc churn that
+              # broke mkdir on /workspace after package install (see
+              # findings/kiwi-ng-installer-build.md). Keep a short retry
+              # loop as defense-in-depth.
               for i in 1 2 3 4 5; do
                 mkdir -p /workspace/installer-result && break
                 echo "mkdir /workspace/installer-result failed (attempt $i), retrying..."
@@ -160,11 +177,7 @@ jobs:
               done
               test -d /workspace/installer-result
 
-              dnf5 install -y \
-                python3-kiwi \
-                dracut-live squashfs-tools xorriso dosfstools mtools \
-                grub2-tools grub2-tools-extra shim-x64 grub2-efi-x64-cdboot \
-                createrepo_c curl isomd5sum qemu-img e2fsprogs python3
+              # Tools come from BUILD_KIWI_IMAGE (containers.yml).
               /workspace/scripts/patch-kiwi-dnf5.sh
               /workspace/scripts/log-latest-vendor-packages.sh \
                 /workspace/installer-result/vendor-packages-latest.txt \
@@ -246,7 +259,7 @@ jobs:
             installer-result/*.changes
             installer-result/*.packages
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
       - name: Fail after diagnostics are uploaded
         if: ${{ steps.kiwi-build.outcome == 'failure' }}
@@ -254,13 +267,13 @@ jobs:
 
       # Deliverable first; verify/package-list bookkeeping after publish.
       - name: Upload ISO artifact
-        if: success()
+        if: success() && inputs.release_tag == ''
         uses: actions/upload-artifact@v4
         with:
           name: azurelinux-desktop-install-iso
           path: installer-result/azurelinux-desktop-install.iso
           compression-level: 0
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: error
 
       - name: Publish installer ISO to GitHub Release
@@ -281,9 +294,9 @@ jobs:
             -v /dev:/dev \
             --security-opt label=disable \
             -v "$GITHUB_WORKSPACE:/workspace" \
-            fedora:43 \
+            "$BUILD_KIWI_IMAGE" \
             bash -exo pipefail -c '
-              dnf5 install -y xorriso squashfs-tools e2fsprogs dracut
+              # xorriso/squashfs/e2fsprogs from BUILD_KIWI_IMAGE; dracut-live is present.
               ISO=/workspace/installer-result/azurelinux-desktop-install.iso
               mkdir -p /tmp/iso-extract
 
@@ -353,7 +366,7 @@ jobs:
         with:
           name: azurelinux-desktop-install-kickstart
           path: installer-result/final-kickstart.ks
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: warn
 
       - name: Upload resolved installer package list artifact
@@ -362,7 +375,7 @@ jobs:
         with:
           name: azurelinux-desktop-installer-package-list
           path: installer-result/final-package-list.txt
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: error
 
       # Installer runtime rpmdb (not the offline target set). Commit into

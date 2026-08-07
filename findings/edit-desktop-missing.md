@@ -1,44 +1,41 @@
-# `edit` installed but missing from GNOME
+# Edit installed but missing from GNOME
 
 **Status:** Resolved
 
-## Observed failure
+## Problem
 
-Microsoft Edit (`edit`) was installed on the image, but no Edit entry
-appeared in GNOME overview or dock.
+Microsoft Edit (`edit`) was on the image, but no Edit entry showed in
+GNOME overview or the dock.
 
-## Root causes considered
+## What can hide a valid binary
 
-Research (`GNOME Shell` application discovery) listed several ways a valid
-binary still disappears from the overview:
+* Desktop file not under an `XDG_DATA_DIRS` path
+* Missing or wrong `Categories=`
+* `NoDisplay=true`, `Hidden=true`, or `OnlyShowIn=` mismatch
+* `Terminal=true` / ConsoleOnly patterns
+* Stale desktop caches
+* Mode 600 desktop file (installer umask). See
+  `anaconda-kickstart-patterns.md`
 
-- Desktop file not under an `XDG_DATA_DIRS` component
-- Missing or wrong `Categories=`
-- `NoDisplay=true` / `Hidden=true` / `OnlyShowIn=` mismatch
-- `Terminal=true` + `ConsoleOnly` patterns that hide from the GUI
-- Stale `mimeinfo.cache` / need `update-desktop-database`
-- Mode 600 desktop file (installer umask issue; see
-  `anaconda-kickstart-patterns.md`)
+## Fix
 
-## Resolution
+`assets/desktop/edit.desktop` is a normal GUI entry:
 
-`assets/desktop/edit.desktop` updated to a GUI-visible shape:
+* `Icon=` to the staged pixmap
+* `MimeType=text/plain;`
+* `Categories=Utility;TextEditor;`
+* No ConsoleOnly flag
+* Staged with `install -m 0644` in kickstarts
 
-- `Icon=` pointing at the staged pixmap (project uses the edit icon asset)
-- `MimeType=text/plain;`
-- `Categories=Utility;TextEditor;`
-- No `ConsoleOnly` flag
-- World-readable mode via `install -m 0644` in kickstarts
+On rebuilt images:
 
-On-disk checks on rebuilt artifacts:
+* `/usr/share/applications/edit.desktop` is root-owned, mode 0644
+* Passes `desktop-file-validate`
+* `/usr/local/bin/edit` is present (side-loaded, not RPM-owned)
+* Manual QA 2026-07-25: launches from the desktop
 
-- `/usr/share/applications/edit.desktop` present, root-owned, mode 0644
-- Passes `desktop-file-validate`
-- `/usr/local/bin/edit` present (not RPM-owned; side-loaded tool)
-- Manual QA 2026-07-25: Edit launches from the desktop environment
+## Paths
 
-## References
-
-- `assets/desktop/edit.desktop`
-- `gnome-desktop-defaults.md`
-- `powershell-dock-identity.md` (shared discovery research)
+* `assets/desktop/edit.desktop`
+* `gnome-desktop-defaults.md`
+* `powershell-dock-identity.md`

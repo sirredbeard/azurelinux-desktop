@@ -18,13 +18,16 @@ augeas-libs-1.14.2-0.6.azl4.x86_64
 authselect-1.6.2-2.azl4.x86_64
 authselect-libs-1.6.2-2.azl4.x86_64
 azurelinux-desktop-bluetooth-kmod-6.18.31-1.12.azl4.x86_64
-azurelinux-desktop-iwlwifi-kmod-6.18.31-1.12.azl4.x86_64
+azurelinux-desktop-intel-kmod-6.18.31-1.12.azl4.x86_64
+azurelinux-desktop-performance-kmod-6.18.31-1.12.azl4.x86_64
 azurelinux-desktop-policy-6.18.31-1.12.azl4.x86_64
 azurelinux-desktop-psmouse-kmod-6.18.31-1.12.azl4.x86_64
+azurelinux-desktop-sensors-kmod-6.18.31-1.12.azl4.x86_64
 azurelinux-desktop-sound-kmod-6.18.31-1.12.azl4.x86_64
+azurelinux-desktop-storage-kmod-6.18.31-1.12.azl4.x86_64
+azurelinux-desktop-surface-kmod-6.18.31-1.12.azl4.x86_64
 azurelinux-desktop-thinkpad-kmod-6.18.31-1.12.azl4.x86_64
 azurelinux-desktop-typec-kmod-6.18.31-1.12.azl4.x86_64
-azurelinux-desktop-usb-storage-kmod-6.18.31-1.12.azl4.x86_64
 azurelinux-desktop-usbhid-kmod-6.18.31-1.12.azl4.x86_64
 azurelinux-desktop-uvc-kmod-6.18.31-1.12.azl4.x86_64
 azurelinux-gpg-keys-4.0-18.azl4.noarch
@@ -77,6 +80,7 @@ device-mapper-event-libs-1.02.208-3.azl4.x86_64
 device-mapper-libs-1.02.208-3.azl4.x86_64
 device-mapper-persistent-data-1.1.0-4.azl4.x86_64
 diffutils-3.12-4.azl4.x86_64
+dmidecode-3.6-8.azl4.x86_64
 dnf-data-4.24.0-2.azl4.noarch
 dnf5-5.2.18.0-2.azl4.x86_64
 dosfstools-4.2-17.azl4.x86_64
@@ -93,6 +97,7 @@ efivar-libs-39-11.azl4.x86_64
 elfutils-debuginfod-client-0.194-4.azl4.x86_64
 elfutils-libelf-0.194-4.azl4.x86_64
 elfutils-libs-0.194-4.azl4.x86_64
+ethtool-6.15-5.azl4.x86_64
 expat-2.8.1-2.azl4.x86_64
 f2fs-tools-1.16.0-10.azl4.x86_64
 file-5.46-9.azl4.x86_64
@@ -161,6 +166,7 @@ grub2-tools-2.12-46.azl4.x86_64
 grub2-tools-minimal-2.12-46.azl4.x86_64
 gzip-1.13-5.azl4.x86_64
 harfbuzz-11.5.1-3.azl4.x86_64
+hdparm-9.65-10.azl4.x86_64
 hfsplus-tools-540.1.linux3-36.azl4.x86_64
 hostname-3.25-4.azl4.x86_64
 hwdata-0.404-2.azl4.noarch
@@ -170,6 +176,7 @@ iniparser-4.2.6-4.azl4.x86_64
 intel-audio-firmware-20260221-2.azl4.noarch
 iproute-6.14.0-3.azl4.x86_64
 iputils-20250605-2.azl4.x86_64
+irqbalance-1.9.4-8.azl4.x86_64
 iscsi-initiator-utils-6.2.1.11-0.git4b3e853.azl4.2.x86_64
 iscsi-initiator-utils-iscsiuio-6.2.1.11-0.git4b3e853.azl4.2.x86_64
 isns-utils-libs-0.103-4.azl4.x86_64
@@ -353,6 +360,7 @@ nss-util-3.123.1-1.azl4.x86_64
 ntfs-3g-2022.10.3-11.azl4.x86_64
 ntfs-3g-libs-2022.10.3-11.azl4.x86_64
 ntfsprogs-2022.10.3-11.azl4.x86_64
+numactl-libs-2.0.19-4.azl4.x86_64
 oniguruma-6.9.10-3.azl4.x86_64
 openldap-2.6.10-5.azl4.x86_64
 openssl-3.5.4-7.azl4.x86_64
@@ -401,6 +409,7 @@ python3-dnf-4.24.0-2.azl4.noarch
 python3-gobject-base-3.54.5-5.azl4.x86_64
 python3-hawkey-0.75.0-2.azl4.x86_64
 python3-idna-3.10-7.azl4.noarch
+python3-inotify-0.9.6-43.azl4.noarch
 python3-iso639-0.1.4-33.azl4.noarch
 python3-kickstart-3.66-6.azl4.noarch
 python3-langtable-0.0.70-2.azl4.noarch
@@ -412,6 +421,7 @@ python3-libreport-2.17.15-10.azl4.x86_64
 python3-libs-3.14.3-2.azl4.x86_64
 python3-libselinux-3.9-6.azl4.x86_64
 python3-libsemanage-3.9-5.azl4.x86_64
+python3-linux-procfs-0.7.4-2.azl4.noarch
 python3-meh-0.52-9.azl4.noarch
 python3-pid-3.0.4-5.azl4.noarch
 python3-ply-3.11-33.azl4.noarch
@@ -465,6 +475,8 @@ tar-1.35-7.azl4.x86_64
 teamd-1.32-13.azl4.x86_64
 tmux-3.5a-8.azl4.x86_64
 tpm2-tss-4.1.3-8.azl4.x86_64
+tuned-2.27.0-1.azl4.noarch
+tuned-ppd-2.27.0-1.azl4.noarch
 tzdata-2025c-2.azl4.noarch
 udisks2-2.11.0-2.azl4.x86_64
 udisks2-iscsi-2.11.0-2.azl4.x86_64
@@ -473,6 +485,7 @@ util-linux-2.41.3-10.azl4.x86_64
 util-linux-core-2.41.3-10.azl4.x86_64
 vim-data-9.1.2146-4.azl4.noarch
 vim-minimal-9.1.2146-4.azl4.x86_64
+virt-what-1.27-5.azl4.x86_64
 volume_key-libs-0.3.12-29.azl4.x86_64
 which-2.23-4.azl4.x86_64
 xdg-dbus-proxy-0.1.6-5.azl4.x86_64
@@ -486,4 +499,5 @@ xz-5.8.1-5.azl4.x86_64
 xz-libs-5.8.1-5.azl4.x86_64
 zchunk-libs-1.5.1-4.azl4.x86_64
 zlib-ng-compat-2.3.3-2.azl4.x86_64
+zram-generator-1.2.1-4.azl4.x86_64
 zstd-1.5.7-3.azl4.x86_64

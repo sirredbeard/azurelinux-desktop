@@ -1,0 +1,19 @@
+#!/bin/sh
+# Wait for gnome-keyring-daemon's control socket - whichever of the three
+# gnome-keyring-*.desktop autostart entries gets there first - then send
+# a single NUL byte as the "password": a zero-length C string, not a
+# NULL pointer and not "\n", which gnome-keyring's own login-unlock code
+# (gkd_login_unlock("")) accepts as a real blank password and uses to
+# create the login keyring if it doesn't exist yet, or unlock it if it
+# does. Runs once per session start; a no-op after the login keyring
+# already exists and is aliased "default".
+i=0
+control="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring/control"
+while [ ! -S "$control" ] && [ "$i" -lt 100 ]; do
+    sleep 0.1
+    i=$((i + 1))
+done
+[ -S "$control" ] || exit 0
+printf '\0' | /usr/bin/gnome-keyring-daemon --unlock \
+    --control-directory="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring" \
+    >/dev/null 2>&1 || true

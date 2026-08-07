@@ -47,6 +47,12 @@ INSTALL_PKGS=(
     kernel-modules-extra
     # Policy Requires every azurelinux-desktop-*-kmod at exact EVR.
     azurelinux-desktop-policy
+    # zram swap setup; conf ships in azurelinux-desktop-performance-kmod.
+    zram-generator
+    # Fedora desktop power/IRQ stack (GNOME Settings talks to tuned-ppd).
+    tuned
+    tuned-ppd
+    irqbalance
     openssh-server
     openssh-clients
     sudo
@@ -182,8 +188,8 @@ INSTALL_PKGS=(
     github-desktop
 
 
+    # Laptop power/thermal. GNOME power profiles use tuned-ppd, not ppd.
     upower
-    power-profiles-daemon
     thermald
     switcheroo-control
     brightnessctl
@@ -595,6 +601,21 @@ if [ -f /opt/azl-desktop-assets/bluetooth/azurelinux-desktop-bt-usb-reset ]; the
     systemctl enable azurelinux-desktop-bt-recover-late.service 2>/dev/null || true
 fi
 
+# Desktop journal size caps + rotational-disk I/O scheduler (see findings/
+# desktop-performance-policy.md). NVMe stays on kernel default (none).
+if [ -f /opt/azl-desktop-assets/systemd/journald.conf.d/50-azurelinux-desktop.conf ]; then
+    install -d -m 0755 /etc/systemd/journald.conf.d
+    install -m 0644 \
+        /opt/azl-desktop-assets/systemd/journald.conf.d/50-azurelinux-desktop.conf \
+        /etc/systemd/journald.conf.d/50-azurelinux-desktop.conf
+fi
+if [ -f /opt/azl-desktop-assets/udev/60-azurelinux-desktop-iosched.rules ]; then
+    install -d -m 0755 /etc/udev/rules.d
+    install -m 0644 \
+        /opt/azl-desktop-assets/udev/60-azurelinux-desktop-iosched.rules \
+        /etc/udev/rules.d/60-azurelinux-desktop-iosched.rules
+fi
+
 # First-boot prepare override for the installed target tree. Also staged
 # by azl-install.ks.in; keep both paths so offline media and %post agree.
 if [ -f /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules ]; then
@@ -660,6 +681,15 @@ if [ -f /opt/azl-desktop-assets/bin/azl-first-boot-prepare ]; then
     install -m 0644 \
         /opt/azl-desktop-assets/systemd/selinux-autorelabel.service.d/10-azurelinux-desktop.conf \
         /usr/lib/systemd/system/selinux-autorelabel.service.d/10-azurelinux-desktop.conf
+fi
+
+# RPM Fusion iHD lives under dri-nonfree; Azure Linux libva only searches dri.
+# Same helper as live kickstart / canary. See findings/h264-intel-media-stack.md.
+if [ -f /opt/azl-desktop-assets/bin/azl-link-intel-ihd ]; then
+    install -m 0755 \
+        /opt/azl-desktop-assets/bin/azl-link-intel-ihd \
+        /usr/local/bin/azl-link-intel-ihd
+    /usr/local/bin/azl-link-intel-ihd /
 fi
 
 #----------------------------------------------------------------------
@@ -811,69 +841,19 @@ ln -sf /usr/local/bin/anaconda-launcher.sh /usr/local/bin/install-azl
 # whether to auto-run the installer, so it has to match upstream
 # exactly for azl.autoinstall to keep working the same way.
 #----------------------------------------------------------------------
-cat > /root/.bash_profile << 'PROFILEEOF'
-if grep -q 'azl\.autoinstall' /proc/cmdline 2>/dev/null; then
-    MY_TTY=$(tty 2>/dev/null)
-    VIRT=$(systemd-detect-virt 2>/dev/null)
-    LAUNCH=false
-    if [ "$VIRT" = "microsoft" ]; then
-        [ "$MY_TTY" = "/dev/tty1" ] && LAUNCH=true
-    else
-        case "$MY_TTY" in
-            /dev/ttyS0)
-                LAUNCH=true
-                ;;
-            /dev/tty1|/dev/hvc0)
-                if ! grep -q 'console=ttyS' /proc/cmdline 2>/dev/null; then
-                    LAUNCH=true
-                fi
-                ;;
-        esac
-    fi
-    if [ "$LAUNCH" = true ]; then
-        echo ""
-        echo "========================================"
-        echo "  Azure Linux Desktop - Offline Installer"
-        echo "========================================"
-        echo ""
-        echo "  Starting installer automatically..."
-        echo ""
-        exec /usr/local/bin/anaconda-launcher.sh
-    fi
-fi
-echo ""
-echo "========================================"
-echo "  Azure Linux Desktop - Offline Installer"
-echo "========================================"
-echo ""
-echo "  To start the installer, run:"
-echo ""
-echo "    install-azl"
-echo ""
-echo "========================================"
-echo ""
-PROFILEEOF
+install -m 0644 /opt/azl-desktop-assets/installer-root/bash_profile /root/.bash_profile
 
-cat > /root/.bashrc << 'RCEOF'
-if [[ $- == *i* ]] && [ ! -f /tmp/.azl-banner-shown ]; then
-    touch /tmp/.azl-banner-shown
-    source /root/.bash_profile
-fi
-RCEOF
+install -m 0644 /opt/azl-desktop-assets/installer-root/bashrc /root/.bashrc
 
 mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d
-cat > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf << 'AUTOEOF'
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin root --noclear %I 115200 linux
-AUTOEOF
+mkdir -p /etc/systemd/system/serial-getty@ttyS0.service.d
+install -m 0644 /opt/azl-desktop-assets/systemd/system/serial-getty@ttyS0.service.d/autologin.conf \
+    /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf
 
 mkdir -p /etc/systemd/system/getty@tty1.service.d
-cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOEOF'
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin root --noclear %I linux
-AUTOEOF
+mkdir -p /etc/systemd/system/getty@tty1.service.d
+install -m 0644 /opt/azl-desktop-assets/systemd/system/getty@tty1.service.d/autologin.conf \
+    /etc/systemd/system/getty@tty1.service.d/autologin.conf
 
 #----------------------------------------------------------------------
 # Generate the real kickstarts from the @@PACKAGES@@ template, same

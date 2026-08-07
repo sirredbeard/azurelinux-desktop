@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# azl-link-intel-ihd
+#
+# Purpose: Make RPM Fusion's full Intel iHD VA-API driver visible to Azure
+#   Linux libva. Fedora 40+ intel-media-driver installs the .so under
+#   /usr/lib64/dri-nonfree/. Fedora libva is patched to search that path.
+#   Azure Linux libva still defaults to /usr/lib64/dri only, so H.264/HEVC
+#   hardware decode never binds without a link or LIBVA_DRIVERS_PATH.
+# Usage:   azl-link-intel-ihd [ROOTFS]
+#          ROOTFS defaults to /. Safe to re-run.
+# Needs:   install, ln. intel-media-driver already installed under ROOTFS.
+# CI:      Yes. Called from live kickstart, KIWI config.sh, canary build.
+
+set -euo pipefail
+
+ROOT="${1:-/}"
+ROOT="${ROOT%/}"
+[[ -n "$ROOT" ]] || ROOT="/"
+if [[ "$ROOT" == "/" ]]; then
+    prefix=""
+else
+    prefix="$ROOT"
+fi
+
+dri="${prefix}/usr/lib64/dri"
+nonfree_so="${prefix}/usr/lib64/dri-nonfree/iHD_drv_video.so"
+envdir="${prefix}/etc/environment.d"
+envfile="${envdir}/50-azurelinux-desktop-libva.conf"
+
+if [[ -e "$nonfree_so" ]]; then
+    install -d -m 0755 "$dri"
+    # Relative link so the path stays valid if the root is relocated.
+    ln -sfn ../dri-nonfree/iHD_drv_video.so "${dri}/iHD_drv_video.so"
+fi
+
+install -d -m 0755 "$envdir"
+# Sessions that read environment.d also pick up dri-nonfree first.
+cat > "$envfile" <<'EOF'
+LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree:/usr/lib64/dri
+EOF
+chmod 0644 "$envfile"

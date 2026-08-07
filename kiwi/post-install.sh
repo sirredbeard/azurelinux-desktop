@@ -4,28 +4,12 @@
 set -x
 
 # --- Network configuration ---
-cat > /etc/systemd/network/20-wired-dhcp.network << 'NET'
-[Match]
-Name=en* eth*
-
-[Network]
-DHCP=yes
-
-[DHCPv4]
-UseDNS=yes
-NET
+install -m 0644 /opt/azl-desktop-assets/systemd/network/20-wired-dhcp.network \
+    /etc/systemd/network/20-wired-dhcp.network
 
 # --- GRUB defaults ---
-cat > /etc/default/grub << 'GRUBDEF'
-GRUB_TIMEOUT=2
-GRUB_DISTRIBUTOR="Azure Linux"
-GRUB_DEFAULT=0
-GRUB_DISABLE_SUBMENU=true
-GRUB_TERMINAL_OUTPUT="console serial"
-GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1"
-GRUB_CMDLINE_LINUX="console=ttyS0,115200 console=tty0"
-GRUB_DISABLE_RECOVERY=true
-GRUBDEF
+install -m 0644 /opt/azl-desktop-assets/default/grub \
+    /etc/default/grub
 
 install -d -m 0755 /etc/pki/rpm-gpg
 if [ -f /opt/azl-desktop-assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
@@ -47,15 +31,8 @@ elif [ -s /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
     install -m 0644 /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
         /usr/share/azurelinux-desktop/gpg/signing-key.asc
 fi
-cat > /etc/yum.repos.d/azl-desktop-kmods.repo << 'REPO'
-[azl-desktop-kmods]
-name=Azure Linux Desktop kernel modules
-baseurl=https://sirredbeard.github.io/azurelinux-desktop/repo
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
-cost=1
-REPO
+install -m 0644 /opt/azl-desktop-assets/yum.repos.d/azl-desktop-kmods.repo \
+    /etc/yum.repos.d/azl-desktop-kmods.repo
 
 # --- Encrypted disk: regenerate initramfs with LUKS support ---
 if [ -f /etc/crypttab ] && [ -s /etc/crypttab ]; then
@@ -78,3 +55,44 @@ sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd
 # splash stays up with one "Finishing setup and expanding disk…" line instead
 # of stock fixfiles console spam.
 touch /.autorelabel
+
+# Re-apply iHD dri link if the offline %post path reinstalled media packages
+# without config.sh. No-op when the .so is already linked.
+if [ -x /usr/local/bin/azl-link-intel-ihd ]; then
+    /usr/local/bin/azl-link-intel-ihd /
+elif [ -e /usr/lib64/dri-nonfree/iHD_drv_video.so ]; then
+    install -d -m 0755 /usr/lib64/dri
+    ln -sfn ../dri-nonfree/iHD_drv_video.so /usr/lib64/dri/iHD_drv_video.so
+    install -d -m 0755 /etc/environment.d
+    printf '%s\n' 'LIBVA_DRIVERS_PATH=/usr/lib64/dri-nonfree:/usr/lib64/dri' \
+        > /etc/environment.d/50-azurelinux-desktop-libva.conf
+    chmod 0644 /etc/environment.d/50-azurelinux-desktop-libva.conf
+fi
+
+# Desktop performance userspace (Fedora packages). Sysctl/zram conf comes
+# from azurelinux-desktop-performance-kmod; this only enables the daemons.
+systemctl enable irqbalance.service 2>/dev/null || true
+systemctl enable tuned.service 2>/dev/null || true
+if command -v tuned-adm >/dev/null 2>&1; then
+    tuned-adm profile desktop 2>/dev/null || tuned-adm profile balanced 2>/dev/null || true
+fi
+systemctl enable thermald.service 2>/dev/null || true
+# Azure VM guest agent is not in the desktop package set. Mask if present.
+systemctl disable --now walinuxagent.service 2>/dev/null || true
+systemctl mask walinuxagent.service 2>/dev/null || true
+systemctl disable --now waagent.service 2>/dev/null || true
+systemctl mask waagent.service 2>/dev/null || true
+
+# Journal + iosched assets (also staged in kiwi/config.sh for the offline tree).
+if [ -f /opt/azl-desktop-assets/systemd/journald.conf.d/50-azurelinux-desktop.conf ]; then
+    install -d -m 0755 /etc/systemd/journald.conf.d
+    install -m 0644 \
+        /opt/azl-desktop-assets/systemd/journald.conf.d/50-azurelinux-desktop.conf \
+        /etc/systemd/journald.conf.d/50-azurelinux-desktop.conf
+fi
+if [ -f /opt/azl-desktop-assets/udev/60-azurelinux-desktop-iosched.rules ]; then
+    install -d -m 0755 /etc/udev/rules.d
+    install -m 0644 \
+        /opt/azl-desktop-assets/udev/60-azurelinux-desktop-iosched.rules \
+        /etc/udev/rules.d/60-azurelinux-desktop-iosched.rules
+fi

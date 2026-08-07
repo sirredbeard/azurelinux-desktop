@@ -1,0 +1,53 @@
+#!/bin/bash
+# Grow the root partition (via growpart) and its filesystem to fill the
+# real disk, once. Safe to re-run: growpart exits 1 with "NOCHANGE" once
+# the partition is already at max size. Prefer xfs_growfs on disk images;
+# fall back to resize2fs for ext*. Stamp short-circuits later boots.
+set -uo pipefail
+
+STAMP=/var/lib/azl-growroot.done
+if [ -f "$STAMP" ]; then
+    exit 0
+fi
+
+if [ -x /usr/bin/plymouth ] && plymouth --ping >/dev/null 2>&1; then
+    plymouth show-splash >/dev/null 2>&1 || true
+    plymouth display-message --text="Finishing setup and expanding disk. System will reboot." >/dev/null 2>&1 || true
+fi
+
+root_src=$(findmnt -no SOURCE /)
+root_dev=$(readlink -f "$root_src")
+root_name=$(basename "$root_dev")
+
+disk_name=$(lsblk -no PKNAME "$root_dev" 2>/dev/null)
+part_num=$(cat "/sys/class/block/$root_name/partition" 2>/dev/null)
+
+if [ -z "$disk_name" ] || [ -z "$part_num" ]; then
+    echo "azl-growroot: couldn't resolve parent disk/partition number for $root_dev, skipping" >&2
+    touch "$STAMP"
+    exit 0
+fi
+
+growpart "/dev/$disk_name" "$part_num"
+growpart_rc=$?
+if [ "$growpart_rc" -ne 0 ] && [ "$growpart_rc" -ne 1 ]; then
+    echo "azl-growroot: growpart /dev/$disk_name $part_num failed (exit $growpart_rc)" >&2
+fi
+
+fstype=$(findmnt -no FSTYPE / 2>/dev/null || true)
+case "$fstype" in
+    xfs)
+        if ! xfs_growfs /; then
+            echo "azl-growroot: xfs_growfs / failed" >&2
+        fi
+        ;;
+    ext4|ext3|ext2)
+        if command -v resize2fs >/dev/null 2>&1; then
+            if ! resize2fs "$root_dev"; then
+                echo "azl-growroot: resize2fs $root_dev failed" >&2
+            fi
+        fi
+        ;;
+esac
+
+touch "$STAMP"

@@ -1,12 +1,13 @@
 name: Desktop kmod repo (GitHub Pages)
 
 # Hybrid on purpose: reusable workflow_call (release.yml and optional
-# prepare_kernel_modules on build-*.yml) plus its own schedule, path push,
-# and workflow_dispatch. Keep this file. Do not fold it into release.yml
-# only: kernel drift must rebuild the Pages DNF repo without a full ISO
-# night. Parallel family builds → one package job → one serial Pages
-# publish. Concurrency group serializes Pages writes so two runs never
-# clobber the repo.
+# prepare_kernel_modules on build-*.yml) plus its own early kernel-drift
+# schedule and workflow_dispatch. No push triggers — nothing in this repo
+# should burn Actions budget on every commit. Keep this file. Do not fold
+# it into release.yml only: kernel drift must refresh the Pages DNF repo
+# without a full ISO night. Parallel family builds → one package job →
+# one serial Pages publish. Concurrency group serializes Pages writes so
+# two runs never clobber the repo.
 
 on:
   schedule:
@@ -14,16 +15,14 @@ on:
     # kernel drift and rebuilds only when the Pages set is incomplete.
     # release.yml also calls this when its kmods flag is on.
     - cron: "17 4 * * *"
-  push:
-    branches: [main]
-    paths:
-      - "scripts/build-desktop-kmods.sh"
-      - "scripts/generate-kmod-repo-index.sh"
-      - ".github/workflows/publish-desktop-kmods.yml"
   workflow_dispatch:
     inputs:
       republish:
         description: "Rebuild and redeploy even if Pages already has this kernel set"
+        type: boolean
+        default: false
+      prune_old:
+        description: "On publish, drop RPMs for other kernel releases (keep only this build)"
         type: boolean
         default: false
       families:
@@ -35,12 +34,17 @@ on:
       republish:
         type: boolean
         default: false
+      prune_old:
+        description: "On publish, drop RPMs for other kernel releases (keep only this build)"
+        type: boolean
+        default: false
       families:
         type: string
         default: all
 
 permissions:
   contents: read
+  packages: read
   pages: write
   id-token: write
 
@@ -51,12 +55,15 @@ concurrency:
 
 env:
   KMOD_REPO_URL: https://sirredbeard.github.io/azurelinux-desktop/repo
-  KMOD_IMAGE: mcr.microsoft.com/azurelinux-beta/base/core:4.0
+  # Prefer prebuilt toolchain image (containers.yml). Fall back to MCR core
+  # in the pull step if GHCR is missing (first clone / permissions).
+  KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4
+  KMOD_IMAGE_FALLBACK: mcr.microsoft.com/azurelinux-beta/base/core:4.0
   AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64
 
 jobs:
   detect:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
     outputs:
       build_required: ${{ steps.detect.outputs.build_required }}
       kernel_nevra: ${{ steps.detect.outputs.kernel_nevra }}
@@ -65,11 +72,17 @@ jobs:
     steps:
       - id: detect
         env:
-          EVENT_NAME: ${{ github.event_name }}
           REPUBLISH: ${{ inputs.republish || 'false' }}
+          PRUNE_OLD: ${{ inputs.prune_old || 'false' }}
           FAMILIES_IN: ${{ inputs.families || 'all' }}
         run: |
           set -euo pipefail
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          if ! docker pull "$KMOD_IMAGE" 2>/dev/null; then
+            echo "WARN: $KMOD_IMAGE missing; fallback $KMOD_IMAGE_FALLBACK"
+            docker pull "$KMOD_IMAGE_FALLBACK"
+            KMOD_IMAGE="$KMOD_IMAGE_FALLBACK"
+          fi
           kernel_nevra="$(
             docker run --rm "$KMOD_IMAGE" \
               bash -c "dnf5 repoquery --setopt=reposdir=/dev/null \
@@ -110,12 +123,11 @@ jobs:
             missing=1
           fi
 
-          # Push to builder/workflow always rebuilds. Schedule only when set incomplete.
-          # Manual/reusable honor republish; otherwise same completeness check.
+          # No push trigger. Schedule/release rebuild only when the set is
+          # incomplete. Manual/reusable honor republish or prune_old
+          # (prune needs a publish pass).
           build=false
-          if [[ "$EVENT_NAME" == "push" ]]; then
-            build=true
-          elif [[ "$REPUBLISH" == "true" ]]; then
+          if [[ "$REPUBLISH" == "true" || "$PRUNE_OLD" == "true" ]]; then
             build=true
           elif [[ "$missing" -ne 0 ]]; then
             build=true
@@ -157,7 +169,7 @@ jobs:
   prepare:
     needs: detect
     if: ${{ needs.detect.outputs.build_required == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_KMOD || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -168,7 +180,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p kmod-work kmod-output
-          docker pull "$KMOD_IMAGE"
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          if ! docker pull "$KMOD_IMAGE"; then
+            echo "WARN: $KMOD_IMAGE missing; fallback $KMOD_IMAGE_FALLBACK"
+            docker pull "$KMOD_IMAGE_FALLBACK"
+            KMOD_IMAGE="$KMOD_IMAGE_FALLBACK"
+            echo "KMOD_IMAGE=$KMOD_IMAGE_FALLBACK" >> "$GITHUB_ENV"
+          fi
           for attempt in 1 2 3; do
             echo "prepare attempt $attempt"
             if docker run --rm \
@@ -201,17 +219,17 @@ jobs:
         with:
           name: kmod-prepare
           path: kmod-work/
-          retention-days: 3
+          retention-days: 2
           if-no-files-found: error
 
   build-family:
     needs: [detect, prepare]
     if: ${{ needs.detect.outputs.build_required == 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_KMOD || 'ubuntu-24.04' }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 8
       matrix:
         family: ${{ fromJSON(needs.detect.outputs.families_json) }}
     steps:
@@ -230,7 +248,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p kmod-output
-          docker pull "$KMOD_IMAGE"
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          if ! docker pull "$KMOD_IMAGE"; then
+            echo "WARN: $KMOD_IMAGE missing; fallback $KMOD_IMAGE_FALLBACK"
+            docker pull "$KMOD_IMAGE_FALLBACK"
+            KMOD_IMAGE="$KMOD_IMAGE_FALLBACK"
+            echo "KMOD_IMAGE=$KMOD_IMAGE_FALLBACK" >> "$GITHUB_ENV"
+          fi
           test -f kmod-work/kernel.tar.gz
           test -f kmod-work/env.sh
           # shellcheck disable=SC1091
@@ -310,14 +334,17 @@ jobs:
         with:
           name: kmod-family-${{ matrix.family }}
           path: family-out/
-          retention-days: 3
+          retention-days: 2
           if-no-files-found: error
+          # Conf-only families use .conf-only markers; default upload drops
+          # hidden files and the package job would skip sensors/performance.
+          include-hidden-files: true
 
   package:
     needs: [detect, prepare, build-family]
     # Publish whatever families succeeded. Do not require the full matrix.
     if: ${{ needs.detect.outputs.build_required == 'true' && needs.prepare.result == 'success' && !cancelled() && (needs.build-family.result == 'success' || needs.build-family.result == 'failure') }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_KMOD || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -362,7 +389,12 @@ jobs:
           find kmod-work -name '*.ko' | sort
           test "$(find kmod-work -name '*.ko' | wc -l)" -ge 1
 
-          docker pull "$KMOD_IMAGE"
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          if ! docker pull "$KMOD_IMAGE"; then
+            echo "WARN: $KMOD_IMAGE missing; fallback $KMOD_IMAGE_FALLBACK"
+            docker pull "$KMOD_IMAGE_FALLBACK"
+            KMOD_IMAGE="$KMOD_IMAGE_FALLBACK"
+          fi
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -e DESKTOP_KMOD_WORKDIR=/workspace/kmod-work \
@@ -389,13 +421,13 @@ jobs:
           path: |
             kmod-output/*.rpm
             kmod-output/present-families.txt
-          retention-days: 5
+          retention-days: 2
           if-no-files-found: error
 
   publish:
     needs: [detect, package]
     if: ${{ needs.detect.outputs.build_required == 'true' && needs.package.result == 'success' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -409,12 +441,16 @@ jobs:
       - name: Merge prior repo, createrepo, write indexes
         env:
           KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+          PRUNE_OLD: ${{ inputs.prune_old || 'false' }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
         run: |
           set -euo pipefail
           mkdir -p site/repo
           krel="${KERNEL_NEVRA#"kernel-"}"
+          if [[ "${PRUNE_OLD}" == "true" ]]; then
+            echo "prune_old=true: only keeping RPMs for kernel release ${krel}"
+          fi
           if curl --fail --location --retry 5 --retry-delay 3 \
               "$KMOD_REPO_URL/manifest.txt" -o prior-manifest.txt; then
             while IFS= read -r rpm; do
@@ -423,6 +459,17 @@ jobs:
                 azurelinux-desktop-*-kmod-*|azurelinux-desktop-policy-*) ;;
                 *) continue ;;
               esac
+              # Optional: drop every RPM that is not for this kernel release.
+              # Default keeps older kernel sets so stale installs still resolve.
+              if [[ "${PRUNE_OLD}" == "true" ]]; then
+                case "$rpm" in
+                  *"-${krel}.rpm") ;;
+                  *)
+                    echo "prune: skip prior $rpm"
+                    continue
+                    ;;
+                esac
+              fi
               # Prefer this run's RPM; keep prior siblings for the same kernel
               # when a family failed this time so the repo stays useful.
               if [[ -f "kmod-output/$rpm" ]]; then
@@ -516,14 +563,21 @@ jobs:
             exit 1
           fi
           chmod +x scripts/rpm-gpg-import.sh scripts/sign-desktop-rpms.sh
+          # Prefer build-kmods image (rpm-sign + gnupg2 baked in).
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          IMG="$KMOD_IMAGE"
+          if ! docker pull "$IMG" 2>/dev/null; then
+            IMG="$KMOD_IMAGE_FALLBACK"
+            docker pull "$IMG"
+          fi
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -e GPG_PRIVATE_KEY \
             -e GPG_KEY_ID \
             -w /workspace \
-            registry.fedoraproject.org/fedora:43 \
+            "$IMG" \
             bash -euo pipefail -c '
-              dnf5 install -y -q rpm-sign gnupg2
+              command -v rpmsign >/dev/null || dnf5 install -y -q rpm-sign gnupg2
               ./scripts/sign-desktop-rpms.sh site/repo
             '
           install -m 0644 packaging/gpg/public.asc \

@@ -1,6 +1,6 @@
 # Shared OpenPGP key rotation
 
-**Status:** Active — new key generated 2026-08-04; Pages resign required
+**Status:** Active. New key generated 2026-08-04. Pages resign required
 before image rebuilds that trust it.
 
 ## Why
@@ -16,32 +16,28 @@ Flatpak share the same story.
 
 ## Identity
 
-| Field | Value |
-| --- | --- |
-| Name | Hayden Barnes (sirredbeard) |
-| Email | gpg@sirredbeard.github.io |
-| Short id | `8DA5774C35DA9BF9` |
-| Fingerprint | `09DCEFE2212F7881EE2058088DA5774C35DA9BF9` |
+* Name: Hayden Barnes (sirredbeard)
+* Email: gpg@sirredbeard.github.io
+* Short id: `8DA5774C35DA9BF9`
+* Fingerprint: `09DCEFE2212F7881EE2058088DA5774C35DA9BF9`
 
 ## Secrets
 
 Repos: `sirredbeard/copilot-desktop-gtk` and
 `sirredbeard/azurelinux-desktop`.
 
-| Secret | Purpose |
-| --- | --- |
-| `GPG_PRIVATE_KEY` | Armored private key (CI only) |
-| `GPG_PUBLIC_KEY` | Armored public key |
-| `GPG_KEY_ID` | Short key id |
+* `GPG_PRIVATE_KEY` - armored private key (CI only)
+* `GPG_PUBLIC_KEY` - armored public key
+* `GPG_KEY_ID` - short key id
 
 Old `FLATPAK_GPG_*` secrets deleted. GitHub does not return secret
-values after set; keep an offline armored private copy outside git.
+values after set. Keep an offline armored private copy outside git.
 
 ## In-tree public material
 
-- `packaging/gpg/public.asc` + `keyid.txt` (+ README)
-- `assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop` (RPM clients)
-- `assets/gpg/signing-key.asc` → image path
+* `packaging/gpg/public.asc` + `keyid.txt` (+ README)
+* `assets/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop` (RPM clients)
+* `assets/gpg/signing-key.asc` → image path
   `/usr/share/azurelinux-desktop/gpg/signing-key.asc`
 
 ## Publish order after rotation
@@ -62,20 +58,13 @@ still has packages signed with the previous key. Resign Pages first.
 ## Offline recovery
 
 Private key is not recoverable from GitHub. Offline copy lives outside
-this repo (local workdir only). Re-set secrets with:
+this repo. Re-set secrets with:
 
 ```bash
 gh secret set GPG_PRIVATE_KEY -R OWNER/REPO < private.asc
 gh secret set GPG_PUBLIC_KEY -R OWNER/REPO < packaging/gpg/public.asc
 gh secret set GPG_KEY_ID -R OWNER/REPO -b "$(tr -d ' \n' < packaging/gpg/keyid.txt)"
 ```
-
-## Related
-
-- `findings/flatpak-untrusted-non-gpg-remote.md`
-- `findings/out-of-tree-usb-kmods-pages.md`
-- `packaging/gpg/README.md`
-
 
 ## Republish gotcha (rpmsign)
 
@@ -86,3 +75,9 @@ have a signature. `rpmsign --addsign` then fails with:
 
 `scripts/sign-desktop-rpms.sh` runs `rpmsign --delsign` then `--addsign`
 so key rotation and mixed old/new sets resign cleanly.
+
+## Related
+
+* `flatpak-untrusted-non-gpg-remote.md`
+* `out-of-tree-usb-kmods-pages.md`
+* `packaging/gpg/README.md`

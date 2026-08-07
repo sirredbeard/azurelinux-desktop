@@ -1,80 +1,76 @@
 # Hardware acceleration on ThinkPad T470s (metal)
 
-**Status:** Metal check 2026-08-06 on `20JTS0D500` (T470s), Intel
-Core i5-6300U + **HD Graphics 520 (Skylake GT2, PCI 8086:1916)**.
+**Status:** Metal check on `20JTS0D500` (T470s), Intel Core i5-6300U +
+HD Graphics 520 (Skylake GT2, PCI 8086:1916).
 
-## Display / 3D / Vulkan — OK
+## Display / 3D / Vulkan: OK
 
-| Layer | State |
-| --- | --- |
-| Kernel DRM | `i915` loaded; DMC firmware `i915/skl_dmc_ver1_27.bin` |
-| `/dev/dri` | `card1` + `renderD128` |
-| Mesa | `mesa-dri-drivers`, `mesa-libGL/EGL/gbm`, `mesa-vulkan-drivers` 25.3.6 |
-| Vulkan | `Intel(R) HD Graphics 520 (SKL GT2)` via Mesa Intel ICD |
-| Firmware blob package | `intel-gpu-firmware` (AZL) |
+- Kernel DRM: `i915` loaded; DMC firmware `i915/skl_dmc_ver1_27.bin`
+- `/dev/dri`: `card1` + `renderD128`
+- Mesa: `mesa-dri-drivers`, `mesa-libGL/EGL/gbm`, `mesa-vulkan-drivers`
+- Vulkan: Intel HD Graphics 520 (SKL GT2) via Mesa Intel ICD
+- Firmware blob package: `intel-gpu-firmware` (AZL)
 
 No discrete GPU. `xe` driver not used (correct for Gen9). Open-source
-stack is the right stack; no NVIDIA proprietary driver applies.
+stack is the right stack. No NVIDIA proprietary driver applies.
 
-## Video decode/encode (VA-API) — was incomplete
+## Video decode/encode (VA-API): was incomplete
 
-Image listed Fedora **`libva-intel-media-driver`**, which is built from
-**`intel-media-driver-free`**: patent-unencumbered profiles only.
+Image listed Fedora `libva-intel-media-driver`, built from
+`intel-media-driver-free`: patent-unencumbered profiles only.
 
 Metal `vainfo` with free driver:
 
-* MPEG2, JPEG, VP8 only  
-* **No H.264 / HEVC** (what browsers and most local video need)
+- MPEG2, JPEG, VP8 only
+- No H.264 / HEVC (what browsers and most local video need)
 
-Swap to RPM Fusion nonfree **`intel-media-driver`**:
+Swap to RPM Fusion nonfree `intel-media-driver`:
 
-* H.264 Main/High/ConstrainedBaseline VLD + encode  
-* HEVC Main VLD + encode  
-* VP8, VC1, JPEG, MPEG2, VPP, etc.
+- H.264 Main/High/ConstrainedBaseline VLD + encode
+- HEVC Main VLD + encode
+- VP8, VC1, JPEG, MPEG2, VPP, and more
 
 Also present and useful:
 
-* `libva`, `intel-mediasdk`, `libvpl` / `intel-vpl-gpu-rt` (deps/stack)
-* `ffmpeg` (RPM Fusion) + `gstreamer1-plugin-libav`
+- `libva`, `intel-mediasdk`, `libvpl` / `intel-vpl-gpu-rt` (deps/stack)
+- `ffmpeg` (RPM Fusion) + `gstreamer1-plugin-libav`
 
 ## Product change
 
-Replace package name on **all** desktop deliverables:
+Replace package name on all desktop deliverables:
 
-* remove: `libva-intel-media-driver` (Fedora free)
-* add: `intel-media-driver` (rpmfusion-nonfree)
+- remove: `libva-intel-media-driver` (Fedora free)
+- add: `intel-media-driver` (rpmfusion-nonfree)
 
-| Path | File |
-| --- | --- |
-| Live ISO / VMs | `kickstart/azurelinux-desktop-live.ks` |
-| Installer target | `kiwi/config.sh` TARGET_PKGS → `azl-install.ks.in` |
-| Canary | `scripts/build-canary-container.sh` + `test-canary-container.sh` |
+Paths:
+
+- Live ISO / VMs: `kickstart/azurelinux-desktop-live.ks`
+- Installer target: `kiwi/config.sh` TARGET_PKGS to `azl-install.ks.in`
+- Canary: `scripts/build-canary-container.sh` + `test-canary-container.sh`
 
 Keep `libva` + `intel-mediasdk`. H.264 software path (`ffmpeg`,
-gstreamer libav/openh264) stays listed on live/installer and canary.
-Policy summary: `h264-intel-media-stack.md`.
+gstreamer libav/openh264) stays listed. Policy summary:
+`h264-intel-media-stack.md`.
 
 ## Optional gaps (not blocking metal)
 
-* Diagnostic tools (`libva-utils`, `vulkan-tools`, `mesa-demos`) not on
+- Diagnostic tools (`libva-utils`, `vulkan-tools`, `mesa-demos`) not on
   the image by default; install when debugging.
-* Desktop user is in `wheel` only; logind ACLs + world-writable
+- Desktop user is in `wheel` only; logind ACLs + world-writable
   `renderD128` are enough for GPU access here.
-* Metal host missed third-party `/etc/pki/rpm-gpg/*` keys: installer
-  chroot looked for `/opt/azl-desktop-assets` on the **target** (keys
-  only on the ISO). Fixed in nochroot copy + fail-closed checks — see
+- Metal host missed third-party `/etc/pki/rpm-gpg/*` keys. Installer
+  chroot looked for `/opt/azl-desktop-assets` on the target (keys only
+  on the ISO). Fixed in nochroot copy + fail-closed checks. See
   `rpm-gpg-keys-on-target.md`.
 
-**Now product-default (was optional):** `gstreamer1-vaapi`, Mesa
-DRI/Vulkan/VA, `libvdpau-va-gl`, RPM Fusion ugly/freeworld — see
+Now product-default (was optional): `gstreamer1-vaapi`, Mesa
+DRI/Vulkan/VA, `libvdpau-va-gl`, RPM Fusion ugly/freeworld. See
 `h264-intel-media-stack.md`.
 
 ## Bottom line for this device
 
-| Need | Covered? |
-| --- | --- |
-| KMS / GNOME Wayland on i915 | Yes |
-| OpenGL / GLES (Mesa) | Yes |
-| Vulkan | Yes |
-| H.264/HEVC VA-API | Yes after `intel-media-driver` (nonfree) |
-| AMD/NVIDIA dGPU drivers | N/A on this SKU |
+- KMS / GNOME Wayland on i915: yes
+- OpenGL / GLES (Mesa): yes
+- Vulkan: yes
+- H.264/HEVC VA-API: yes after `intel-media-driver` (nonfree)
+- AMD/NVIDIA dGPU drivers: N/A on this SKU

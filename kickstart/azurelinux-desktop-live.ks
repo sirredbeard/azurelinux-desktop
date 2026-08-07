@@ -133,6 +133,12 @@ kernel-modules
 kernel-modules-extra
 # Pulls exact-EVR sibling kmods from Pages (storage/intel/surface/…).
 azurelinux-desktop-policy
+# zram swap setup; conf ships in azurelinux-desktop-performance-kmod.
+zram-generator
+# Fedora desktop power/IRQ stack (GNOME Settings talks to tuned-ppd).
+tuned
+tuned-ppd
+irqbalance
 openssh-server
 openssh-clients
 sudo
@@ -387,10 +393,9 @@ NetworkManager-bluetooth
 fwupd
 microcode_ctl
 
-# what's genuinely missing is the userspace power/laptop stack, pulled
-# from Fedora 43:
+# Laptop power/thermal userspace from Fedora. GNOME power profiles go
+# through tuned-ppd (see tuned + tuned-ppd above), not power-profiles-daemon.
 upower
-power-profiles-daemon
 thermald
 switcheroo-control
 brightnessctl
@@ -476,11 +481,18 @@ install -m 0644 /workspace/assets/systemd/azurelinux-desktop-bt-recover-late.ser
 install -m 0644 /workspace/assets/systemd/80-azurelinux-desktop-pipewire.preset /mnt/sysimage/usr/lib/systemd/user-preset/80-azurelinux-desktop-pipewire.preset
 install -d -m 0755 /mnt/sysimage/etc/udev/rules.d
 install -m 0644 /workspace/assets/udev/80-azurelinux-desktop-bt-power.rules /mnt/sysimage/etc/udev/rules.d/80-azurelinux-desktop-bt-power.rules
+install -m 0644 /workspace/assets/udev/60-azurelinux-desktop-iosched.rules \
+    /mnt/sysimage/etc/udev/rules.d/60-azurelinux-desktop-iosched.rules
+install -d -m 0755 /mnt/sysimage/etc/systemd/journald.conf.d
+install -m 0644 /workspace/assets/systemd/journald.conf.d/50-azurelinux-desktop.conf \
+    /mnt/sysimage/etc/systemd/journald.conf.d/50-azurelinux-desktop.conf
 # First-boot prepare: keep Plymouth up during SELinux relabel / disk grow.
 install -d -m 0755 /mnt/sysimage/usr/libexec/azurelinux-desktop \
     /mnt/sysimage/usr/lib/systemd/system/selinux-autorelabel.service.d
 install -m 0755 /workspace/assets/bin/azl-first-boot-prepare \
     /mnt/sysimage/usr/libexec/azurelinux-desktop/azl-first-boot-prepare
+install -m 0755 /workspace/assets/bin/azl-link-intel-ihd \
+    /mnt/sysimage/usr/local/bin/azl-link-intel-ihd
 install -m 0644 /workspace/assets/systemd/selinux-autorelabel.service.d/10-azurelinux-desktop.conf \
     /mnt/sysimage/usr/lib/systemd/system/selinux-autorelabel.service.d/10-azurelinux-desktop.conf
 
@@ -558,7 +570,6 @@ set -x
 # <whatever>` next year still prefers Azure Linux first and only falls back
 # to Fedora 43 when Azure Linux has no package. Known soname landmines get an
 # exclude here as they're discovered - add to this list, don't fight it.
-FEDORA_EXCLUDES="audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kmod,less,less-color,libaio,libblkid,libcom_err,libfdisk,liblastlog2,libmount,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware"
 # Stage vendor + project RPM OpenPGP keys before writing gpgcheck=1 repos.
 # Keys live in assets/pki/rpm-gpg (Fedora, Azure Linux, Microsoft, GitHub,
 # RPM Fusion, project kmods). Without this, dnf5 prints
@@ -601,25 +612,8 @@ do
     rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
 done
 
-cat > /etc/yum.repos.d/azl-desktop-fedora.repo << EOF
-[fedora43]
-name=Fedora 43 (GNOME desktop stack)
-baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary
-priority=50
-excludepkgs=$FEDORA_EXCLUDES
-
-[fedora43-updates]
-name=Fedora 43 Updates
-baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/43/Everything/x86_64/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary
-priority=50
-excludepkgs=$FEDORA_EXCLUDES
-EOF
+install -m 0644 /workspace/assets/yum.repos.d/azl-desktop-fedora.repo \
+    /etc/yum.repos.d/azl-desktop-fedora.repo
 
 # The kickstart `repo --name=...` lines above (ms-prod, vscode, edge-canary,
 # gh-cli, github-desktop, rpmfusion-free/nonfree) only exist for Anaconda's
@@ -632,65 +626,11 @@ EOF
 # version was current on the day this ISO was built, with no `dnf upgrade`
 # path afterward. Persist their real upstream repos too so they keep
 # receiving updates same as everything else.
-cat > /etc/yum.repos.d/azl-desktop-microsoft-github.repo << 'EOF'
-[ms-prod]
-name=Microsoft RHEL 9 prod (PowerShell, .NET)
-baseurl=https://packages.microsoft.com/rhel/9/prod/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
-priority=1
+install -m 0644 /workspace/assets/yum.repos.d/azl-desktop-microsoft-github.repo \
+    /etc/yum.repos.d/azl-desktop-microsoft-github.repo
 
-[vscode]
-name=Visual Studio Code Insiders
-baseurl=https://packages.microsoft.com/yumrepos/vscode
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
-priority=1
-
-[edge-canary]
-name=Microsoft Edge Canary
-baseurl=https://packages.microsoft.com/yumrepos/edge-canary
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-microsoft
-priority=1
-
-[gh-cli]
-name=GitHub CLI
-baseurl=https://cli.github.com/packages/rpm
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-githubcli
-priority=1
-
-[github-desktop]
-name=GitHub Desktop (shiftkey/desktop Linux fork)
-baseurl=https://mirror.mwt.me/shiftkey-desktop/rpm
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-shiftkey-desktop
-priority=1
-EOF
-
-cat > /etc/yum.repos.d/azl-desktop-rpmfusion.repo << 'EOF'
-[rpmfusion-free]
-name=RPM Fusion for Fedora 43 - Free
-baseurl=https://download1.rpmfusion.org/free/fedora/releases/43/Everything/x86_64/os/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-2020
-priority=50
-
-[rpmfusion-nonfree]
-name=RPM Fusion for Fedora 43 - Nonfree
-baseurl=https://download1.rpmfusion.org/nonfree/fedora/releases/43/Everything/x86_64/os/
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
-priority=50
-EOF
+install -m 0644 /workspace/assets/yum.repos.d/azl-desktop-rpmfusion.repo \
+    /etc/yum.repos.d/azl-desktop-rpmfusion.repo
 
 # Known conflicts as of this writing (see findings/fedora-azl-repo-mixing.md).
 # hunspell-en: Fedora and Azure Linux both ship it, identical file paths, no version
@@ -738,18 +678,26 @@ elif [ -f /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
     install -m 0644 /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
         /usr/share/azurelinux-desktop/gpg/signing-key.asc
 fi
-cat > /etc/yum.repos.d/azl-desktop-kmods.repo << 'EOF'
-[azl-desktop-kmods]
-name=Azure Linux Desktop kernel modules
-baseurl=https://sirredbeard.github.io/azurelinux-desktop/repo
-enabled=1
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
-cost=1
-EOF
+install -m 0644 /workspace/assets/yum.repos.d/azl-desktop-kmods.repo \
+    /etc/yum.repos.d/azl-desktop-kmods.repo
 
 systemctl set-default graphical.target
 systemctl enable gdm.service
+
+# Desktop performance userspace (Fedora packages). tuned desktop profile
+# is balanced + sched_autogroup; our performance kmod owns sysctl/zram conf.
+systemctl enable irqbalance.service 2>/dev/null || true
+systemctl enable tuned.service 2>/dev/null || true
+if command -v tuned-adm >/dev/null 2>&1; then
+    tuned-adm profile desktop 2>/dev/null || tuned-adm profile balanced 2>/dev/null || true
+fi
+systemctl enable thermald.service 2>/dev/null || true
+# Azure VM guest agent is not in the desktop package set. If a later
+# layer pulls it in, keep it from starting on bare metal / local VMs.
+systemctl disable --now walinuxagent.service 2>/dev/null || true
+systemctl mask walinuxagent.service 2>/dev/null || true
+systemctl disable --now waagent.service 2>/dev/null || true
+systemctl mask waagent.service 2>/dev/null || true
 
 # Hypervisor guest agents (packages listed in %packages). Enable the
 # common QEMU/SPICE units; Hyper-V daemons udev-gate; open-vm-tools and
@@ -771,9 +719,8 @@ systemctl enable vboxservice.service 2>/dev/null || true
 # virtio_input: in-tree; preload so a virtio-tablet hot-add (Boxes/XML)
 # binds immediately. Clicks under GNOME Wayland need a real tablet, not
 # only spice-vdagent uinput (Mutter drops uinput button events).
-cat > /etc/modules-load.d/azurelinux-desktop-virtio-input.conf << 'EOF'
-virtio_input
-EOF
+install -m 0644 /workspace/assets/modules-load.d/azurelinux-desktop-virtio-input.conf \
+    /etc/modules-load.d/azurelinux-desktop-virtio-input.conf
 
 # Fedora's livesys-scripts package is desktop-agnostic by design - it
 # doesn't know GNOME got installed, so /etc/sysconfig/livesys ships with
@@ -805,9 +752,8 @@ fi
 # plymouth/GDM take over. Omitting the module outright removes the noise
 # at the source instead of just hoping the splash covers it in time.
 mkdir -p /etc/dracut.conf.d
-cat > /etc/dracut.conf.d/no-multipath.conf << 'EOF'
-omit_dracutmodules+=" multipath "
-EOF
+install -m 0644 /workspace/assets/dracut.conf.d/no-multipath.conf \
+    /etc/dracut.conf.d/no-multipath.conf
 
 # The other visible boot artifact - the custom plymouth splash working
 # fine, then briefly dropping to plain systemd console text before GDM
@@ -822,9 +768,8 @@ EOF
 # back to a plain text framebuffer before the driver (and the real
 # root's plymouthd) come back up. Forcing virtio_gpu into the initrd's
 # module list up front (instead of loading it late) shrinks that window.
-cat > /etc/dracut.conf.d/early-kms.conf << 'EOF'
-add_drivers+=" virtio_gpu hyperv_drm bochs_drm "
-EOF
+install -m 0644 /workspace/assets/dracut.conf.d/early-kms.conf \
+    /etc/dracut.conf.d/early-kms.conf
 
 # plymouth-quit-wait.service fires when systemd decides the boot is
 # "done enough" - on fast hardware or a lightweight live session that
@@ -834,10 +779,8 @@ EOF
 # graph is up, giving the animation its intended boot-duration run
 # instead of a one-second flash before the static logo.
 mkdir -p /etc/systemd/system/plymouth-quit-wait.service.d
-cat > /etc/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf << 'EOF'
-[Unit]
-After=multi-user.target
-EOF
+install -m 0644 /workspace/assets/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf \
+    /etc/systemd/system/plymouth-quit-wait.service.d/wait-for-boot.conf
 
 # System-wide dark mode and background defaults. /etc/dconf/db/local.d is the
 # standard "default value, but still user-overridable" mechanism - liveuser
@@ -850,45 +793,12 @@ mkdir -p /etc/dconf/db/local.d /etc/dconf/profile
 # gtk-theme Adwaita-dark needs gnome-themes-extra (GTK3 theme files).
 # color-scheme prefer-dark drives libadwaita/GTK4. See
 # findings/gnome-screenshot-mixed-dark-theme.md.
-cat > /etc/dconf/db/local.d/00-dark-mode << 'EOF'
-[org/gnome/desktop/interface]
-color-scheme='prefer-dark'
-gtk-theme='Adwaita-dark'
-
-[org/gnome/desktop/background]
-picture-uri='file:///usr/share/backgrounds/azurelinux/adwaita-l.jpg'
-picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
-picture-options='zoom'
-
-# Live session: never lock. GNOME Boxes/SPICE often has a working client
-# cursor (spice-vdagent) but broken clicks until a tablet is present.
-# A lock screen then traps the session (empty liveuser password also fails
-# GDM unlock). Fedora livesys disables lock for other DEs; GNOME path did
-# not. Installed systems do not use this live kickstart dconf block.
-[org/gnome/desktop/screensaver]
-lock-enabled=false
-idle-activation-enabled=false
-[org/gnome/desktop/session]
-idle-delay=uint32 0
-[org/gnome/desktop/lockdown]
-disable-lock-screen=true
-
-# Microsoft Copilot hardware key: firmware emits LeftMeta+LeftShift+F23
-# (KEY_F23). Bind that chord to the Microsoft Copilot GTK Flatpak. Newer
-# xkeyboard-config maps the same chord to XF86Assistant; the Super+Shift+F23
-# form works across older stacks without that mapping.
-[org/gnome/settings-daemon/plugins/media-keys]
-custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']
-
-[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
-name='Microsoft Copilot'
-command='flatpak run com.github.sirredbeard.copilot-desktop-gtk'
-binding='<Shift><Super>F23'
-EOF
-cat > /etc/dconf/profile/user << 'EOF'
-user-db:user
-system-db:local
-EOF
+install -m 0644 /workspace/assets/dconf/db/local.d/00-azl-desktop-defaults \
+    /etc/dconf/db/local.d/00-azl-desktop-defaults
+install -m 0644 /workspace/assets/dconf/db/local.d/10-azl-live-session \
+    /etc/dconf/db/local.d/10-azl-live-session
+install -m 0644 /workspace/assets/dconf/profile/user \
+    /etc/dconf/profile/user
 dconf update || true
 
 # GDM login-screen logo: same override as kiwi/azl-install.ks.in. Autologin
@@ -896,14 +806,10 @@ dconf update || true
 # use GDM. fedora-logos points org.gnome.login-screen logo at the Fedora
 # badge; this system-db replaces it without editing the schema file.
 mkdir -p /etc/dconf/db/gdm.d
-cat > /etc/dconf/profile/gdm << 'EOF'
-user-db:user
-system-db:gdm
-EOF
-cat > /etc/dconf/db/gdm.d/00-azl-login-screen << 'EOF'
-[org/gnome/login-screen]
-logo='/usr/share/pixmaps/azurelinux-logo.png'
-EOF
+install -m 0644 /workspace/assets/dconf/profile/gdm \
+    /etc/dconf/profile/gdm
+install -m 0644 /workspace/assets/dconf/db/gdm.d/00-azl-login-screen \
+    /etc/dconf/db/gdm.d/00-azl-login-screen
 dconf update || true
 
 # Install Copilot GUI/CLI and microsoft/edit from files staged by
@@ -965,64 +871,33 @@ rm -rf /root/thirdparty
 # remotes and requires fedora/updates repos. This image uses Flathub +
 # Azure Linux DNF. Our override filename sorts after the Fedora one so these
 # keys win after glib-compile-schemas.
-cat > /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override << 'EOF'
-[org.gnome.software]
-allow-updates=false
-download-updates=false
-packaging-format-preference=['flatpak:flathub', 'flatpak', 'rpm']
-required-repos=[]
-official-repos=['azl-base', 'azl-microsoft', 'azl-desktop-kmods']
-EOF
+install -m 0644 /workspace/assets/glib-2.0/schemas/org.gnome.software.gschema.override \
+    /usr/share/glib-2.0/schemas/org.gnome.software.gschema.override
 rm -f /etc/xdg/autostart/org.gnome.Software.desktop
-cat >> /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini << 'EOF'
-DefaultDisabled=true
-EOF
+grep -q '^DefaultDisabled=true' /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini 2>/dev/null || \
+  cat /workspace/assets/gnome-shell/search-providers/org.gnome.Software-search-provider.ini.append >> \
+  /usr/share/gnome-shell/search-providers/org.gnome.Software-search-provider.ini
 glib-compile-schemas /usr/share/glib-2.0/schemas
 
 # Fallback only: prestaged images already have Flathub AppStream under
 # /var/lib/flatpak/appstream/flathub/.../active (issue #6). Condition skips
 # when baked. After a late pull, drop empty sticky user xmlb silos that
 # GNOME Software may have written before metadata existed.
-cat > /usr/libexec/azl-flatpak-appstream-refresh << 'EOF'
-#!/bin/bash
-set -euo pipefail
-/usr/bin/flatpak update --appstream
-# Empty components.xmlb (~40 bytes) built before AppStream existed sticks.
-find /home -path '*/.cache/gnome-software/*/components.xmlb' \
-    -size -100c -delete 2>/dev/null || true
-exit 0
-EOF
+install -m 0755 /workspace/assets/libexec/azl-flatpak-appstream-refresh \
+    /usr/libexec/azl-flatpak-appstream-refresh
 chmod 0755 /usr/libexec/azl-flatpak-appstream-refresh
-cat > /usr/lib/systemd/system/azl-flatpak-appstream.service << 'EOF'
-[Unit]
-Description=Refresh Flathub appstream on first boot
-After=network-online.target
-Wants=network-online.target
-ConditionPathExists=/usr/bin/flatpak
-ConditionPathExists=!/var/lib/flatpak/appstream/flathub/x86_64/active
-
-[Service]
-Type=oneshot
-ExecStart=/usr/libexec/azl-flatpak-appstream-refresh
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
+install -m 0644 /workspace/assets/systemd/azl-flatpak-appstream.service \
+    /usr/lib/systemd/system/azl-flatpak-appstream.service
 systemctl enable azl-flatpak-appstream.service
 
 # Bluetooth: never force-load btusb before platform rfkill (ThinkPad).
 # USB device often enumerates before thinkpad_acpi unblocks radio; recover
 # with a USB authorize cycle before bluetooth.service (see findings).
 # See findings/bluetooth-hci-timeout-thinkpad.md.
-cat > /etc/modules-load.d/azurelinux-desktop-bluetooth.conf << 'EOF'
-# btusb is loaded by udev when a Bluetooth controller appears.
-EOF
-cat > /etc/modprobe.d/azurelinux-desktop-bluetooth.conf << 'EOF'
-softdep btusb pre: thinkpad_acpi
-options btusb reset=1
-options btusb enable_autosuspend=0
-EOF
+install -m 0644 /workspace/assets/modules-load.d/azurelinux-desktop-bluetooth.conf \
+    /etc/modules-load.d/azurelinux-desktop-bluetooth.conf
+install -m 0644 /workspace/assets/modprobe.d/azurelinux-desktop-bluetooth.conf \
+    /etc/modprobe.d/azurelinux-desktop-bluetooth.conf
 if [ -x /usr/libexec/azurelinux-desktop-bt-usb-reset ]; then
     systemctl enable azurelinux-desktop-bt-recover.service 2>/dev/null || true
     systemctl enable azurelinux-desktop-bt-recover-late.service 2>/dev/null || true
@@ -1041,10 +916,8 @@ if [ -f /etc/locale.conf ]; then
     chmod 644 /etc/locale.conf || true
 fi
 
-cat > /etc/profile.d/default-editor.sh << 'EOF'
-export EDITOR=/usr/local/bin/edit
-export VISUAL=/usr/local/bin/edit
-EOF
+install -m 0755 /workspace/assets/profile.d/default-editor.sh \
+    /etc/profile.d/default-editor.sh
 
 # PowerShell as the default login shell - this is a genuine departure from
 # every other Linux spin out there, but that's the point of this whole
@@ -1068,14 +941,8 @@ fi
 # GNOME "Default Applications" panel and anything that shells out to
 # xdg-open/xdg-settings.
 mkdir -p /etc/xdg
-cat > /etc/xdg/mimeapps.list << 'EOF'
-[Default Applications]
-text/html=microsoft-edge-canary.desktop
-x-scheme-handler/http=microsoft-edge-canary.desktop
-x-scheme-handler/https=microsoft-edge-canary.desktop
-x-scheme-handler/about=microsoft-edge-canary.desktop
-x-scheme-handler/unknown=microsoft-edge-canary.desktop
-EOF
+install -m 0644 /workspace/assets/xdg/mimeapps.list \
+    /etc/xdg/mimeapps.list
 
 # GNOME Shell dock/favorites: the real fix has to happen in livesys-gnome
 # itself, not just a build-time glib schema override file. livesys-gnome
@@ -1167,6 +1034,12 @@ rm -f /etc/xdg/autostart/liveinst-setup.desktop
 # usermod -aG wheel) - no static build-time account is embedded. Add the
 # one thing livesys does not: passwordless sudo for wheel and GDM autologin
 echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-wheel-nopasswd
+# RPM Fusion iHD is under dri-nonfree; Azure Linux libva only searches dri.
+# Symlink + LIBVA_DRIVERS_PATH so H.264/HEVC hardware decode actually binds.
+# See findings/h264-intel-media-stack.md.
+if [ -x /usr/local/bin/azl-link-intel-ihd ]; then
+    /usr/local/bin/azl-link-intel-ihd /
+fi
 # rpm package ghosts expect rpmdb.sqlite* mode 0644 (root-owned). Some
 # image/transaction paths leave 0600, which breaks non-root `rpm -q`.
 # Owner stays root; only restore world-read. See findings/rpmdb-permissions.md.
@@ -1178,11 +1051,8 @@ if [ -d /usr/lib/sysimage/rpm ]; then
 fi
 chmod 0440 /etc/sudoers.d/90-wheel-nopasswd
 mkdir -p /etc/gdm
-cat > /etc/gdm/custom.conf << 'EOF'
-[daemon]
-AutomaticLoginEnable=True
-AutomaticLogin=liveuser
-EOF
+install -m 0644 /workspace/assets/gdm/custom-live.conf \
+    /etc/gdm/custom.conf
 
 # GNOME Keyring "Choose password for new keyring" prompt: root-caused
 # properly this time - the previous fix here (a second, unskippable
@@ -1261,40 +1131,13 @@ fi
 # out of the app grid; it's idempotent so running once per session
 # alongside whichever of the three actually wins the daemon-start race is
 # fine.
-cat > /usr/libexec/azl-keyring-empty-unlock << 'EOF'
-#!/bin/sh
-# Wait for gnome-keyring-daemon's control socket - whichever of the three
-# gnome-keyring-*.desktop autostart entries gets there first - then send
-# a single NUL byte as the "password": a zero-length C string, not a
-# NULL pointer and not "\n", which gnome-keyring's own login-unlock code
-# (gkd_login_unlock("")) accepts as a real blank password and uses to
-# create the login keyring if it doesn't exist yet, or unlock it if it
-# does. Runs once per session start; a no-op after the login keyring
-# already exists and is aliased "default".
-i=0
-control="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring/control"
-while [ ! -S "$control" ] && [ "$i" -lt 100 ]; do
-    sleep 0.1
-    i=$((i + 1))
-done
-[ -S "$control" ] || exit 0
-printf '\0' | /usr/bin/gnome-keyring-daemon --unlock \
-    --control-directory="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring" \
-    >/dev/null 2>&1 || true
-EOF
+install -m 0755 /workspace/assets/libexec/azl-keyring-empty-unlock \
+    /usr/libexec/azl-keyring-empty-unlock
 chmod 0755 /usr/libexec/azl-keyring-empty-unlock
 
 mkdir -p /etc/xdg/autostart
-cat > /etc/xdg/autostart/azl-keyring-empty-unlock.desktop << 'EOF'
-[Desktop Entry]
-Type=Application
-Name=Azure Linux Desktop keyring auto-unlock
-Comment=Silently creates/unlocks the login keyring with an empty password so autologin sessions never see the "Choose password for new keyring" prompt
-Exec=/usr/libexec/azl-keyring-empty-unlock
-OnlyShowIn=GNOME;
-NoDisplay=true
-X-GNOME-Autostart-Notify=false
-EOF
+install -m 0644 /workspace/assets/xdg/autostart/azl-keyring-empty-unlock.desktop \
+    /etc/xdg/autostart/azl-keyring-empty-unlock.desktop
 # Belt-and-suspenders: make sure there's no leftover keyring file with a
 # real (non-empty) password baked in from image-build time. In practice
 # liveuser doesn't exist yet at %post time (livesys-main creates it at
@@ -1310,15 +1153,8 @@ rm -f /home/liveuser/.local/share/keyrings/login.keyring 2>/dev/null || true
 # PackageKit on other dependency resolutions. Allow either backend only
 # for the active local wheel user, who already has passwordless sudo.
 mkdir -p /etc/polkit-1/rules.d
-cat > /etc/polkit-1/rules.d/49-azl-desktop-packagekit.rules << 'EOF'
-polkit.addRule(function(action, subject) {
-    if ((action.id.indexOf("org.freedesktop.packagekit.") == 0 ||
-         action.id.indexOf("org.rpm.dnf.v0.") == 0) &&
-        subject.isInGroup("wheel") && subject.local && subject.active) {
-        return polkit.Result.YES;
-    }
-});
-EOF
+install -m 0644 /workspace/assets/polkit-1/rules.d/49-azl-desktop-packagekit.rules \
+    /etc/polkit-1/rules.d/49-azl-desktop-packagekit.rules
 # Flatpak system updates (GNOME Software / flatpak update): upstream
 # org.freedesktop.Flatpak.rules covers install/uninstall/modify-repo but
 # not app-update/runtime-update. Signed remotes still need Deploy allowed
@@ -1362,79 +1198,12 @@ touch /etc/machine-id
 # /dev/sda) is deliberate: this same qcow2 gets converted to VHDX/VDI/
 # VMDK and booted under different hypervisors (virtio-blk, SATA, IDE),
 # each of which can present the root disk under a different device name.
-cat > /usr/local/sbin/azl-growroot << 'EOF'
-#!/bin/bash
-# Grow the root partition (via growpart) and its filesystem to fill the
-# real disk, once. Safe to re-run: growpart exits 1 with "NOCHANGE" once
-# the partition is already at max size. Prefer xfs_growfs on disk images;
-# fall back to resize2fs for ext*. Stamp short-circuits later boots.
-set -uo pipefail
-
-STAMP=/var/lib/azl-growroot.done
-if [ -f "$STAMP" ]; then
-    exit 0
-fi
-
-if [ -x /usr/bin/plymouth ] && plymouth --ping >/dev/null 2>&1; then
-    plymouth show-splash >/dev/null 2>&1 || true
-    plymouth display-message --text="Finishing setup and expanding disk. System will reboot." >/dev/null 2>&1 || true
-fi
-
-root_src=$(findmnt -no SOURCE /)
-root_dev=$(readlink -f "$root_src")
-root_name=$(basename "$root_dev")
-
-disk_name=$(lsblk -no PKNAME "$root_dev" 2>/dev/null)
-part_num=$(cat "/sys/class/block/$root_name/partition" 2>/dev/null)
-
-if [ -z "$disk_name" ] || [ -z "$part_num" ]; then
-    echo "azl-growroot: couldn't resolve parent disk/partition number for $root_dev, skipping" >&2
-    touch "$STAMP"
-    exit 0
-fi
-
-growpart "/dev/$disk_name" "$part_num"
-growpart_rc=$?
-if [ "$growpart_rc" -ne 0 ] && [ "$growpart_rc" -ne 1 ]; then
-    echo "azl-growroot: growpart /dev/$disk_name $part_num failed (exit $growpart_rc)" >&2
-fi
-
-fstype=$(findmnt -no FSTYPE / 2>/dev/null || true)
-case "$fstype" in
-    xfs)
-        if ! xfs_growfs /; then
-            echo "azl-growroot: xfs_growfs / failed" >&2
-        fi
-        ;;
-    ext4|ext3|ext2)
-        if command -v resize2fs >/dev/null 2>&1; then
-            if ! resize2fs "$root_dev"; then
-                echo "azl-growroot: resize2fs $root_dev failed" >&2
-            fi
-        fi
-        ;;
-esac
-
-touch "$STAMP"
-EOF
+install -m 0755 /workspace/assets/bin/azl-growroot \
+    /usr/local/sbin/azl-growroot
 chmod 755 /usr/local/sbin/azl-growroot
 
-cat > /usr/lib/systemd/system/azl-growroot.service << 'EOF'
-[Unit]
-Description=Grow root partition and filesystem to fill the real disk (first boot only)
-DefaultDependencies=no
-After=local-fs.target
-Before=sysinit.target
-ConditionPathExists=!/var/lib/azl-growroot.done
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/azl-growroot
-RemainAfterExit=yes
-
-[Install]
-WantedBy=sysinit.target
-EOF
+install -m 0644 /workspace/assets/systemd/azl-growroot.service \
+    /usr/lib/systemd/system/azl-growroot.service
 # Deliberately NOT enabled here - see comment above. The line below is a
 # stable sed anchor for the disk-image kickstart variant to replace with
 # `systemctl enable azl-growroot.service` - it has to be a marker line

@@ -1,0 +1,14 @@
+[Unit]
+Description=Refresh Flathub appstream on first boot
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/bin/flatpak
+ConditionPathExists=!/var/lib/flatpak/appstream/flathub/x86_64/active
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/azl-flatpak-appstream-refresh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

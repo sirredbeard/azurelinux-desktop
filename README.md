@@ -158,10 +158,17 @@ This project builds out-of-tree modules against each exact Azure `kernel-devel` 
 * `azurelinux-desktop-sensors-kmod` - modules-load policy for stock
   hwmon/i2c sensors (no OOT rebuild)
 * `azurelinux-desktop-performance-kmod` - modules-load + sysctl for
-  stock zram/BBR and desktop responsiveness knobs
+  stock zram/BBR/BFQ load, sched_autogroup, swappiness=10, split-lock
+  and NMI watchdog knobs, zram-generator conf
+  (see `findings/desktop-performance-policy.md`)
 * `azurelinux-desktop-policy` - couples every sibling kmod RPM to the
   matching `kernel-core` so a kernel-only update cannot leave you
   without desktop hardware
+
+Desktop performance on live/installer (not the canary): Fedora
+`zram-generator`, `tuned` + `tuned-ppd` (desktop profile), `irqbalance`,
+`thermald`, journald size caps, BFQ only on spinning disks. SELinux stays
+enforcing.
 
 Userspace/firmware stay on Azure packages where they exist:
 `iwlwifi-*-firmware`, `intel-audio-firmware`, `alsa-ucm`, `bluez`, `NetworkManager-bluetooth`.
