@@ -218,6 +218,54 @@ verify_root() {
   log ""
   log "======== $label root=$root ========"
 
+  # Installer runtime is Anaconda media, not the desktop target. Full polish
+  # lands via %post on the installed system. Check offline payload + assets.
+  if [[ "$label" == installer* ]]; then
+    check "$label" "$root" /etc/systemd/journald.conf.d/50-azurelinux-desktop.conf 'SystemMaxUse|RuntimeMaxUse' || true
+    check "$label" "$root" /etc/udev/rules.d/60-azurelinux-desktop-iosched.rules 'BFQ|bfq|rotational' || true
+    check "$label" "$root" /usr/share/plymouth/themes/azurelinux/azurelinux.plymouth 'azurelinux|Script' || true
+    check "$label" "$root" /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules 'flatpak|org.freedesktop.Flatpak' || true
+    check "$label" "$root" /root/azl-install.ks 'ASSETS=/root/assets|root/assets' || true
+    check "$label" "$root" /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults 'prefer-dark|color-scheme' || true
+    check "$label" "$root" /opt/azl-desktop-assets/bin/azl-growroot '.' || true
+    check "$label" "$root" /opt/azl-desktop-assets/bin/azl-link-intel-ihd '.' || true
+    check "$label" "$root" /opt/azl-desktop-assets/environment.d/50-azurelinux-desktop-libva.conf 'LIBVA|dri-nonfree' || true
+    check "$label" "$root" /opt/azl-desktop-assets/systemd/azl-growroot.service 'grow|xfs' || true
+    check "$label" "$root" /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules 'Flatpak|flatpak' || true
+    if sudo test -d "$root/opt/azl-offline-repo"; then
+      sum "PASS  [$label] offline repo present"
+      pass=$((pass + 1))
+      for pat in intel-media-driver google-noto-color-emoji azurelinux-desktop-performance-kmod azurelinux-desktop-bluetooth-kmod; do
+        if sudo find "$root/opt/azl-offline-repo" -name "${pat}*" 2>/dev/null | grep -q .; then
+          sum "PASS  [$label] offline rpm payload has $pat"
+          pass=$((pass + 1))
+        else
+          sum "FAIL  [$label] offline rpm payload missing $pat"
+          fail=$((fail + 1))
+        fi
+      done
+    else
+      sum "FAIL  [$label] /opt/azl-offline-repo missing"
+      fail=$((fail + 1))
+    fi
+    if sudo test -d "$root/opt/azl-offline-extras/flatpak-system"       || sudo test -d "$root/opt/azl-offline-extras/flatpak"; then
+      sum "PASS  [$label] staged flatpak extras present"
+      pass=$((pass + 1))
+    else
+      sum "FAIL  [$label] staged flatpak extras missing"
+      fail=$((fail + 1))
+    fi
+    # ks must stage /root/assets for chrooted post
+    if sudo grep -qE 'cp -a .*/root/assets|ASSETS=/root/assets' "$root/root/azl-install.ks" 2>/dev/null; then
+      sum "PASS  [$label] product ks stages /root/assets for chroot post"
+      pass=$((pass + 1))
+    else
+      sum "FAIL  [$label] product ks missing /root/assets stage"
+      fail=$((fail + 1))
+    fi
+    return 0
+  fi
+
   # Performance / journal / iosched assets
   check "$label" "$root" /etc/systemd/journald.conf.d/50-azurelinux-desktop.conf 'SystemMaxUse|RuntimeMaxUse'
   check "$label" "$root" /etc/udev/rules.d/60-azurelinux-desktop-iosched.rules 'BFQ|bfq|rotational'
