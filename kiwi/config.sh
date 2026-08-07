@@ -45,6 +45,7 @@ INSTALL_PKGS=(
     kernel
     kernel-modules
     kernel-modules-extra
+    # Policy Requires every azurelinux-desktop-*-kmod at exact EVR.
     azurelinux-desktop-policy
     openssh-server
     openssh-clients

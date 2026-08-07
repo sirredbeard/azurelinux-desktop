@@ -65,10 +65,9 @@
     <repository type="rpm-md" alias="azurelinux-microsoft" priority="10">
         <source path="https://packages.microsoft.com/azurelinux/4.0/beta/microsoft/x86_64" />
     </repository>
-    <!-- Project out-of-tree USB HID + mass-storage kmods (exact-kernel
-         policy). Required in the installer *image* so the installer's own
-         initrd can boot from a USB stick; offline target repo is separate
-         (config.sh). -->
+    <!-- Project desktop OOT kmods via azurelinux-desktop-policy (exact
+         kernel EVR Requires). Needed in the installer image initrd for
+         USB stick boot; offline target repo is separate (config.sh). -->
     <repository type="rpm-md" alias="azl-desktop-kmods" priority="10">
         <source path="https://sirredbeard.github.io/azurelinux-desktop/repo" />
     </repository>
@@ -96,8 +95,7 @@
         <package name="kernel" />
         <package name="kernel-modules" />
         <package name="kernel-modules-extra" />
-        <!-- Pulls exact-kernel usbhid + usb-storage/uas kmods into the
-             installer environment and dracut add_drivers drop-ins. -->
+        <!-- Policy pulls exact-kernel sibling kmods (storage/intel/…). -->
         <package name="azurelinux-desktop-policy" />
         <package name="iwlwifi-mvm-firmware" />
         <package name="iwlwifi-dvm-firmware" />

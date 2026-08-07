@@ -131,6 +131,7 @@ efibootmgr
 kernel
 kernel-modules
 kernel-modules-extra
+# Pulls exact-EVR sibling kmods from Pages (storage/intel/surface/…).
 azurelinux-desktop-policy
 openssh-server
 openssh-clients

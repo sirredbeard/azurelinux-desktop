@@ -87,20 +87,26 @@ jobs:
             azurelinux-desktop-policy \
             azurelinux-desktop-usbhid-kmod \
             azurelinux-desktop-psmouse-kmod \
-            azurelinux-desktop-usb-storage-kmod \
+            azurelinux-desktop-storage-kmod \
             azurelinux-desktop-intel-kmod \
             azurelinux-desktop-sound-kmod \
             azurelinux-desktop-bluetooth-kmod \
             azurelinux-desktop-uvc-kmod \
             azurelinux-desktop-thinkpad-kmod \
             azurelinux-desktop-typec-kmod \
-            azurelinux-desktop-surface-kmod
+            azurelinux-desktop-surface-kmod \
+            azurelinux-desktop-sensors-kmod \
+            azurelinux-desktop-performance-kmod
           do
             grep -Fxq "${base}-${krel}.rpm" /tmp/manifest.txt || missing=1
           done
-          # Treat legacy iwlwifi package as incomplete once intel is expected.
+          # Treat legacy package names as incomplete once replacements are expected.
           if grep -Fxq "azurelinux-desktop-iwlwifi-kmod-${krel}.rpm" /tmp/manifest.txt \
             && ! grep -Fxq "azurelinux-desktop-intel-kmod-${krel}.rpm" /tmp/manifest.txt; then
+            missing=1
+          fi
+          if grep -Fxq "azurelinux-desktop-usb-storage-kmod-${krel}.rpm" /tmp/manifest.txt \
+            && ! grep -Fxq "azurelinux-desktop-storage-kmod-${krel}.rpm" /tmp/manifest.txt; then
             missing=1
           fi
 
@@ -117,26 +123,32 @@ jobs:
           echo "build_required=$build" >> "$GITHUB_OUTPUT"
 
           # Family matrix. Keep order stable; 'all' expands to the full set.
-          # 'intel' replaces legacy 'iwlwifi'; 'surface' is SSAM/HID.
-          all='["usbhid","psmouse","usb-storage","intel","sound","bluetooth","uvc","thinkpad","typec","surface"]'
+          # Legacy aliases: iwlwifi→intel, usb-storage→storage.
+          all='["usbhid","psmouse","storage","intel","sound","bluetooth","uvc","thinkpad","typec","surface","sensors","performance"]'
           if [[ "$FAMILIES_IN" == "all" || -z "$FAMILIES_IN" ]]; then
             echo "families_json=$all" >> "$GITHUB_OUTPUT"
             echo "full_set=true" >> "$GITHUB_OUTPUT"
           else
             python3 - "$FAMILIES_IN" <<'PY' >> "$GITHUB_OUTPUT"
           import json, sys
-          allowed = {"usbhid","psmouse","usb-storage","intel","iwlwifi","sound","bluetooth","uvc","thinkpad","typec","surface"}
+          allowed = {
+              "usbhid","psmouse","storage","usb-storage","intel","iwlwifi",
+              "sound","bluetooth","uvc","thinkpad","typec","surface",
+              "sensors","performance",
+          }
           raw = [p.strip() for p in sys.argv[1].split(",") if p.strip()]
-          # Normalize legacy name
-          raw = ["intel" if p == "iwlwifi" else p for p in raw]
-          # de-dupe preserving order
+          rename = {"iwlwifi": "intel", "usb-storage": "storage"}
+          raw = [rename.get(p, p) for p in raw]
           seen=set(); raw=[p for p in raw if not (p in seen or seen.add(p))]
           bad = [p for p in raw if p not in allowed]
           if bad:
               raise SystemExit(f"unknown families: {bad}")
           if not raw:
               raise SystemExit("empty families list")
-          full = {"usbhid","psmouse","usb-storage","intel","sound","bluetooth","uvc","thinkpad","typec","surface"}
+          full = {
+              "usbhid","psmouse","storage","intel","sound","bluetooth","uvc",
+              "thinkpad","typec","surface","sensors","performance",
+          }
           print("families_json=" + json.dumps(raw))
           print("full_set=" + ("true" if set(raw) == full else "false"))
           PY
@@ -251,7 +263,14 @@ jobs:
           case "$FAMILY" in
             usbhid) cp -a kmod-work/usbhid family-out/ ;;
             psmouse) cp -a kmod-work/psmouse family-out/ ;;
-            usb-storage) cp -a kmod-work/usb-storage family-out/ ;;
+            storage|usb-storage)
+              if [[ -d kmod-work/storage ]]; then
+                cp -a kmod-work/storage family-out/
+              fi
+              if [[ -d kmod-work/usb-storage ]]; then
+                cp -a kmod-work/usb-storage family-out/
+              fi
+              ;;
             intel|iwlwifi)
               # Prefer new layout; keep legacy iwlwifi/ tree for package compat.
               if [[ -d kmod-work/intel ]]; then
@@ -270,10 +289,21 @@ jobs:
             thinkpad) cp -a kmod-work/thinkpad family-out/ ;;
             typec) cp -a kmod-work/typec family-out/ ;;
             surface) cp -a kmod-work/surface family-out/ ;;
+            sensors) cp -a kmod-work/sensors family-out/ ;;
+            performance) cp -a kmod-work/performance family-out/ ;;
             *) echo "unknown family $FAMILY"; exit 1 ;;
           esac
-          find family-out -name '*.ko' | tee family-out/modules.list
-          test -s family-out/modules.list
+          # Conf-only families (sensors/performance) ship no .ko
+          if [[ "$FAMILY" == "sensors" || "$FAMILY" == "performance" ]]; then
+            test -f family-out/.conf-only || test -f "family-out/$FAMILY/.conf-only" || \
+              test -e family-out/azurelinux-desktop-${FAMILY}.conf || \
+              test -e family-out/${FAMILY}/azurelinux-desktop-${FAMILY}.conf
+            find family-out -type f | tee family-out/modules.list
+            test -s family-out/modules.list
+          else
+            find family-out -name '*.ko' | tee family-out/modules.list
+            test -s family-out/modules.list
+          fi
 
       - name: Upload ${{ matrix.family }} modules
         uses: actions/upload-artifact@v4
@@ -403,9 +433,14 @@ jobs:
               if [[ "$rpm" == "azurelinux-desktop-policy-${krel}.rpm" ]]; then
                 continue
               fi
-              # Drop legacy iwlwifi when this run (or merge set) ships intel.
+              # Drop legacy names when replacements ship this run.
               if [[ "$rpm" == "azurelinux-desktop-iwlwifi-kmod-${krel}.rpm" ]]; then
                 if [[ -f "kmod-output/azurelinux-desktop-intel-kmod-${krel}.rpm" ]]; then
+                  continue
+                fi
+              fi
+              if [[ "$rpm" == "azurelinux-desktop-usb-storage-kmod-${krel}.rpm" ]]; then
+                if [[ -f "kmod-output/azurelinux-desktop-storage-kmod-${krel}.rpm" ]]; then
                   continue
                 fi
               fi

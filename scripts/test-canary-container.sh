@@ -33,12 +33,13 @@ assert_rpm_source() {
 }
 
 dnf5 repolist --enabled | tee "$LOG_DIR/enabled-repositories.log"
+# Install policy only; Requires pull every sibling at the kernel EVR.
 dnf5 install -y --refresh \
     kernel azurelinux-desktop-policy \
     | tee "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-policy" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-usbhid-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
-grep -Fq "azurelinux-desktop-usb-storage-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-storage-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-intel-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-sound-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-bluetooth-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
@@ -46,6 +47,8 @@ grep -Fq "azurelinux-desktop-uvc-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-thinkpad-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-typec-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-surface-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-sensors-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-performance-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 kver="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/usbhid.ko"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/usb-storage.ko"
@@ -79,9 +82,14 @@ for name in hid-microsoft hid-multitouch; do
     modinfo -F vermagic "/usr/lib/modules/$kver/extra/azurelinux-desktop/$name.ko" \
         | grep -Fq "$kver"
 done
-test -f /etc/dracut.conf.d/90-azurelinux-desktop-usb-storage.conf
+# storage-kmod ships both new + legacy dracut drop-in names
+test -f /etc/dracut.conf.d/90-azurelinux-desktop-storage.conf \
+    || test -f /etc/dracut.conf.d/90-azurelinux-desktop-usb-storage.conf
 test -f /etc/modules-load.d/azurelinux-desktop-sound.conf
 test -f /etc/modules-load.d/azurelinux-desktop-bluetooth.conf
+test -f /etc/modules-load.d/azurelinux-desktop-sensors.conf
+test -f /etc/modules-load.d/azurelinux-desktop-performance.conf
+test -f /etc/sysctl.d/99-azurelinux-desktop-performance.conf
 # Do not force-load HDA or btusb at boot (VM -ENODEV / ThinkPad HCI race).
 ! grep -qE '^[[:space:]]*snd-hda-intel[[:space:]]*$' /etc/modules-load.d/azurelinux-desktop-sound.conf
 ! grep -qE '^[[:space:]]*btusb[[:space:]]*$' /etc/modules-load.d/azurelinux-desktop-bluetooth.conf

@@ -37,7 +37,7 @@ README for the full backstory.
    filesystem plus runtime behavior, record the result, then move to the next
    issue.
    Keep **one findings file per issue or durable topic** under `findings/`
-   (see `findings/README.md`). Do not recreate `final_polish.md` /
+   (search `findings/*.md` by symptom). Do not recreate `final_polish.md` /
    `final_polish_finished.md` megafiles. When an issue is confirmed resolved
    (filesystem + runtime/programmatic/manual confirmation), mark **Status:**
    in that issue file (or merge unique detail into the existing topic file)
@@ -90,9 +90,9 @@ README for the full backstory.
     be resolved. CI may snapshot NEVRAs with
     `scripts/log-latest-vendor-packages.sh`. See
     `findings/latest-vendor-packages.md`.
-13. **Catalogs for agents.** `findings/README.md` indexes every topic file.
-    `scripts/README.md` indexes build/test helpers. Prefer those over
-    rediscovering paths by grep alone.
+13. **Catalogs for agents.** Topic notes live as `findings/*.md` (no
+    central index). `scripts/README.md` indexes build/test helpers.
+    Prefer those over rediscovering paths by grep alone.
 
 
 ## Problem-solving approach

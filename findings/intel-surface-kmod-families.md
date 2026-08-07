@@ -75,6 +75,13 @@ User-facing Kconfig names map as:
 - Live / installer still install **`azurelinux-desktop-policy`** only (pulls siblings).
 - Canary `test-canary-container.sh` asserts intel + surface module paths and package names.
 
+## Build note (HID / BTF)
+
+CI once failed on `hid-microsoft.c: hid-ids.h: No such file`. Fix: copy
+`hid-ids.h` / `hid-haptic.h` and stage `include/linux/surface_aggregator`
+from the kernel tarball. **BTF “Skipping … vmlinux” is harmless** — no
+vmlinux required. See `findings/surface-hid-oot-build.md`.
+
 ## Validation
 
 1. Dispatch `publish-desktop-kmods` with `republish=true`.

@@ -142,6 +142,5 @@ Offline gaps (flatpak-selinux soft dep; grub2-tools-extra bootloader need) and l
 - `anaconda-kickstart-patterns.md` — asset staging, %post, storage directives
 - `gnome-desktop-defaults.md` — dconf, GDM, keyring, GNOME configuration
 - `fedora-azl-repo-mixing.md` — FEDORA_EXCLUDES, Flatpak SELinux, package sourcing
-- `findings/README.md` - index of per-issue findings files
 - `deliverable-polish-validation.md` - polish-batch AQ / validation notes
 - `flatpak-live-session-space.md` - live Flatpak free-space fix

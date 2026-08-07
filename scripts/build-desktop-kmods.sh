@@ -187,20 +187,37 @@ for f in psmouse-base.c synaptics.c focaltech.c trackpoint.c; do
         cp "$SOURCE_DIR/drivers/input/mouse/$f" "$PS2_DIR/"
     fi
 done
-# Core three always build (upstream psmouse-objs). TrackPoint is small and
-# useful on ThinkPads. Skip vmmouse / SMBus / touchpad extras — headers
-# provide stubs when CONFIG_MOUSE_PS2_* is unset.
+# Core always-build objects + ThinkPad-relevant protocols (TrackPoint,
+# ALPS, SMBus host notify). Headers stub unused CONFIG_MOUSE_PS2_*.
+for f in alps.c psmouse-smbus.c logips2pp.c elantech.c; do
+    if [[ -f "$SOURCE_DIR/drivers/input/mouse/$f" ]]; then
+        cp "$SOURCE_DIR/drivers/input/mouse/$f" "$PS2_DIR/"
+    fi
+done
 cat > "$PS2_DIR/Makefile" <<'EOF'
 # Out-of-tree against AZL x86_64 where CONFIG_INPUT_MOUSE is not set.
 ccflags-y += -DCONFIG_INPUT_MOUSE=1
 ccflags-y += -DCONFIG_MOUSE_PS2_MODULE=1
 ccflags-y += -DCONFIG_MOUSE_PS2_TRACKPOINT=1
+ccflags-y += -DCONFIG_MOUSE_PS2_ALPS=1
+ccflags-y += -DCONFIG_MOUSE_PS2_SMBUS=1
+ccflags-y += -DCONFIG_MOUSE_PS2_SYNAPTICS_SMBUS=1
+ccflags-y += -DCONFIG_MOUSE_PS2_LOGIPS2PP=1
 
 obj-m += psmouse.o
-psmouse-y := psmouse-base.o synaptics.o focaltech.o trackpoint.o
+psmouse-y := psmouse-base.o synaptics.o focaltech.o trackpoint.o alps.o psmouse-smbus.o logips2pp.o
 EOF
 if [[ ! -f "$PS2_DIR/trackpoint.c" ]]; then
     sed -i '/trackpoint/d; /TRACKPOINT/d' "$PS2_DIR/Makefile"
+fi
+if [[ ! -f "$PS2_DIR/alps.c" ]]; then
+    sed -i '/alps/d; /ALPS/d' "$PS2_DIR/Makefile"
+fi
+if [[ ! -f "$PS2_DIR/psmouse-smbus.c" ]]; then
+    sed -i '/psmouse-smbus/d; /SMBUS/d; /SYNAPTICS_SMBUS/d' "$PS2_DIR/Makefile"
+fi
+if [[ ! -f "$PS2_DIR/logips2pp.c" ]]; then
+    sed -i '/logips2pp/d; /LOGIPS2PP/d' "$PS2_DIR/Makefile"
 fi
 # Fail early if a required always-include header is missing from the tree.
 for need in psmouse.h synaptics.h focaltech.h logips2pp.h; do
@@ -215,13 +232,16 @@ check_vermagic "$PS2_MODULE"
 echo "=== stage psmouse done ==="
 fi
 
-# --- usb-storage + uas (sibling package, same kernel bind) ---
+# --- storage: USB mass-storage + UAS (family renamed from usb-storage) ---
 # CONFIG_USB_STORAGE / CONFIG_USB_UAS are not set on AZL 4.0 x86_64.
+# NVMe/ext4/dm-mod are built-in (=y). xfs/btrfs/dm-crypt/dm-integrity
+# already ship as stock modules — do not rebuild (would conflict).
 # Force module variants so IS_ENABLED() paths in the upstream sources
 # match a normal =m build. USB core and SCSI mid-layer are built-in.
-if run_stage usb-storage; then
-echo "=== stage usb-storage ==="
-STOR_DIR="$WORKDIR/usb-storage"
+if run_stage storage || run_stage usb-storage; then
+echo "=== stage storage (usb-storage + uas) ==="
+STOR_DIR="$WORKDIR/storage"
+rm -rf "$STOR_DIR" "$WORKDIR/usb-storage"
 mkdir -p "$STOR_DIR"
 # Core mass-storage + UAS only (skip ums-* specialty unusual drivers).
 for f in \
@@ -266,7 +286,11 @@ make -C "$BUILD_DIR" M="$STOR_DIR" modules
 STOR_MODULE="$STOR_DIR/usb-storage.ko"
 UAS_MODULE="$STOR_DIR/uas.ko"
 check_vermagic "$STOR_MODULE" "$UAS_MODULE"
-echo "=== stage usb-storage done ==="
+# Compat path for older CI artifact merges
+mkdir -p "$WORKDIR/usb-storage"
+cp -f "$STOR_MODULE" "$WORKDIR/usb-storage/usb-storage.ko"
+cp -f "$UAS_MODULE" "$WORKDIR/usb-storage/uas.ko"
+echo "=== stage storage done ==="
 fi
 
 # --- intel family (was iwlwifi): Intel Wi-Fi + notes on GPU/HDA/BT/SOF ---
@@ -666,10 +690,83 @@ check_vermagic \
     "$TP_DIR/battery.ko" \
     "$TP_DIR/drm_privacy_screen.ko" \
     "$TP_DIR/thinkpad_acpi.ko"
+
+# thinkpad_acpi: HOTKEY_POLL + VIDEO forced via ccflags above.
+# ALSA_SUPPORT stays off — sound is a sibling OOT package without shared
+# Module.symvers during parallel family CI builds.
+
+# HID Lenovo (TrackPoint keyboards, compact keyboards) — stock off.
+# hid-ids.h lives only in drivers/hid/ (not exported by kernel-devel).
+if [[ -f "$SOURCE_DIR/drivers/hid/hid-lenovo.c" ]]; then
+    mkdir -p "$TP_DIR/hid"
+    cp "$SOURCE_DIR/drivers/hid/hid-lenovo.c" "$TP_DIR/hid/"
+    cp "$SOURCE_DIR/drivers/hid/hid-ids.h" "$TP_DIR/hid/"
+    cat > "$TP_DIR/hid/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -DCONFIG_HID_LENOVO_MODULE=1
+obj-m += hid-lenovo.o
+EOF
+    make -C "$BUILD_DIR" M="$TP_DIR/hid" CONFIG_HID_LENOVO=m modules
+    cp -f "$TP_DIR/hid/hid-lenovo.ko" "$TP_DIR/hid-lenovo.ko"
+    check_vermagic "$TP_DIR/hid-lenovo.ko"
+fi
+
+# USB WWAN / tethering stack — CONFIG_USB_NET_DRIVERS off on AZL x86_64.
+# Provides cdc_mbim / qmi_wwan for LTE WWAN cards and phone tether.
+WWAN_DIR="$TP_DIR/wwan"
+mkdir -p "$WWAN_DIR"
+for f in usbnet.c cdc_ether.c cdc_ncm.c cdc_mbim.c qmi_wwan.c; do
+    if [[ -f "$SOURCE_DIR/drivers/net/usb/$f" ]]; then
+        cp "$SOURCE_DIR/drivers/net/usb/$f" "$WWAN_DIR/"
+    fi
+done
+# cdc-wdm (USB_WDM) for QMI control path
+if [[ -f "$SOURCE_DIR/drivers/usb/class/cdc-wdm.c" ]]; then
+    cp "$SOURCE_DIR/drivers/usb/class/cdc-wdm.c" "$WWAN_DIR/"
+fi
+# Headers commonly included by usbnet clients
+for h in usbnet.h; do
+    if [[ -f "$SOURCE_DIR/drivers/net/usb/$h" ]]; then
+        cp "$SOURCE_DIR/drivers/net/usb/$h" "$WWAN_DIR/"
+    fi
+done
+cat > "$WWAN_DIR/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_USB_USBNET_MODULE=1
+ccflags-y += -DCONFIG_USB_NET_CDCETHER_MODULE=1
+ccflags-y += -DCONFIG_USB_NET_CDC_NCM_MODULE=1
+ccflags-y += -DCONFIG_USB_NET_CDC_MBIM_MODULE=1
+ccflags-y += -DCONFIG_USB_NET_QMI_WWAN_MODULE=1
+ccflags-y += -DCONFIG_USB_WDM_MODULE=1
+ccflags-y += -I$(src)
+obj-m += usbnet.o
+obj-m += cdc_ether.o
+obj-m += cdc_ncm.o
+obj-m += cdc_mbim.o
+obj-m += qmi_wwan.o
+obj-m += cdc-wdm.o
+EOF
+if [[ ! -f "$WWAN_DIR/cdc-wdm.c" ]]; then
+    sed -i '/cdc-wdm/d; /USB_WDM/d' "$WWAN_DIR/Makefile"
+fi
+if [[ ! -f "$WWAN_DIR/qmi_wwan.c" ]]; then
+    sed -i '/qmi_wwan/d; /QMI_WWAN/d' "$WWAN_DIR/Makefile"
+fi
+if [[ ! -f "$WWAN_DIR/cdc_mbim.c" ]]; then
+    sed -i '/cdc_mbim/d; /CDC_MBIM/d' "$WWAN_DIR/Makefile"
+fi
+make -C "$BUILD_DIR" M="$WWAN_DIR" \
+    CONFIG_USB_USBNET=m CONFIG_USB_NET_CDCETHER=m CONFIG_USB_NET_CDC_NCM=m \
+    CONFIG_USB_NET_CDC_MBIM=m CONFIG_USB_NET_QMI_WWAN=m CONFIG_USB_WDM=m \
+    modules
+find "$WWAN_DIR" -name '*.ko' -exec cp -t "$TP_DIR/" {} +
+test -f "$TP_DIR/usbnet.ko"
+check_vermagic "$TP_DIR/usbnet.ko"
 echo "=== stage thinkpad done ==="
 fi
 
 # --- typec + ucsi ---
+# Thunderbolt/USB4 core is stock CONFIG_USB4=m (thunderbolt.ko). USB role
+# switch is stock. Only TYPEC class + UCSI ACPI are missing on AZL x86_64.
 if run_stage typec; then
 echo "=== stage typec ==="
 TYPEC_DIR="$WORKDIR/typec"
@@ -702,7 +799,70 @@ TYPEC_MODULE="$TYPEC_DIR/typec.ko"
 TYPEC_UCSI_MODULE="$TYPEC_DIR/typec_ucsi.ko"
 UCSI_ACPI_MODULE="$TYPEC_DIR/ucsi_acpi.ko"
 check_vermagic "$TYPEC_MODULE" "$TYPEC_UCSI_MODULE" "$UCSI_ACPI_MODULE"
+# Document stock companions for depmod consumers (no OOT rebuild).
+cat > "$TYPEC_DIR/README.stock" <<'EOF'
+Stock AZL modules used with this package (not rebuilt here):
+  thunderbolt.ko  (CONFIG_USB4)
+  roles.ko        (CONFIG_USB_ROLE_SWITCH)
+  intel_xhci_usb_role_switch.ko (CONFIG_USB_ROLES_INTEL_XHCI)
+EOF
 echo "=== stage typec done ==="
+fi
+
+# --- sensors: activate stock hwmon/i2c (no OOT .ko — already =m/=y) ---
+if run_stage sensors; then
+echo "=== stage sensors ==="
+SENS_DIR="$WORKDIR/sensors"
+rm -rf "$SENS_DIR"
+mkdir -p "$SENS_DIR"
+# Stock AZL already provides i2c-i801, i2c-smbus, coretemp, lm75,
+# x86_pkg_temp_thermal, intel_powerclamp, int340x_thermal. Ship load
+# policy only so desktops get sensors without rebuilding duplicates.
+cat > "$SENS_DIR/azurelinux-desktop-sensors.conf" <<'EOF'
+# Load common laptop sensor stacks when present in stock kernel-modules.
+# Missing modules are ignored by systemd-modules-load.
+coretemp
+i2c-i801
+i2c-smbus
+x86_pkg_temp_thermal
+EOF
+cat > "$SENS_DIR/README" <<'EOF'
+azurelinux-desktop-sensors-kmod ships modules-load policy only.
+Stock AZL already builds HWMON/I2C/THERMAL (coretemp, i2c-i801, lm75, …).
+EOF
+touch "$SENS_DIR/.conf-only"
+echo "=== stage sensors done ==="
+fi
+
+# --- performance: activate stock zram/BBR + desktop sysctl (no OOT .ko) ---
+# PREEMPT/THP/HUGETLBFS/SCHED_* are built-in kernel options and cannot be
+# shipped as modules. zswap is built-in. tcp_bbr2 is not in this kernel.
+if run_stage performance; then
+echo "=== stage performance ==="
+PERF_DIR="$WORKDIR/performance"
+rm -rf "$PERF_DIR"
+mkdir -p "$PERF_DIR"
+cat > "$PERF_DIR/azurelinux-desktop-performance.conf" <<'EOF'
+# Optional desktop responsiveness helpers (stock modules when present).
+zram
+tcp_bbr
+EOF
+cat > "$PERF_DIR/99-azurelinux-desktop-performance.conf" <<'EOF'
+# Prefer BBR when the module is loaded; cubic remains default until then.
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+# Mild desktop VM pressure balance (safe defaults).
+vm.swappiness = 60
+vm.vfs_cache_pressure = 50
+EOF
+cat > "$PERF_DIR/README" <<'EOF'
+azurelinux-desktop-performance-kmod activates stock zram + tcp_bbr and
+ships sysctl defaults. Cannot OOT: PREEMPT*, THP, HUGETLBFS, zswap (=y),
+SCHED_CORE, PERF_EVENTS. crypto_*_ssse3 not enabled in AZL config and
+needs full crypto API glue — left to stock aesni-intel / crc32c.
+EOF
+touch "$PERF_DIR/.conf-only"
+echo "=== stage performance done ==="
 fi
 
 # --- surface: upstream SSAM + HID (no linux-surface OOT fork) ---
@@ -714,6 +874,17 @@ echo "=== stage surface ==="
 SURF_DIR="$WORKDIR/surface"
 rm -rf "$SURF_DIR"
 mkdir -p "$SURF_DIR/serdev" "$SURF_DIR/aggregator" "$SURF_DIR/platform" "$SURF_DIR/hid"
+
+# Stock kernel-devel omits Surface Kconfig headers when CONFIG_SURFACE_* is
+# off. Stage them into the build tree so aggregator/platform/HID OOT builds
+# can #include <linux/surface_aggregator/*.h>. Container-local only.
+if [[ -d "$SOURCE_DIR/include/linux/surface_aggregator" ]]; then
+    mkdir -p "$BUILD_DIR/include/linux" "$SURF_DIR/include/linux"
+    cp -a "$SOURCE_DIR/include/linux/surface_aggregator" \
+        "$BUILD_DIR/include/linux/"
+    cp -a "$SOURCE_DIR/include/linux/surface_aggregator" \
+        "$SURF_DIR/include/linux/"
+fi
 
 # serdev core (SSAM transport dependency)
 cp "$SOURCE_DIR/drivers/tty/serdev/core.c" "$SURF_DIR/serdev/core.c"
@@ -805,14 +976,33 @@ make -C "$BUILD_DIR" M="$SURF_DIR/platform" \
     modules
 find "$SURF_DIR/platform" -name '*.ko' -exec cp -t "$SURF_DIR/" {} +
 
-# Generic Microsoft + multitouch HID (covers Type Covers / digitisers)
+# Generic Microsoft + multitouch HID (covers Type Covers / digitisers).
+# drivers/hid/*.c use local "hid-ids.h" / "hid-haptic.h" — those are NOT
+# in kernel-devel; copy from the matching source tarball. BTF skip
+# warnings ("unavailability of vmlinux") are harmless for OOT modules.
 cp "$SOURCE_DIR/drivers/hid/hid-microsoft.c" "$SURF_DIR/hid/"
 cp "$SOURCE_DIR/drivers/hid/hid-multitouch.c" "$SURF_DIR/hid/"
+cp "$SOURCE_DIR/drivers/hid/hid-ids.h" "$SURF_DIR/hid/"
+if [[ -f "$SOURCE_DIR/drivers/hid/hid-haptic.h" ]]; then
+    cp "$SOURCE_DIR/drivers/hid/hid-haptic.h" "$SURF_DIR/hid/"
+fi
+if [[ -f "$SOURCE_DIR/drivers/hid/hid-haptic.c" ]]; then
+    cp "$SOURCE_DIR/drivers/hid/hid-haptic.c" "$SURF_DIR/hid/"
+fi
 # Optional SSAM HID transport (7th-gen+ keyboards/touchpads)
 if [[ -d "$SOURCE_DIR/drivers/hid/surface-hid" ]]; then
     cp -a "$SOURCE_DIR/drivers/hid/surface-hid/." "$SURF_DIR/hid/"
 fi
+# surface_hid needs <linux/surface_aggregator/*.h>; stock kernel-devel
+# omits them when CONFIG_SURFACE_* is off. Stage from the source tree.
+if [[ -d "$SOURCE_DIR/include/linux/surface_aggregator" ]]; then
+    mkdir -p "$SURF_DIR/include/linux"
+    cp -a "$SOURCE_DIR/include/linux/surface_aggregator" \
+        "$SURF_DIR/include/linux/"
+fi
 cat > "$SURF_DIR/hid/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -I$(src)/../include
 ccflags-y += -DCONFIG_HID_MICROSOFT_MODULE=1
 ccflags-y += -DCONFIG_HID_MULTITOUCH_MODULE=1
 ccflags-y += -DCONFIG_SURFACE_HID_CORE_MODULE=1
@@ -829,6 +1019,11 @@ EOF
 # surface_hid*.c may be missing on older trees; only build present objs
 if [[ ! -f "$SURF_DIR/hid/surface_hid_core.c" ]]; then
     sed -i '/surface_hid/d;/surface_kbd/d' "$SURF_DIR/hid/Makefile"
+fi
+# Multitouch may pull hid-haptic helpers when present as a separate unit.
+if [[ -f "$SURF_DIR/hid/hid-haptic.c" ]] && grep -q 'hid-haptic' "$SURF_DIR/hid/hid-multitouch.c" 2>/dev/null; then
+    # Usually header-only; keep .c available if the tree ships one.
+    :
 fi
 make -C "$BUILD_DIR" M="$SURF_DIR/hid" \
     KBUILD_EXTRA_SYMBOLS="$SURF_DIR/serdev/Module.symvers $SURF_DIR/aggregator/Module.symvers $SURF_DIR/platform/Module.symvers" \
@@ -865,8 +1060,12 @@ have_ko() {
 # Resolve optional module paths.
 HID_MODULE="$WORKDIR/usbhid/usbhid.ko"
 PS2_MODULE="$WORKDIR/psmouse/psmouse.ko"
-STOR_MODULE="$WORKDIR/usb-storage/usb-storage.ko"
-UAS_MODULE="$WORKDIR/usb-storage/uas.ko"
+STOR_MODULE="$WORKDIR/storage/usb-storage.ko"
+UAS_MODULE="$WORKDIR/storage/uas.ko"
+if [[ ! -f "$STOR_MODULE" && -f "$WORKDIR/usb-storage/usb-storage.ko" ]]; then
+    STOR_MODULE="$WORKDIR/usb-storage/usb-storage.ko"
+    UAS_MODULE="$WORKDIR/usb-storage/uas.ko"
+fi
 IWL_MODULE="$WORKDIR/intel/iwlwifi.ko"
 IWL_MVM="$WORKDIR/intel/iwlmvm.ko"
 IWL_DVM="$WORKDIR/intel/iwldvm.ko"
@@ -914,7 +1113,7 @@ if have_ko "$PS2_MODULE"; then
 fi
 if have_ko "$STOR_MODULE" && have_ko "$UAS_MODULE"; then
     PRESENT_KOS+=("$STOR_MODULE" "$UAS_MODULE")
-    add_pkg usb-storage
+    add_pkg storage
 fi
 if have_ko "$IWL_MODULE" && have_ko "$IWL_MVM" && have_ko "$IWL_DVM" && have_ko "$IWL_MLD"; then
     PRESENT_KOS+=("$IWL_MODULE" "$IWL_MVM" "$IWL_DVM" "$IWL_MLD")
@@ -936,8 +1135,9 @@ elif have_ko "$UVC_MODULE"; then
     PRESENT_KOS+=("$UVC_MODULE")
     add_pkg uvc
 fi
+mapfile -t TP_EXTRA_MODULES < <(find "$WORKDIR/thinkpad" -maxdepth 1 -name '*.ko' 2>/dev/null | sort || true)
 if have_ko "$TP_MODULE" && have_ko "$TP_BATTERY_MODULE" && have_ko "$TP_PRIVACY_MODULE"; then
-    PRESENT_KOS+=("$TP_BATTERY_MODULE" "$TP_PRIVACY_MODULE" "$TP_MODULE")
+    PRESENT_KOS+=("${TP_EXTRA_MODULES[@]}")
     add_pkg thinkpad
 elif have_ko "$TP_MODULE"; then
     PRESENT_KOS+=("$TP_MODULE")
@@ -955,6 +1155,12 @@ if ((${#SURFACE_MODULES[@]} >= 6)) \
     PRESENT_KOS+=("${SURFACE_MODULES[@]}")
     add_pkg surface
 fi
+if [[ -f "$WORKDIR/sensors/.conf-only" ]]; then
+    add_pkg sensors
+fi
+if [[ -f "$WORKDIR/performance/.conf-only" ]]; then
+    add_pkg performance
+fi
 
 if ((${#PRESENT_PKGS[@]} == 0)); then
     echo "package: no family modules present in $WORKDIR" >&2
@@ -962,7 +1168,9 @@ if ((${#PRESENT_PKGS[@]} == 0)); then
 fi
 
 echo "package: present families: ${PRESENT_PKGS[*]}"
-check_vermagic "${PRESENT_KOS[@]}"
+if ((${#PRESENT_KOS[@]} > 0)); then
+    check_vermagic "${PRESENT_KOS[@]}"
+fi
 
 RPMBUILD="$WORKDIR/rpmbuild"
 rm -rf "$RPMBUILD"
@@ -985,6 +1193,17 @@ pkg_enabled() {
     done
     return 1
 }
+
+# Conf-only family assets into rpm SOURCES
+if pkg_enabled sensors && [[ -f "$WORKDIR/sensors/azurelinux-desktop-sensors.conf" ]]; then
+    cp -f "$WORKDIR/sensors/azurelinux-desktop-sensors.conf" "$RPMBUILD/SOURCES/"
+fi
+if pkg_enabled performance; then
+    [[ -f "$WORKDIR/performance/azurelinux-desktop-performance.conf" ]] && \
+        cp -f "$WORKDIR/performance/azurelinux-desktop-performance.conf" "$RPMBUILD/SOURCES/"
+    [[ -f "$WORKDIR/performance/99-azurelinux-desktop-performance.conf" ]] && \
+        cp -f "$WORKDIR/performance/99-azurelinux-desktop-performance.conf" "$RPMBUILD/SOURCES/"
+fi
 
 # Dynamic subpackage fragments.
 REQUIRES_SIBLINGS=""
@@ -1077,33 +1296,43 @@ fi
 "
 fi
 
-if pkg_enabled usb-storage; then
-    append_requires azurelinux-desktop-usb-storage-kmod
+if pkg_enabled storage; then
+    append_requires azurelinux-desktop-storage-kmod
     PACKAGE_SECTIONS+="
-%package -n azurelinux-desktop-usb-storage-kmod
-Summary:        USB mass-storage modules for Azure Linux ${KVERREL}
+%package -n azurelinux-desktop-storage-kmod
+Summary:        Desktop storage modules (USB MSD/UAS) for Azure Linux ${KVERREL}
 Requires:       kernel-core-uname-r = ${KVERREL}
-%description -n azurelinux-desktop-usb-storage-kmod
-usb-storage and uas modules for Azure Linux kernel ${KVERREL}.
+Provides:       azurelinux-desktop-usb-storage-kmod = %{version}-%{release}
+Obsoletes:      azurelinux-desktop-usb-storage-kmod < %{version}-%{release}
+%description -n azurelinux-desktop-storage-kmod
+usb-storage and uas for Azure Linux ${KVERREL} (CONFIG_USB_STORAGE off
+in the stock cloud kernel). NVMe/ext4/device-mapper core are built-in;
+xfs, btrfs, dm-crypt, and dm-integrity ship as stock kernel modules —
+not rebuilt here to avoid conflicts.
 "
     INSTALL_SECTION+="$(ko_install_line usb-storage.ko)"$'\n'
     INSTALL_SECTION+="$(ko_install_line uas.ko)"$'\n'
+    INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-storage.conf <<'DRACUT'
+add_drivers+=\" usb-storage uas \"
+DRACUT"$'\n'
+    # Keep legacy dracut drop-in name as a symlink-compatible second file
     INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-usb-storage.conf <<'DRACUT'
 add_drivers+=\" usb-storage uas \"
 DRACUT"$'\n'
     FILES_SECTIONS+="
-%files -n azurelinux-desktop-usb-storage-kmod
+%files -n azurelinux-desktop-storage-kmod
 $(ko_files_line usb-storage.ko)
 $(ko_files_line uas.ko)
+%config(noreplace) %{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-storage.conf
 %config(noreplace) %{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-usb-storage.conf
 "
     POST_SECTIONS+="
-%post -n azurelinux-desktop-usb-storage-kmod
+%post -n azurelinux-desktop-storage-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
 if [ -x /usr/bin/dracut ] && [ -e /boot/initramfs-${KVERREL}.img ]; then
   /usr/bin/dracut --force --kver ${KVERREL} || :
 fi
-%postun -n azurelinux-desktop-usb-storage-kmod
+%postun -n azurelinux-desktop-storage-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
 "
 fi
@@ -1119,9 +1348,11 @@ Provides:       azurelinux-desktop-iwlwifi-kmod = %{version}-%{release}
 Obsoletes:      azurelinux-desktop-iwlwifi-kmod < %{version}-%{release}
 %description -n azurelinux-desktop-intel-kmod
 Intel wireless (iwlwifi + mvm/dvm/mld opmodes) for Azure Linux ${KVERREL}.
-GPU (i915/xe), e1000e, MEI, and related DRM helpers ship in stock
-kernel-modules. Intel HDA audio is azurelinux-desktop-sound-kmod;
-Intel Bluetooth (btintel) is azurelinux-desktop-bluetooth-kmod.
+Already stock (not rebuilt): i915/xe DRM, e1000e, MEI, intel_pstate,
+intel_idle, RAPL, PMC core, TCC cooling, uncore freq, aesni-intel,
+powerclamp, msr/cpuid. Sibling packages: sound-kmod (HDA/HDMI/Realtek),
+bluetooth-kmod (btintel). SOF ASoC deferred (large graph; HDA covers
+Skylake-class and many Surfaces).
 "
     for bn in iwlwifi.ko iwlmvm.ko iwldvm.ko iwlmld.ko; do
         INSTALL_SECTION+="$(ko_install_line "$bn")"$'\n'
@@ -1282,17 +1513,18 @@ if pkg_enabled thinkpad; then
     append_requires azurelinux-desktop-thinkpad-kmod
     PACKAGE_SECTIONS+="
 %package -n azurelinux-desktop-thinkpad-kmod
-Summary:        thinkpad_acpi and laptop power helpers for Azure Linux ${KVERREL}
+Summary:        ThinkPad platform, HID, and WWAN modules for Azure Linux ${KVERREL}
 Requires:       kernel-core-uname-r = ${KVERREL}
 %description -n azurelinux-desktop-thinkpad-kmod
-thinkpad_acpi plus ACPI battery and DRM privacy-screen class helpers
-for Azure Linux kernel ${KVERREL}. Stock AZL already ships think-lmi,
-intel-hid, i2c-i801, thunderbolt, and related Lenovo WMI helpers in
-kernel-modules; this package only fills CONFIG_THINKPAD_ACPI /
-ACPI_BATTERY / DRM_PRIVACY_SCREEN gaps.
+thinkpad_acpi (hotkey poll + video), ACPI battery, privacy-screen,
+hid-lenovo, and USB WWAN/tether (usbnet, cdc_mbim, qmi_wwan, …) for
+${KVERREL}. PS/2 TrackPoint/ALPS/SMBus live in psmouse-kmod.
+hid-multitouch ships in surface-kmod (shared via policy). Stock AZL
+already has think-lmi, intel-hid, and Lenovo WMI helpers.
 "
     TP_FILES=""
-    for bn in battery.ko drm_privacy_screen.ko thinkpad_acpi.ko; do
+    mapfile -t _tp_src < <(find "$WORKDIR/thinkpad" -maxdepth 1 -name '*.ko' -printf '%f\n' 2>/dev/null | sort || true)
+    for bn in "${_tp_src[@]}"; do
         if [[ -f "$RPMBUILD/SOURCES/$bn" ]]; then
             INSTALL_SECTION+="$(ko_install_line "$bn")"$'\n'
             TP_FILES+="$(ko_files_line "$bn")"$'\n'
@@ -1323,6 +1555,9 @@ Summary:        USB Type-C and UCSI modules for Azure Linux ${KVERREL}
 Requires:       kernel-core-uname-r = ${KVERREL}
 %description -n azurelinux-desktop-typec-kmod
 typec, typec_ucsi, and ucsi_acpi for Azure Linux kernel ${KVERREL}.
+Stock companions (not rebuilt): thunderbolt/USB4 (CONFIG_USB4),
+USB role switch, intel_xhci_usb_role_switch. DP altmode object is
+linked into typec_ucsi.
 "
     for bn in typec.ko typec_ucsi.ko ucsi_acpi.ko; do
         INSTALL_SECTION+="$(ko_install_line "$bn")"$'\n'
@@ -1373,6 +1608,55 @@ ${SURFACE_FILES}%config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desk
 /usr/sbin/depmod -a ${KVERREL} || :
 %postun -n azurelinux-desktop-surface-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled sensors; then
+    append_requires azurelinux-desktop-sensors-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-sensors-kmod
+Summary:        Desktop sensor module load policy for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-sensors-kmod
+modules-load policy for stock hwmon/i2c/thermal modules (coretemp,
+i2c-i801, …). Does not rebuild sensors already present in kernel-modules.
+"
+    INSTALL_SECTION+="install -Dpm 0644 %{_sourcedir}/azurelinux-desktop-sensors.conf %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-sensors.conf"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-sensors-kmod
+%config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desktop-sensors.conf
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-sensors-kmod
+:
+%postun -n azurelinux-desktop-sensors-kmod
+:
+"
+fi
+
+if pkg_enabled performance; then
+    append_requires azurelinux-desktop-performance-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-performance-kmod
+Summary:        Desktop performance helpers for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-performance-kmod
+Loads stock zram and tcp_bbr and installs sysctl defaults (fq + bbr).
+Cannot ship PREEMPT/THP/zswap as modules — those are built-in kernel
+options on Azure Linux.
+"
+    INSTALL_SECTION+="install -Dpm 0644 %{_sourcedir}/azurelinux-desktop-performance.conf %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-performance.conf"$'\n'
+    INSTALL_SECTION+="install -Dpm 0644 %{_sourcedir}/99-azurelinux-desktop-performance.conf %{buildroot}%{_sysconfdir}/sysctl.d/99-azurelinux-desktop-performance.conf"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-performance-kmod
+%config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desktop-performance.conf
+%config(noreplace) %{_sysconfdir}/sysctl.d/99-azurelinux-desktop-performance.conf
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-performance-kmod
+/usr/lib/systemd/systemd-sysctl 99-azurelinux-desktop-performance.conf 2>/dev/null || :
+%postun -n azurelinux-desktop-performance-kmod
+:
 "
 fi
 

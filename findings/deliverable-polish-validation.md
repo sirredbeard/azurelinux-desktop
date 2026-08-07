@@ -142,7 +142,7 @@ No new regressions. Release treated as shippable for this batch.
 
 ## References
 
-- Individual issue files listed in `findings/README.md`
+- Individual issue files under `findings/*.md`
 Wallpaper match (2026-07-22): winner `adwaita-d`, corr_mean≈0.048 vs light negative; still generic dark Adwaita that iteration.
 Boot OCR: t8/t20/t40 = 0 chars; t80 only desktop UI text ("Type to search").
 - `qemu-gnome-interactive-testing.md`

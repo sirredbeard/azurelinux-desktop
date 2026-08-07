@@ -138,7 +138,8 @@ Azure Linux 4.0 turns several desktop drivers off in the stock cloud kernel. Fin
 This project builds out-of-tree modules against each exact Azure `kernel-devel` release and publishes a small DNF repo hosted by [GitHub Pages](https://sirredbeard.github.io/azurelinux-desktop/repo/):
 
 * `azurelinux-desktop-usbhid-kmod` - `usbhid.ko`
-* `azurelinux-desktop-usb-storage-kmod` - `usb-storage.ko` and `uas.ko`
+* `azurelinux-desktop-storage-kmod` - `usb-storage.ko` and `uas.ko`
+  (replaces `azurelinux-desktop-usb-storage-kmod`; NVMe/ext4/dm stay stock)
 * `azurelinux-desktop-intel-kmod` - Intel Wi-Fi (`iwlwifi` + mvm/dvm/mld);
   replaces `azurelinux-desktop-iwlwifi-kmod`. GPU (`i915`/`xe`) stays in
   stock `kernel-modules`; HDA/BT stay in the sound/bluetooth kmods
@@ -148,12 +149,16 @@ This project builds out-of-tree modules against each exact Azure `kernel-devel` 
   Intel/Realtek/Broadcom/MediaTek helpers
 * `azurelinux-desktop-uvc-kmod` - `uvcvideo.ko`
 * `azurelinux-desktop-thinkpad-kmod` - `thinkpad_acpi.ko` (+ battery /
-  privacy-screen helpers)
+  privacy-screen, `hid-lenovo`, USB WWAN/tether helpers)
 * `azurelinux-desktop-typec-kmod` - `typec.ko`, `typec_ucsi.ko`,
-  `ucsi_acpi.ko`
+  `ucsi_acpi.ko` (USB4/Thunderbolt stays stock)
 * `azurelinux-desktop-surface-kmod` - upstream Microsoft Surface SSAM
   (`surface_aggregator` + clients), `serdev`, `hid-microsoft`,
   `hid-multitouch` (no out-of-tree linux-surface fork)
+* `azurelinux-desktop-sensors-kmod` - modules-load policy for stock
+  hwmon/i2c sensors (no OOT rebuild)
+* `azurelinux-desktop-performance-kmod` - modules-load + sysctl for
+  stock zram/BBR and desktop responsiveness knobs
 * `azurelinux-desktop-policy` - couples every sibling kmod RPM to the
   matching `kernel-core` so a kernel-only update cannot leave you
   without desktop hardware

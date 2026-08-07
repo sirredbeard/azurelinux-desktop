@@ -115,7 +115,7 @@ HTML
 
 <p class="muted">
 Package names: <code>azurelinux-desktop-usbhid-kmod</code>,
-<code>azurelinux-desktop-usb-storage-kmod</code>,
+<code>azurelinux-desktop-storage-kmod</code> (replaces usb-storage-kmod),
 <code>azurelinux-desktop-intel-kmod</code> (replaces iwlwifi-kmod),
 <code>azurelinux-desktop-sound-kmod</code>,
 <code>azurelinux-desktop-bluetooth-kmod</code>,
@@ -123,6 +123,8 @@ Package names: <code>azurelinux-desktop-usbhid-kmod</code>,
 <code>azurelinux-desktop-thinkpad-kmod</code>,
 <code>azurelinux-desktop-typec-kmod</code>,
 <code>azurelinux-desktop-surface-kmod</code>,
+<code>azurelinux-desktop-sensors-kmod</code>,
+<code>azurelinux-desktop-performance-kmod</code>,
 <code>azurelinux-desktop-policy</code>.
 Each kmod RPM requires the matching <code>kernel-core-uname-r</code>.
 </p>
