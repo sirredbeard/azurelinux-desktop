@@ -28,8 +28,6 @@ CI refreshes those on successful builds via
 | File | Topic |
 | --- | --- |
 | [`plymouth-animation-duration.md`](plymouth-animation-duration.md) | Short splash on fast boots |
-| [`wifi-missing-on-bare-metal.md`](wifi-missing-on-bare-metal.md) | Wi-Fi OOT kmod; re-check after kernel bumps |
-| [`bluetooth-hci-timeout-thinkpad.md`](bluetooth-hci-timeout-thinkpad.md) | BT layout fix; QEMU verified |
 | [`usb-storage-missing-initrd.md`](usb-storage-missing-initrd.md) | USB storage OOT in initrd |
 | [`gnome-software-flatpak-empty.md`](gnome-software-flatpak-empty.md) | Software catalog empty until appstream |
 | [`gnome-software-catalog-preseed.md`](gnome-software-catalog-preseed.md) | Preseed AppStream so first open is not `…` tiles |
@@ -50,6 +48,8 @@ CI refreshes those on successful builds via
 
 | File | Topic |
 | --- | --- |
+| [`bluetooth-hci-timeout-thinkpad.md`](bluetooth-hci-timeout-thinkpad.md) | BT HCI fix; QEMU + bare-metal confirmed |
+| [`wifi-missing-on-bare-metal.md`](wifi-missing-on-bare-metal.md) | Wi-Fi OOT kmod; bare-metal confirmed |
 | [`out-of-tree-usb-kmods-pages.md`](out-of-tree-usb-kmods-pages.md) | OOT kmods on Pages; RPM GPG signing with shared key |
 | [`desktop-kmod-waves-1-5.md`](desktop-kmod-waves-1-5.md) | Sound, BT, UVC, thinkpad, typec waves |
 | [`azure-kernel-usbhid-kmod.md`](azure-kernel-usbhid-kmod.md) | Early usbhid kmod writeup |
@@ -95,6 +95,7 @@ CI refreshes those on successful builds via
 
 | File | Topic |
 | --- | --- |
+| [`bare-metal-inventory.md`](bare-metal-inventory.md) | First in-OS session: hardware, packages, repos, tools, journal noise |
 | [`dual-boot-nested-host-partition.md`](dual-boot-nested-host-partition.md) | Nested install on a container partition |
 | [`qemu-gnome-interactive-testing.md`](qemu-gnome-interactive-testing.md) | QEMU Wayland / SSH testing quirks |
 | [`hypervisor-mouse-ps2-boxes.md`](hypervisor-mouse-ps2-boxes.md) | Boxes/PS/2 defaults vs AZL missing psmouse |

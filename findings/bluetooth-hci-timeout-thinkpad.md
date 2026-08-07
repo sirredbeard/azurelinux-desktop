@@ -1,13 +1,12 @@
 # Bluetooth HCI failure on ThinkPad (OOT layout + recover)
 
-**Status:** Root cause fixed in tree and verified under QEMU USB
-passthrough (2026-08-03). Nested install now carries rebuilt OOT BT
-modules with matching `CONFIG_BT_LEDS`. Guest loaded firmware
-(`Firmware revision 0.0 build 14 week 44 2021`, same as Fedora host),
-BlueZ came up, and a real headset pair + audio path worked. Bare-metal
-confirm on the ThinkPad is the remaining check after the next metal
-boot. Published `azurelinux-desktop-bluetooth-kmod` must be rebuilt so
-live/disk/installer images pick up the same modules.
+**Status:** Fixed and confirmed on bare metal (2026-08-06). Root cause
+was fixed in tree and verified under QEMU USB passthrough (2026-08-03).
+The published `azurelinux-desktop-bluetooth-kmod` for
+`6.18.31-1.12.azl4` carries the layout fix and works on the ThinkPad on
+metal: firmware loads, BlueZ powers on, A2DP endpoints register, and a
+paired audio device streams. No Oops, no HCI tx timeout. See
+"Bare-metal confirm (2026-08-06)" below.
 
 ## Hardware
 
@@ -148,9 +147,36 @@ headphones worked end-to-end under passthrough.
 
 ### Bare metal
 
-Still required once: full power cycle or normal dual-boot into nested
-AZL, confirm Settings toggle + `bluetoothctl show` → `Powered: yes` and
-no Oops. Gather helper: `~/azl-bt-gather.sh` on the azurelinux home
+Confirmed on metal 2026-08-06, ThinkPad booted from the nested install,
+published kmod `azurelinux-desktop-bluetooth-kmod-6.18.31-1.12.azl4`:
+
+```
+Bluetooth: hci0: Firmware revision 0.0 build 14 week 44 2021
+Bluetooth: hci0: Reading supported features failed (-16)
+```
+
+Same firmware string as the good QEMU run. The `-16` line is the known
+benign noise on this Intel combined device. BlueZ D-Bus reads
+`org.bluez.Adapter1 Powered = true`, A2DP source/sink endpoints
+registered, and paired audio device `E4:58:BC:5C:EE:30` reached
+`fd ready` (audio streaming). Kernel not Oopsed; taint is only the
+expected OOT/unsigned bits (`12288`) from the project kmods.
+
+Boot noise still present but harmless: the CNVi USB device on `usb 1-4`
+takes several `error -71` enumeration retries in the first ~4 seconds,
+then settles and loads firmware at ~8.7s. The recover units did their
+job; `bluetoothd` was restarted once (pid changed) and came up clean.
+
+Quirk for agents: `bluetoothctl show` printed nothing in this session
+even while the adapter was powered and streaming. Use busctl as the
+authoritative check:
+
+```
+busctl call org.bluez /org/bluez/hci0 org.freedesktop.DBus.Properties \
+  Get ss org.bluez.Adapter1 Powered
+```
+
+Older note: gather helper `~/azl-bt-gather.sh` on the azurelinux home
 (also `scripts/azl-bt-gather.sh` in-repo). Marker file on nested home:
 `BT_LEDS_LAYOUT_FIX_INSTALLED.txt`.
 
@@ -178,10 +204,11 @@ no Oops. Gather helper: `~/azl-bt-gather.sh` on the azurelinux home
 
 ## Follow-ups
 
-1. Publish rebuilt `azurelinux-desktop-bluetooth-kmod` for
-   `6.18.31-1.9.azl4` (Pages kmod repo) so new live/disk/installer
-   builds do not reintroduce mismatched modules.
-2. Bare-metal confirm + optional gather tarball.
+1. ~~Publish rebuilt `azurelinux-desktop-bluetooth-kmod`~~ Done -
+   published `6.18.31-1.12.azl4` build carries the LEDS fix and is
+   metal-confirmed.
+2. ~~Bare-metal confirm~~ Done 2026-08-06 (see above). Optional gather
+   tarball skipped; the journal lines above are the evidence.
 3. Optional later: SELinux `firmware_load` capability if denials appear
    after HCI is healthy; Fedora 7.x BT source overlay only if a new
    Intel init regression shows up on other hardware.

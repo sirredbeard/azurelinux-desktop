@@ -1,6 +1,10 @@
 # WiFi missing on bare-metal Azure Linux Desktop install
 
-**Status:** addressed by iwlwifi OOT kmod; confirm on metal after kmod publish
+**Status:** Confirmed fixed on bare metal (2026-08-06). The published
+`azurelinux-desktop-iwlwifi-kmod` for `6.18.31-1.12.azl4` works on the
+ThinkPad: `wlp58s0` comes up and NetworkManager connects (`iwlwifi` +
+`iwlmvm` from `/lib/modules/*/extra/azurelinux-desktop/`). Earlier state:
+addressed by iwlwifi OOT kmod, needed metal re-check after kernel bumps.
 
 Observed 2026-08-02 on dual-boot nested install (`host container partition`) on a laptop
 with Intel Wireless-AC 8260. Desktop booted; Settings showed no WiFi device.
