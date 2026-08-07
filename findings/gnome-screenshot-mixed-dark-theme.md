@@ -1,7 +1,10 @@
 # Screenshot app mixed light/dark chrome
 
-**Status:** Diagnosed and fixed on metal 2026-08-06. Product ships
-`gnome-themes-extra` so `gtk-theme='Adwaita-dark'` resolves.
+**Status:** Fixed and shipped (`3e7f93e`). Live, installer, and canary
+list `gnome-themes-extra`. Metal: Screenshot consistent dark after
+install; Text Editor, Characters, Calculator, Software, Nautilus dark;
+Evolution may flash mixed chrome for a moment then go fully dark
+(GTK3 + WebKit startup — not missing theme files).
 
 ## Symptom
 
@@ -47,6 +50,12 @@ creates those dirs while dconf already had `Adwaita-dark` + `prefer-dark`.
 
 Keep both dconf keys: `prefer-dark` for modern apps, `Adwaita-dark` for
 remaining GTK3 (Screenshot, some indicators).
+
+## Evolution brief flash
+
+Evolution is GTK3 + WebKitGTK. With `gnome-themes-extra` installed it
+settles on dark; a short mixed frame at launch is WebKit/UI init, not
+the missing-theme bug. No extra package required beyond themes-extra.
 
 ## Not the same bug as emoji tofu
 
