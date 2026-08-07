@@ -148,12 +148,24 @@ INSTALL_PKGS=(
     google-noto-color-emoji-fonts
     default-fonts-core-emoji
 
+    # Full multimedia + GPU stack (parity with live). See
+    # findings/h264-intel-media-stack.md.
     gstreamer1-plugins-good
     gstreamer1-plugins-bad-free
     gstreamer1-plugins-ugly-free
+    gstreamer1-plugins-ugly
+    gstreamer1-plugins-bad-freeworld
     gstreamer1-plugin-openh264
     gstreamer1-plugin-libav
+    gstreamer1-vaapi
     ffmpeg
+    mesa-dri-drivers
+    mesa-vulkan-drivers
+    mesa-va-drivers
+    vulkan-loader
+    libvdpau
+    # VDPAU→VA-API bridge for Intel (no native VDPAU / no mesa-vdpau on 25.3).
+    libvdpau-va-gl
 
     microsoft-edge-canary
     powershell
@@ -586,15 +598,40 @@ if [ -f /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.r
 fi
 
 # Full RPM OpenPGP key set for gpgcheck=1 on Fedora / MS / GitHub /
-# RPM Fusion / project kmods (see assets/pki/rpm-gpg/).
+# RPM Fusion / project kmods (see assets/pki/rpm-gpg/). Preserve relative
+# symlinks (AZL releasever/basearch names). Fail if a required key is absent.
 install -d -m 0755 /etc/pki/rpm-gpg
 if [ -d /opt/azl-desktop-assets/pki/rpm-gpg ]; then
-    for key in /opt/azl-desktop-assets/pki/rpm-gpg/RPM-GPG-KEY-*; do
-        [ -f "$key" ] || continue
-        install -m 0644 "$key" "/etc/pki/rpm-gpg/$(basename "$key")"
-        rpm --import "/etc/pki/rpm-gpg/$(basename "$key")" 2>/dev/null || true
+    for path in /opt/azl-desktop-assets/pki/rpm-gpg/*; do
+        [ -e "$path" ] || continue
+        base="$(basename "$path")"
+        case "$base" in
+            *.md|README*) continue ;;
+        esac
+        if [ -L "$path" ]; then
+            ln -sfn "$(readlink "$path")" "/etc/pki/rpm-gpg/$base"
+        elif [ -f "$path" ]; then
+            install -m 0644 "$path" "/etc/pki/rpm-gpg/$base"
+        fi
     done
 fi
+for key in \
+    RPM-GPG-KEY-azurelinux-4.0-primary \
+    RPM-GPG-KEY-azurelinux-desktop \
+    RPM-GPG-KEY-fedora-43-primary \
+    RPM-GPG-KEY-microsoft \
+    RPM-GPG-KEY-githubcli \
+    RPM-GPG-KEY-shiftkey-desktop \
+    RPM-GPG-KEY-rpmfusion-free-fedora-2020 \
+    RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
+do
+    if [ ! -e "/etc/pki/rpm-gpg/$key" ]; then
+        echo "error: required RPM GPG key missing on installer image: $key" >&2
+        ls -la /etc/pki/rpm-gpg >&2 || true
+        exit 1
+    fi
+    rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
+done
 if [ -f /opt/azl-desktop-assets/gpg/signing-key.asc ]; then
     install -d -m 0755 /usr/share/azurelinux-desktop/gpg
     install -m 0644 \

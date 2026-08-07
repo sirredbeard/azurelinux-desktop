@@ -90,6 +90,23 @@ PKGS=(
     # Color emoji fonts (Edge/Chromium GitHub UI, etc.).
     google-noto-color-emoji-fonts
     default-fonts-core-emoji
+    # Full Intel VA-API + H.264/mp3 multimedia stack (parity with live/installer).
+    # intel-media-driver = RPM Fusion nonfree (not Fedora free-only).
+    libva
+    intel-media-driver
+    intel-mediasdk
+    ffmpeg
+    gstreamer1-plugin-libav
+    gstreamer1-plugin-openh264
+    gstreamer1-plugins-ugly
+    gstreamer1-plugins-bad-freeworld
+    gstreamer1-vaapi
+    mesa-dri-drivers
+    mesa-vulkan-drivers
+    mesa-va-drivers
+    vulkan-loader
+    libvdpau
+    libvdpau-va-gl
 )
 
 WORKDIR="${AZL_CONTAINER_WORKDIR:-$HOME/azl-work/build-canary-container}"
@@ -338,6 +355,21 @@ EOF
         # CLI binary itself (nothing in the package list pulls it in).
         rpm --root=/mnt/azl -qa --qf "%{name} %{arch} (from repo priority test)\n" \
             azurelinux-release glib2 gtk4 2>/dev/null
+        # Package ghosts expect 0644; restore world-read for non-root
+        # rpm -q inside the canary (same as live/installer %post).
+        if [ -d /mnt/azl/usr/lib/sysimage/rpm ]; then
+            chmod 0755 /mnt/azl/usr/lib/sysimage/rpm 2>/dev/null || true
+            chmod a+r /mnt/azl/usr/lib/sysimage/rpm/rpmdb.sqlite \
+                /mnt/azl/usr/lib/sysimage/rpm/rpmdb.sqlite-shm \
+                /mnt/azl/usr/lib/sysimage/rpm/rpmdb.sqlite-wal 2>/dev/null || true
+        fi
+        # Fail closed if free-only Intel media driver snuck in.
+        if rpm --root=/mnt/azl -q libva-intel-media-driver >/dev/null 2>&1; then
+            echo "error: libva-intel-media-driver (Fedora free) must not be installed" >&2
+            exit 1
+        fi
+        rpm --root=/mnt/azl -q intel-media-driver ffmpeg libva \
+            gstreamer1-vaapi gstreamer1-plugins-ugly mesa-vulkan-drivers
         # Strip dnf/rpm caches and docs the same way container-base
         # style images do - this is a proof-of-repo-priority image, not
         # a working package-management environment.

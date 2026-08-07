@@ -39,19 +39,35 @@ Also present and useful:
 
 ## Product change
 
-Replace package name in live `%packages` and installer `TARGET_PKGS`:
+Replace package name on **all** desktop deliverables:
 
 * remove: `libva-intel-media-driver` (Fedora free)
 * add: `intel-media-driver` (rpmfusion-nonfree)
 
-Keep `libva` + `intel-mediasdk`.
+| Path | File |
+| --- | --- |
+| Live ISO / VMs | `kickstart/azurelinux-desktop-live.ks` |
+| Installer target | `kiwi/config.sh` TARGET_PKGS → `azl-install.ks.in` |
+| Canary | `scripts/build-canary-container.sh` + `test-canary-container.sh` |
+
+Keep `libva` + `intel-mediasdk`. H.264 software path (`ffmpeg`,
+gstreamer libav/openh264) stays listed on live/installer and canary.
+Policy summary: `h264-intel-media-stack.md`.
 
 ## Optional gaps (not blocking metal)
 
-* `gstreamer1-vaapi` not installed — helps Totem/GTK pipelines; Edge/Chromium often talk VA-API more directly.
-* Diagnostic tools (`libva-utils`, `vulkan-tools`, `mesa-demos`) not on the image by default; install when debugging.
-* Desktop user is in `wheel` only; logind ACLs + world-writable `renderD128` are enough for GPU access here.
-* Metal host was missing some `/etc/pki/rpm-gpg/*` keys until copied from `assets/pki/rpm-gpg` (older install or incomplete key stage). Current live/installer `%post` is supposed to install and `rpm --import` them.
+* Diagnostic tools (`libva-utils`, `vulkan-tools`, `mesa-demos`) not on
+  the image by default; install when debugging.
+* Desktop user is in `wheel` only; logind ACLs + world-writable
+  `renderD128` are enough for GPU access here.
+* Metal host missed third-party `/etc/pki/rpm-gpg/*` keys: installer
+  chroot looked for `/opt/azl-desktop-assets` on the **target** (keys
+  only on the ISO). Fixed in nochroot copy + fail-closed checks — see
+  `rpm-gpg-keys-on-target.md`.
+
+**Now product-default (was optional):** `gstreamer1-vaapi`, Mesa
+DRI/Vulkan/VA, `libvdpau-va-gl`, RPM Fusion ugly/freeworld — see
+`h264-intel-media-stack.md`.
 
 ## Bottom line for this device
 

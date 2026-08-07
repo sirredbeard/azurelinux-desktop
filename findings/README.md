@@ -79,6 +79,8 @@ CI refreshes those on successful builds via
 | [`missing-color-emoji-fonts.md`](missing-color-emoji-fonts.md) | Noto Color Emoji missing; GitHub reactions tofu in Edge |
 | [`rpmdb-permissions.md`](rpmdb-permissions.md) | rpmdb root-owned is correct; mode should be 0644 not 0600 |
 | [`intel-hw-video-accel.md`](intel-hw-video-accel.md) | T470s HD 520: Mesa/Vulkan OK; need RPM Fusion intel-media-driver |
+| [`h264-intel-media-stack.md`](h264-intel-media-stack.md) | Full Mesa/Vulkan/iHD/gst-vaapi/mp3/H.264 on live, installer, canary |
+| [`rpm-gpg-keys-on-target.md`](rpm-gpg-keys-on-target.md) | Installer missed copying vendor RPM GPG keys onto target root |
 
 ## Build, packages, parity
 

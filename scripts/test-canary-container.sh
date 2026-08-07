@@ -107,7 +107,42 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
         gnome-backgrounds gnome-terminal \
         microsoft-edge-canary code-insiders gh github-desktop \
         powershell azure-cli plymouth git github \
-        google-noto-color-emoji-fonts default-fonts-core-emoji
+        google-noto-color-emoji-fonts default-fonts-core-emoji \
+        libva intel-media-driver intel-mediasdk ffmpeg \
+        gstreamer1-plugin-libav gstreamer1-plugin-openh264 \
+        gstreamer1-plugins-ugly gstreamer1-plugins-bad-freeworld \
+        gstreamer1-vaapi mesa-dri-drivers mesa-vulkan-drivers \
+        mesa-va-drivers vulkan-loader libvdpau libvdpau-va-gl
+    echo
+    echo '=== Intel media / H.264 stack (must be nonfree iHD, not free-only) ==='
+    if rpm -q libva-intel-media-driver >/dev/null 2>&1; then
+        echo "error: libva-intel-media-driver (Fedora free) must not be installed" >&2
+        exit 1
+    fi
+    rpm -q --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH} %{VENDOR}\n' intel-media-driver
+    test -e /usr/lib64/dri/iHD_drv_video.so
+    test -d /usr/lib64/gstreamer-1.0
+    # rpmdb should be world-readable for non-root queries
+    if [[ -f /usr/lib/sysimage/rpm/rpmdb.sqlite ]]; then
+        stat -c '%a' /usr/lib/sysimage/rpm/rpmdb.sqlite | grep -E '^[4567][4567][4567]$' >/dev/null \
+            || { echo "error: rpmdb.sqlite not world-readable" >&2; exit 1; }
+    fi
+    echo
+    echo '=== RPM GPG keys for gpgcheck=1 repos ==='
+    for key in \
+        RPM-GPG-KEY-fedora-43-primary \
+        RPM-GPG-KEY-microsoft \
+        RPM-GPG-KEY-githubcli \
+        RPM-GPG-KEY-shiftkey-desktop \
+        RPM-GPG-KEY-rpmfusion-free-fedora-2020 \
+        RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020 \
+        RPM-GPG-KEY-azurelinux-desktop
+    do
+        test -e "/etc/pki/rpm-gpg/$key" || {
+            echo "error: missing $key" >&2
+            exit 1
+        }
+    done
     echo
     echo '=== GitHub Copilot GUI system-git override ==='
     test -f /etc/environment.d/50-azurelinux-desktop-github-copilot.conf

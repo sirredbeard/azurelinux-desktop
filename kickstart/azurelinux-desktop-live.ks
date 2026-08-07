@@ -302,16 +302,29 @@ google-noto-fonts-common
 google-noto-color-emoji-fonts
 default-fonts-core-emoji
 
-# Real codec support - Fedora's own gstreamer packages are the "-free"
-# builds only (no patented mp3/h264/aac decode). RPMFusion's ffmpeg and
-# gstreamer1-plugin-libav fill that in; gstreamer1-plugin-openh264 is Cisco's own
-# royalty-free build and ships from Fedora directly, no RPMFusion needed.
+# Real codec + GPU multimedia stack.
+# Fedora "-free" gstreamer lacks patented mp3/h264/aac. Add RPM Fusion
+# freeworld/ugly + ffmpeg/libav, Cisco openh264, and VA-API plugins so
+# Totem/GTK and browsers get HW decode on Intel iGPU when available.
+# Mesa DRI/Vulkan/VA explicitly listed so Intel/AMD desktops are not
+# relying on weak-dep luck. See findings/h264-intel-media-stack.md.
 gstreamer1-plugins-good
 gstreamer1-plugins-bad-free
 gstreamer1-plugins-ugly-free
+gstreamer1-plugins-ugly
+gstreamer1-plugins-bad-freeworld
 gstreamer1-plugin-openh264
 gstreamer1-plugin-libav
+gstreamer1-vaapi
 ffmpeg
+mesa-dri-drivers
+mesa-vulkan-drivers
+mesa-va-drivers
+vulkan-loader
+libvdpau
+# VDPAU→VA-API bridge (Intel has no native VDPAU; mesa-vdpau-drivers not
+# shipped for current Mesa 25.3.x on this stack).
+libvdpau-va-gl
 
 # Deliberately NOT installed, on request: libreoffice, gnome-maps,
 # gnome-tour, gnome-user-docs/yelp (help), simple-scan (document scanner),
@@ -563,9 +576,12 @@ for key in \
     RPM-GPG-KEY-rpmfusion-free-fedora-2020 \
     RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
 do
-    if [ -e "/etc/pki/rpm-gpg/$key" ]; then
-        rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
+    if [ ! -e "/etc/pki/rpm-gpg/$key" ]; then
+        echo "error: required RPM GPG key missing after asset stage: $key" >&2
+        ls -la /etc/pki/rpm-gpg >&2 || true
+        exit 1
     fi
+    rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
 done
 
 cat > /etc/yum.repos.d/azl-desktop-fedora.repo << EOF

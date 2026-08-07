@@ -122,6 +122,25 @@ if [ -d "$ASSETS" ]; then
         install -m 0644 "$ASSETS/systemd/selinux-autorelabel.service.d/10-azurelinux-desktop.conf" \
             /mnt/sysroot/usr/lib/systemd/system/selinux-autorelabel.service.d/10-azurelinux-desktop.conf
     fi
+    # RPM OpenPGP keys must land on the *installed* root. Chroot %post used
+    # to look for /opt/azl-desktop-assets on the target (it is only on the
+    # installer ISO), so metal installs missed Fedora/MS/GitHub/RPM Fusion
+    # keys and dnf gpgcheck=1 failed. See findings/rpm-gpg-keys-on-target.md.
+    if [ -d "$ASSETS/pki/rpm-gpg" ]; then
+        install -d -m 0755 /mnt/sysroot/etc/pki/rpm-gpg
+        for path in "$ASSETS/pki/rpm-gpg"/*; do
+            [ -e "$path" ] || continue
+            base="$(basename "$path")"
+            case "$base" in
+                *.md|README*) continue ;;
+            esac
+            if [ -L "$path" ]; then
+                ln -sfn "$(readlink "$path")" "/mnt/sysroot/etc/pki/rpm-gpg/$base"
+            elif [ -f "$path" ]; then
+                install -m 0644 "$path" "/mnt/sysroot/etc/pki/rpm-gpg/$base"
+            fi
+        done
+    fi
 else
     echo "WARNING: $ASSETS not found in install environment - branding/launcher assets skipped" >&2
 fi
@@ -175,12 +194,10 @@ FEDORA_EXCLUDES=$(rpm -qa --qf '%{NAME}\t%{VENDOR}\n' \
     echo "Unable to determine Azure Linux package boundary" >&2
     exit 1
 }
-# Stage RPM OpenPGP keys before gpgcheck=1 repos. Assets were copied into
-# the target by the --nochroot block (/opt/azl-desktop-assets).
+# RPM OpenPGP keys: staged onto this root by --nochroot from installer
+# ISO assets (not from /opt/azl-desktop-assets on the target - that path
+# does not exist after install). Fail closed if any required key is missing.
 install -d -m 0755 /etc/pki/rpm-gpg
-if [ -d /opt/azl-desktop-assets/pki/rpm-gpg ]; then
-    cp -a /opt/azl-desktop-assets/pki/rpm-gpg/. /etc/pki/rpm-gpg/
-fi
 for key in \
     RPM-GPG-KEY-azurelinux-4.0-primary \
     RPM-GPG-KEY-azurelinux-desktop \
@@ -191,9 +208,13 @@ for key in \
     RPM-GPG-KEY-rpmfusion-free-fedora-2020 \
     RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020
 do
-    if [ -e "/etc/pki/rpm-gpg/$key" ]; then
-        rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
+    if [ ! -e "/etc/pki/rpm-gpg/$key" ]; then
+        echo "error: required RPM GPG key missing on target: $key" >&2
+        echo "error: nochroot must copy assets/pki/rpm-gpg into /etc/pki/rpm-gpg" >&2
+        ls -la /etc/pki/rpm-gpg >&2 || true
+        exit 1
     fi
+    rpm --import "/etc/pki/rpm-gpg/$key" 2>/dev/null || true
 done
 
 cat > /etc/yum.repos.d/azl-desktop-fedora.repo << EOF

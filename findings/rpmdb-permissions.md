@@ -49,18 +49,46 @@ So **do not change ownership** to the desktop user. Do **not** treat
 root ownership as a bug. Optionally restore world-read if something
 tightens mode to `0600` (image build umask / sqlite recreate).
 
-## Product action
+## Product action (all three deliverables)
 
-Live and installer `%post` (near passwordless sudo drop-in):
+Same fix everywhere package installs finish — **not** installer-only:
+
+| Artifact | Where |
+| --- | --- |
+| Live ISO / live disk / VMs from live | `kickstart/azurelinux-desktop-live.ks` chroot `%post` (near sudoers drop-in) |
+| Installer ISO → installed OS | `kiwi/azl-install.ks.in` `%post` (same block) |
+| Canary OCI | `scripts/build-canary-container.sh` after dnf into installroot; test checks mode |
 
 ```sh
-chmod a+r /usr/lib/sysimage/rpm/rpmdb.sqlite* 2>/dev/null || true
+chmod a+r /usr/lib/sysimage/rpm/rpmdb.sqlite \
+  /usr/lib/sysimage/rpm/rpmdb.sqlite-shm \
+  /usr/lib/sysimage/rpm/rpmdb.sqlite-wal 2>/dev/null || true
 ```
 
-No installer-only special case beyond that. Canary rootfs queries use
-`rpm --root=` from the host and do not depend on in-image world-read.
+### Does installer need it?
+
+**Yes.** Metal host was an installed image with `0600`; that is the
+installer (or older live→disk) path. Restoring world-read on the
+**installed target** is required so the desktop user can `rpm -q`
+without sudo.
+
+### Does it apply back to live ISO?
+
+**Yes.** Live session users and agents hit the same sqlite DB under the
+live root. Live `%post` runs the same `chmod` so the squash/erofs root
+ships `0644`. VMs built from live inherit it.
+
+### Should canary get it?
+
+**Yes, for testing parity.** Canary tests run `rpm -q` inside the
+image. Host-side `rpm --root=` as root would work either way, but
+in-image non-root query and mode asserts catch regressions. Canary
+build chmods the installroot DB; `test-canary-container.sh` fails if
+`rpmdb.sqlite` is not world-readable.
+
+Owner stays **root**. Never chown the DB to the desktop user.
 
 ## Agent guidance
 
 Prefer `sudo rpm -qa` when mode is unknown. After a normal image with
-the `%post` fix, plain `rpm -q` as the desktop user should work.
+the post-install fix, plain `rpm -q` as the desktop user should work.
