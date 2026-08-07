@@ -74,6 +74,8 @@ CI refreshes those on successful builds via
 | [`gpg-key-rotation.md`](gpg-key-rotation.md) | Shared Flatpak+RPM OpenPGP key; `GPG_*` secrets; Pages resign order |
 | [`rpm-gpgcheck-vendor-keys.md`](rpm-gpgcheck-vendor-keys.md) | Stop `gpgcheck=0` on Fedora/MS/GitHub; vendored keys |
 | [`copilot-desktop-gtk-webkit-performance.md`](copilot-desktop-gtk-webkit-performance.md) | Copilot Flatpak WebKit RAM, KMSI inject, low-memory profile |
+| [`github-copilot-bundled-git-libcurl.md`](github-copilot-bundled-git-libcurl.md) | GitHub Copilot GUI: force system git (LOCAL_GIT_DIRECTORY); metal clone OK |
+| [`passwordless-sudo-wheel.md`](passwordless-sudo-wheel.md) | Wheel NOPASSWD on live and installed images |
 
 ## Build, packages, parity
 

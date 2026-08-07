@@ -77,6 +77,7 @@ if [ -d "$ASSETS" ]; then
     install -m 0644 "$ASSETS/desktop/edit.desktop" /mnt/sysroot/usr/share/applications/edit.desktop
     install -m 0755 "$ASSETS/bin/azl-powershell-terminal" /mnt/sysroot/usr/local/bin/azl-powershell-terminal
     install -m 0755 "$ASSETS/bin/azl-dotnet-terminal" /mnt/sysroot/usr/local/bin/azl-dotnet-terminal
+    install -m 0755 "$ASSETS/bin/azl-github-copilot" /mnt/sysroot/usr/local/bin/azl-github-copilot
     install -m 0644 "$ASSETS/desktop/org.azurelinux.PowerShell.desktop" /mnt/sysroot/usr/share/applications/org.azurelinux.PowerShell.desktop
     install -m 0644 "$ASSETS/dbus/org.azurelinux.PowerShell.service" /mnt/sysroot/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
     install -m 0644 "$ASSETS/desktop/dotnet.desktop" /mnt/sysroot/usr/share/applications/dotnet.desktop
@@ -132,6 +133,8 @@ install -m 0644 "$EXTRAS"/copilot-linux-x64.tar.gz /mnt/sysroot/root/thirdparty/
 install -m 0644 "$EXTRAS"/edit.tar.gz /mnt/sysroot/root/thirdparty/edit.tar.gz
 install -m 0644 "$EXTRAS"/dotnet-sdk-linux-x64.tar.gz /mnt/sysroot/root/thirdparty/dotnet-sdk-linux-x64.tar.gz
 install -m 0755 "$EXTRAS"/install-dotnet-sdk-tarball.sh /mnt/sysroot/root/thirdparty/install-dotnet-sdk-tarball.sh
+install -m 0755 "$EXTRAS"/configure-github-copilot-system-git.sh \
+    /mnt/sysroot/root/thirdparty/configure-github-copilot-system-git.sh
 if [ -s "$EXTRAS"/flathub.flatpakrepo ]; then
     install -m 0644 "$EXTRAS"/flathub.flatpakrepo /mnt/sysroot/root/thirdparty/flathub.flatpakrepo
 fi
@@ -319,6 +322,12 @@ cat > /etc/gdm/custom.conf << 'EOF'
 InitialSetupEnable=False
 EOF
 
+# Passwordless sudo for wheel, same as the live ISO
+# (kickstart/azurelinux-desktop-live.ks). Anaconda's TUI already puts
+# the install-time admin user in wheel (anaconda-launcher.sh).
+echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/90-wheel-nopasswd
+chmod 0440 /etc/sudoers.d/90-wheel-nopasswd
+
 if [ -x /usr/sbin/plymouth-set-default-theme ]; then
     plymouth-set-default-theme azurelinux || true
 fi
@@ -425,6 +434,11 @@ test -s /root/thirdparty/github-copilot.rpm
 test -s /root/thirdparty/copilot-linux-x64.tar.gz
 test -s /root/thirdparty/edit.tar.gz
 rpm -i /root/thirdparty/github-copilot.rpm
+# Prefer distro git over bundled dugite git (libcurl-gnutls). See
+# findings/github-copilot-bundled-git-libcurl.md.
+test -x /usr/bin/git
+test -x /root/thirdparty/configure-github-copilot-system-git.sh
+/root/thirdparty/configure-github-copilot-system-git.sh /
 tar -xzf /root/thirdparty/copilot-linux-x64.tar.gz -C /usr/local/bin copilot
 chmod 0755 /usr/local/bin/copilot
 test -x /usr/local/bin/copilot

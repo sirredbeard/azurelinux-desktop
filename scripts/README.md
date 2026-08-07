@@ -21,6 +21,7 @@ Work large downloads under `~/azl-work`, not `/tmp`.
 | [`install-copilot-desktop-flatpak.sh`](install-copilot-desktop-flatpak.sh) | Yes (image/canary) | System-install Microsoft Copilot GTK Flatpak + Platform//50 into a rootfs; register GPG-signed Pages remote; assert `gpg-verify=true`. |
 | [`prestage-copilot-flatpak-system.sh`](prestage-copilot-flatpak-system.sh) | Yes (live/disk/installer) | Build a copy-ready `/var/lib/flatpak` tree before livemedia/kiwi (avoids Anaconda post hang). |
 | [`install-dotnet-sdk-tarball.sh`](install-dotnet-sdk-tarball.sh) | Yes (image/canary) | Install a .NET SDK tarball into a rootfs. |
+| [`configure-github-copilot-system-git.sh`](configure-github-copilot-system-git.sh) | Yes (image/canary) | After `github` RPM install, force system git via `LOCAL_GIT_DIRECTORY=/usr` (bundled dugite needs libcurl-gnutls). |
 | [`log-latest-vendor-packages.sh`](log-latest-vendor-packages.sh) | Yes | Snapshot Microsoft/GitHub yum NEVRAs and .NET 11 version into CI logs. |
 | [`ci-commit-package-list.sh`](ci-commit-package-list.sh) | Yes (`build-*.yml`) | Commit refreshed `findings/*-package-list.txt`. |
 | [`build-canary-container.sh`](build-canary-container.sh) | Yes (`release.yml`) | Build package-policy canary OCI image. |

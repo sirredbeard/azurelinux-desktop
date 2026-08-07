@@ -217,6 +217,10 @@ INSTALL_PKGS=(
 
     libayatana-appindicator-gtk3
 
+    # System git for GitHub Copilot GUI (LOCAL_GIT_DIRECTORY=/usr). Bundled
+    # dugite git needs libcurl-gnutls, which AZL/Fedora do not ship.
+    git
+
     # Fedora's live-media Anaconda stack requires fedora-logos on the
     # supported package baseline. The live ISO already resolves that
     # dependency, so the installer deliberately follows it rather than
@@ -653,8 +657,10 @@ test -s "$EXTRAS/github-copilot.rpm"
 test -s "$EXTRAS/copilot-linux-x64.tar.gz"
 test -s "$EXTRAS/edit.tar.gz"
 test -s "$EXTRAS/dotnet-sdk-linux-x64.tar.gz"
-# Install helper for the target system %%post (azl-install.ks.in).
-for cand in     /opt/azl-desktop-assets/build-helpers/install-dotnet-sdk-tarball.sh     /workspace/scripts/install-dotnet-sdk-tarball.sh
+# Install helpers for the target system %%post (azl-install.ks.in).
+for cand in \
+    /opt/azl-desktop-assets/build-helpers/install-dotnet-sdk-tarball.sh \
+    /workspace/scripts/install-dotnet-sdk-tarball.sh
 do
     if [ -x "$cand" ]; then
         install -m 0755 "$cand" "$EXTRAS/install-dotnet-sdk-tarball.sh"
@@ -662,6 +668,16 @@ do
     fi
 done
 test -x "$EXTRAS/install-dotnet-sdk-tarball.sh"
+for cand in \
+    /opt/azl-desktop-assets/build-helpers/configure-github-copilot-system-git.sh \
+    /workspace/scripts/configure-github-copilot-system-git.sh
+do
+    if [ -x "$cand" ]; then
+        install -m 0755 "$cand" "$EXTRAS/configure-github-copilot-system-git.sh"
+        break
+    fi
+done
+test -x "$EXTRAS/configure-github-copilot-system-git.sh"
 
 #----------------------------------------------------------------------
 # Microsoft Copilot GTK Flatpak (system install + Pages update remote).

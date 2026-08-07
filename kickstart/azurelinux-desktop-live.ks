@@ -399,6 +399,11 @@ plymouth-plugin-label
 # actually succeed instead of failing quietly.
 libayatana-appindicator-gtk3
 
+# git: GitHub Copilot GUI embeds a Debian-linked dugite git that needs
+# libcurl-gnutls.so.4 (not on Fedora/Azure Linux). We force system git via
+# LOCAL_GIT_DIRECTORY=/usr after rpm -i (see configure script + findings).
+git
+
 %end
 
 # Regular (chrooted) %post has NO network access in livemedia-creator
@@ -430,6 +435,7 @@ install -m 0644 /workspace/assets/icons/dotnet.svg /mnt/sysimage/usr/share/pixma
 install -m 0644 /workspace/assets/desktop/edit.desktop /mnt/sysimage/usr/share/applications/edit.desktop
 install -m 0755 /workspace/assets/bin/azl-powershell-terminal /mnt/sysimage/usr/local/bin/azl-powershell-terminal
 install -m 0755 /workspace/assets/bin/azl-dotnet-terminal /mnt/sysimage/usr/local/bin/azl-dotnet-terminal
+install -m 0755 /workspace/assets/bin/azl-github-copilot /mnt/sysimage/usr/local/bin/azl-github-copilot
 install -m 0644 /workspace/assets/desktop/org.azurelinux.PowerShell.desktop /mnt/sysimage/usr/share/applications/org.azurelinux.PowerShell.desktop
 install -m 0644 /workspace/assets/dbus/org.azurelinux.PowerShell.service /mnt/sysimage/usr/share/dbus-1/services/org.azurelinux.PowerShell.service
 install -m 0644 /workspace/assets/desktop/dotnet.desktop /mnt/sysimage/usr/share/applications/dotnet.desktop
@@ -488,6 +494,8 @@ if [ ! -x /workspace/scripts/fetch-latest-thirdparty.sh ]; then
 fi
 /workspace/scripts/fetch-latest-thirdparty.sh /mnt/sysimage/root/thirdparty
 install -m 0755 /workspace/scripts/install-dotnet-sdk-tarball.sh /mnt/sysimage/root/thirdparty/install-dotnet-sdk-tarball.sh
+install -m 0755 /workspace/scripts/configure-github-copilot-system-git.sh \
+    /mnt/sysimage/root/thirdparty/configure-github-copilot-system-git.sh
 
 # Microsoft Copilot GTK Flatpak (updatable Pages remote). Do *not* run
 # flatpak install against /mnt/sysimage here - OSTree pulls inside Anaconda
@@ -863,6 +871,11 @@ test -s /root/thirdparty/github-copilot.rpm
 test -s /root/thirdparty/copilot-linux-x64.tar.gz
 test -s /root/thirdparty/edit.tar.gz
 rpm -i /root/thirdparty/github-copilot.rpm
+# Prefer distro git over bundled dugite git (libcurl-gnutls). See
+# findings/github-copilot-bundled-git-libcurl.md.
+test -x /usr/bin/git
+test -x /root/thirdparty/configure-github-copilot-system-git.sh
+/root/thirdparty/configure-github-copilot-system-git.sh /
 tar -xzf /root/thirdparty/copilot-linux-x64.tar.gz -C /usr/local/bin copilot
 chmod 0755 /usr/local/bin/copilot
 test -x /usr/local/bin/copilot

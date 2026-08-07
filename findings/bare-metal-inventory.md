@@ -89,11 +89,11 @@ installed: Blue Recorder, GNOME Platform 50, Mesa, Intel VAAPI, codecs.
 
 ## Access notes for future agent sessions
 
-* `sudo` needs a password; do not write it anywhere. For read-only
-  system queries from the desktop session, `pkexec` works without a
-  password (polkit active session). That is how the rpm db was read:
-  `pkexec rpm -qa` - the db at `/usr/lib/sysimage/rpm` is root-only.
+* Passwordless wheel sudo is the product default (live + installed).
+  This host has `/etc/sudoers.d/90-wheel-nopasswd`. Do not put the
+  account password in git. `pkexec` also works for polkit-active
+  session reads of root-only paths (`/usr/lib/sysimage/rpm`).
 * Default shell is `pwsh`. Wrap POSIX one-liners in `bash -c '...'`
   when scripting over SSH or in scripts.
 * Full package snapshot from this boot: keep per-boot copies out of
-  git; regenerate with `pkexec rpm -qa | sort`.
+  git; regenerate with `sudo rpm -qa | sort`.

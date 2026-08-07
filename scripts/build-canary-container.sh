@@ -85,6 +85,8 @@ PKGS=(
     gh
     github-desktop
     libayatana-appindicator-gtk3
+    # System git for GitHub Copilot GUI (LOCAL_GIT_DIRECTORY=/usr).
+    git
 )
 
 WORKDIR="${AZL_CONTAINER_WORKDIR:-$HOME/azl-work/build-canary-container}"
@@ -254,6 +256,10 @@ podman run --rm \
             --refresh \
             --setopt=metadata_expire=0 \
             /work/thirdparty/github-copilot.rpm
+        # Prefer distro git over bundled dugite git (libcurl-gnutls).
+        test -x /mnt/azl/usr/bin/git
+        test -x /scripts/configure-github-copilot-system-git.sh
+        /scripts/configure-github-copilot-system-git.sh /mnt/azl
 
         install -Dm0755 /assets/bin/azl-powershell-terminal \
             /mnt/azl/usr/local/bin/azl-powershell-terminal

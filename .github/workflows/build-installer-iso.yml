@@ -94,6 +94,9 @@ jobs:
             "$GITHUB_WORKSPACE/scripts/install-dotnet-sdk-tarball.sh" \
             "$GITHUB_WORKSPACE/assets/build-helpers/install-dotnet-sdk-tarball.sh"
           install -D -m 0755 \
+            "$GITHUB_WORKSPACE/scripts/configure-github-copilot-system-git.sh" \
+            "$GITHUB_WORKSPACE/assets/build-helpers/configure-github-copilot-system-git.sh"
+          install -D -m 0755 \
             "$GITHUB_WORKSPACE/scripts/install-copilot-desktop-flatpak.sh" \
             "$GITHUB_WORKSPACE/assets/build-helpers/install-copilot-desktop-flatpak.sh"
           install -D -m 0755 \

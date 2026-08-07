@@ -1,0 +1,8 @@
+#!/bin/sh
+# Launch GitHub Copilot GUI with distro git.
+# Bundled github-copilot-git links libcurl-gnutls (Debian). Azure Linux and
+# Fedora only ship OpenSSL libcurl. LOCAL_GIT_DIRECTORY=/usr selects
+# /usr/bin/git instead. See findings/github-copilot-bundled-git-libcurl.md.
+set -eu
+export LOCAL_GIT_DIRECTORY=/usr
+exec /usr/bin/github "$@"

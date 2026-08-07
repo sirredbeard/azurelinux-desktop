@@ -106,7 +106,18 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
         azurelinux-release dnf5 flatpak glib2 gtk4 dconf \
         gnome-backgrounds gnome-terminal \
         microsoft-edge-canary code-insiders gh github-desktop \
-        powershell azure-cli plymouth
+        powershell azure-cli plymouth git github
+    echo
+    echo '=== GitHub Copilot GUI system-git override ==='
+    test -f /etc/environment.d/50-azurelinux-desktop-github-copilot.conf
+    grep -Fxq 'LOCAL_GIT_DIRECTORY=/usr' \
+        /etc/environment.d/50-azurelinux-desktop-github-copilot.conf
+    test -x /usr/local/bin/azl-github-copilot
+    grep -Fq 'LOCAL_GIT_DIRECTORY=/usr' /usr/local/bin/azl-github-copilot
+    if [[ -f '/usr/share/applications/GitHub Copilot.desktop' ]]; then
+        grep -Fq 'Exec=/usr/local/bin/azl-github-copilot' \
+            '/usr/share/applications/GitHub Copilot.desktop'
+    fi
     echo
     echo '=== .NET 11 (side-loaded tarball, not yum) ==='
     if [[ -x /usr/share/dotnet/dotnet ]]; then
