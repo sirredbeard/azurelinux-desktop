@@ -98,7 +98,7 @@ cockpit-storaged-365-1.fc43.noarch
 cockpit-system-365-1.fc43.noarch
 cockpit-ws-365-1.fc43.x86_64
 cockpit-ws-selinux-365-1.fc43.x86_64
-code-insiders-1.133.0-1786080273.el8.x86_64
+code-insiders-1.133.0-1786123622.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -443,8 +443,8 @@ kernel-core-6.18.31-1.12.azl4.x86_64
 kernel-modules-6.18.31-1.12.azl4.x86_64
 kernel-modules-core-6.18.31-1.12.azl4.x86_64
 kernel-modules-extra-6.18.31-1.12.azl4.x86_64
-kernel-tools-7.1.6-101.fc43.x86_64
-kernel-tools-libs-7.1.6-101.fc43.x86_64
+kernel-tools-7.1.7-100.fc43.x86_64
+kernel-tools-libs-7.1.7-100.fc43.x86_64
 keyutils-libs-1.6.3-6.fc43.x86_64
 kmod-34.2-3.azl4.x86_64
 kmod-libs-34.2-3.azl4.x86_64
@@ -794,7 +794,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-153.0.4203.0-1.x86_64
+microsoft-edge-canary-153.0.4205.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -888,7 +888,7 @@ perl-Digest-1.20-521.azl4.noarch
 perl-Digest-MD5-2.59-521.azl4.x86_64
 perl-DynaLoader-1.57-525.azl4.x86_64
 perl-Encode-3.21-521.azl4.x86_64
-perl-Errno-1.38-525.azl4.x86_64
+perl-Errno-1.38-524.fc43.x86_64
 perl-Error-0.17030-3.azl4.noarch
 perl-Exporter-5.79-521.azl4.noarch
 perl-Fcntl-1.20-525.azl4.x86_64
@@ -901,7 +901,7 @@ perl-FileHandle-2.05-525.azl4.noarch
 perl-Getopt-Long-2.58-521.azl4.noarch
 perl-Getopt-Std-1.14-525.azl4.noarch
 perl-Git-2.55.0-1.fc43.noarch
-perl-HTTP-Tiny-0.094-1.fc43.noarch
+perl-HTTP-Tiny-0.096-1.fc43.noarch
 perl-IO-1.55-525.azl4.x86_64
 perl-IO-Socket-IP-0.43-522.azl4.noarch
 perl-IO-Socket-SSL-2.095-3.azl4.noarch
@@ -932,10 +932,10 @@ perl-URI-5.34-3.azl4.noarch
 perl-base-2.27-525.azl4.noarch
 perl-constant-1.33-522.azl4.noarch
 perl-if-0.61.000-525.azl4.noarch
-perl-interpreter-5.42.2-525.azl4.x86_64
+perl-interpreter-5.42.3-524.fc43.x86_64
 perl-lib-0.65-525.azl4.x86_64
 perl-libnet-3.15-522.azl4.noarch
-perl-libs-5.42.2-525.azl4.x86_64
+perl-libs-5.42.3-524.fc43.x86_64
 perl-locale-1.13-525.azl4.noarch
 perl-mro-1.29-525.azl4.x86_64
 perl-overload-1.40-525.azl4.noarch
@@ -1020,7 +1020,7 @@ python3-linux-procfs-0.7.4-3.fc43.noarch
 python3-meh-0.52-9.azl4.noarch
 python3-nftables-1.1.3-7.azl4.noarch
 python3-pam-2.0.2-17.azl4.noarch
-python3-perf-7.1.6-101.fc43.x86_64
+python3-perf-7.1.7-100.fc43.x86_64
 python3-pid-3.0.4-5.azl4.noarch
 python3-ply-3.11-33.fc43.noarch
 python3-policycoreutils-3.9-8.azl4.noarch
@@ -1042,8 +1042,8 @@ python3-unbound-1.25.2-1.fc43.x86_64
 python3-urllib3+socks-2.7.0-2.fc43.noarch
 python3-urllib3-2.7.0-2.fc43.noarch
 python3-xkbregistry-0.3-9.azl4.x86_64
-python3.12-3.12.13-3.fc43.x86_64
-python3.12-libs-3.12.13-3.fc43.x86_64
+python3.12-3.12.13-6.fc43.x86_64
+python3.12-libs-3.12.13-6.fc43.x86_64
 qcom-wwan-firmware-20260221-2.azl4.noarch
 qemu-guest-agent-10.1.5-1.fc43.x86_64
 qrencode-libs-4.1.1-11.fc43.x86_64
@@ -1138,7 +1138,7 @@ tesseract-common-5.5.3-1.fc43.noarch
 tesseract-langpack-eng-4.1.0-11.fc43.noarch
 tesseract-libs-5.5.3-1.fc43.x86_64
 tesseract-tessdata-doc-4.1.0-11.fc43.noarch
-thermald-2.5.9-2.fc43.x86_64
+thermald-2.5.12-1.fc43.x86_64
 tinysparql-3.10.1-6.azl4.x86_64
 tiwilink-firmware-20260221-2.azl4.noarch
 totem-43.2-6.fc43.x86_64
