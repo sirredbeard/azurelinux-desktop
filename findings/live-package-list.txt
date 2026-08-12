@@ -240,7 +240,7 @@ giflib-5.2.2-10.azl4.x86_64
 git-2.55.0-1.fc43.x86_64
 git-core-2.55.0-1.fc43.x86_64
 git-core-doc-2.55.0-1.fc43.noarch
-github-1.1.6-1.x86_64
+github-1.1.7-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.86.0-1.fc43.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
@@ -794,7 +794,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-153.0.4211.0-1.x86_64
+microsoft-edge-canary-153.0.4213.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
