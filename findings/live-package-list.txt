@@ -98,7 +98,7 @@ cockpit-storaged-365-1.fc43.noarch
 cockpit-system-365-1.fc43.noarch
 cockpit-ws-365-1.fc43.x86_64
 cockpit-ws-selinux-365-1.fc43.x86_64
-code-insiders-1.134.0-1786490650.el8.x86_64
+code-insiders-1.134.0-1786717290.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -166,7 +166,7 @@ elfutils-default-yama-scope-0.195-1.fc43.noarch
 elfutils-libelf-0.195-1.fc43.x86_64
 elfutils-libs-0.195-1.fc43.x86_64
 emacs-filesystem-30.0-6.azl4.noarch
-enchant2-2.8.18-1.fc43.x86_64
+enchant2-2.8.19-2.fc43.x86_64
 epiphany-runtime-49.8.1-1.fc43.x86_64
 ethtool-7.1-1.fc43.x86_64
 evolution-3.58.3-1.fc43.x86_64
@@ -240,7 +240,7 @@ giflib-5.2.2-10.azl4.x86_64
 git-2.55.0-1.fc43.x86_64
 git-core-2.55.0-1.fc43.x86_64
 git-core-doc-2.55.0-1.fc43.noarch
-github-1.1.8-1.x86_64
+github-1.1.10-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.86.0-1.fc43.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
@@ -794,7 +794,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-153.0.4215.0-1.x86_64
+microsoft-edge-canary-153.0.4219.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -871,8 +871,8 @@ papers-nautilus-49.7-1.fc43.x86_64
 papers-previewer-49.7-1.fc43.x86_64
 papers-thumbnailer-49.7-1.fc43.x86_64
 parted-3.6-14.azl4.x86_64
-passim-0.1.11-1.fc43.x86_64
-passim-libs-0.1.11-1.fc43.x86_64
+passim-0.1.12-1.fc43.x86_64
+passim-libs-0.1.12-1.fc43.x86_64
 pciutils-3.15.0-1.fc43.x86_64
 pciutils-libs-3.15.0-1.fc43.x86_64
 pcre2-10.47-1.fc43.x86_64
@@ -973,7 +973,7 @@ poppler-25.07.0-5.fc43.x86_64
 poppler-data-0.4.11-11.azl4.noarch
 poppler-glib-25.07.0-5.fc43.x86_64
 popt-1.19-10.azl4.x86_64
-powershell-7.6.4-1.rh.x86_64
+powershell-7.6.5-1.rh.x86_64
 procps-ng-4.0.4-7.azl4.1.x86_64
 protobuf-3.19.6-20.azl4.x86_64
 protobuf-c-1.5.2-2.azl4.x86_64
