@@ -98,7 +98,7 @@ cockpit-storaged-365-1.fc43.noarch
 cockpit-system-365-1.fc43.noarch
 cockpit-ws-365-1.fc43.x86_64
 cockpit-ws-selinux-365-1.fc43.x86_64
-code-insiders-1.134.0-1786717290.el8.x86_64
+code-insiders-1.134.0-1786745559.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
