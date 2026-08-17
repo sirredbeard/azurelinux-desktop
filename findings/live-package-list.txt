@@ -177,7 +177,7 @@ evolution-ews-core-3.58.3-1.fc43.x86_64
 evolution-ews-langpacks-3.58.3-1.fc43.noarch
 evolution-langpacks-3.58.3-1.fc43.noarch
 exempi-2.6.4-9.azl4.x86_64
-exfatprogs-1.4.2-2.fc43.x86_64
+exfatprogs-1.4.3-1.fc43.x86_64
 exiv2-0.28.6-3.azl4.x86_64
 exiv2-libs-0.28.6-3.azl4.x86_64
 expat-2.8.1-2.azl4.x86_64
