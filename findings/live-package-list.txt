@@ -98,7 +98,7 @@ cockpit-storaged-366-1.fc43.noarch
 cockpit-system-366-1.fc43.noarch
 cockpit-ws-366-1.fc43.x86_64
 cockpit-ws-selinux-366-1.fc43.x86_64
-code-insiders-1.135.0-1787332769.el8.x86_64
+code-insiders-1.135.0-1787618530.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -443,8 +443,8 @@ kernel-core-6.18.31-1.16.azl4.x86_64
 kernel-modules-6.18.31-1.16.azl4.x86_64
 kernel-modules-core-6.18.31-1.16.azl4.x86_64
 kernel-modules-extra-6.18.31-1.16.azl4.x86_64
-kernel-tools-7.1.9-100.fc43.x86_64
-kernel-tools-libs-7.1.9-100.fc43.x86_64
+kernel-tools-7.1.10-100.fc43.x86_64
+kernel-tools-libs-7.1.10-100.fc43.x86_64
 keyutils-libs-1.6.3-6.fc43.x86_64
 kmod-34.2-3.azl4.x86_64
 kmod-libs-34.2-3.azl4.x86_64
@@ -794,7 +794,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-153.0.4232.0-1.x86_64
+microsoft-edge-canary-154.0.4237.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -928,7 +928,8 @@ perl-Text-ParseWords-3.31-521.azl4.noarch
 perl-Text-Tabs+Wrap-2024.001-521.azl4.noarch
 perl-Time-HiRes-1.9778-521.azl4.x86_64
 perl-Time-Local-1.350-521.azl4.noarch
-perl-URI-5.34-3.azl4.noarch
+perl-URI-5.36-1.fc43.noarch
+perl-Unicode-Normalize-1.32-521.azl4.x86_64
 perl-base-2.27-525.azl4.noarch
 perl-constant-1.33-522.azl4.noarch
 perl-if-0.61.000-525.azl4.noarch
@@ -1020,7 +1021,7 @@ python3-linux-procfs-0.7.4-3.fc43.noarch
 python3-meh-0.52-9.azl4.noarch
 python3-nftables-1.1.3-7.azl4.noarch
 python3-pam-2.0.2-17.azl4.noarch
-python3-perf-7.1.9-100.fc43.x86_64
+python3-perf-7.1.10-100.fc43.x86_64
 python3-pid-3.0.4-5.azl4.noarch
 python3-ply-3.11-33.fc43.noarch
 python3-policycoreutils-3.9-8.azl4.noarch
