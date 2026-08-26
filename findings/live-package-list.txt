@@ -98,7 +98,7 @@ cockpit-storaged-366-1.fc43.noarch
 cockpit-system-366-1.fc43.noarch
 cockpit-ws-366-1.fc43.x86_64
 cockpit-ws-selinux-366-1.fc43.x86_64
-code-insiders-1.135.0-1787618530.el8.x86_64
+code-insiders-1.136.0-1787679136.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -161,10 +161,10 @@ editorconfig-libs-0.12.11-1.fc43.x86_64
 efi-filesystem-6-6.azl4.noarch
 efibootmgr-18-12.azl4.x86_64
 efivar-libs-39-11.azl4.x86_64
-elfutils-debuginfod-client-0.195-1.fc43.x86_64
-elfutils-default-yama-scope-0.195-1.fc43.noarch
-elfutils-libelf-0.195-1.fc43.x86_64
-elfutils-libs-0.195-1.fc43.x86_64
+elfutils-debuginfod-client-0.196-1.fc43.x86_64
+elfutils-default-yama-scope-0.196-1.fc43.noarch
+elfutils-libelf-0.196-1.fc43.x86_64
+elfutils-libs-0.196-1.fc43.x86_64
 emacs-filesystem-30.0-6.azl4.noarch
 enchant2-2.8.19-2.fc43.x86_64
 epiphany-runtime-49.8.1-1.fc43.x86_64
@@ -240,7 +240,7 @@ giflib-5.2.2-10.azl4.x86_64
 git-2.55.0-1.fc43.x86_64
 git-core-2.55.0-1.fc43.x86_64
 git-core-doc-2.55.0-1.fc43.noarch
-github-1.1.12-1.x86_64
+github-1.1.14-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.86.0-2.fc43.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
@@ -794,7 +794,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-154.0.4237.0-1.x86_64
+microsoft-edge-canary-154.0.4239.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -1043,8 +1043,8 @@ python3-unbound-1.26.0-1.fc43.x86_64
 python3-urllib3+socks-2.7.0-2.fc43.noarch
 python3-urllib3-2.7.0-2.fc43.noarch
 python3-xkbregistry-0.3-9.azl4.x86_64
-python3.12-3.12.13-6.fc43.x86_64
-python3.12-libs-3.12.13-6.fc43.x86_64
+python3.12-3.12.14-1.fc43.x86_64
+python3.12-libs-3.12.14-1.fc43.x86_64
 qcom-wwan-firmware-20260221-2.azl4.noarch
 qemu-guest-agent-10.1.5-1.fc43.x86_64
 qrencode-libs-4.1.1-11.fc43.x86_64
