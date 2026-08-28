@@ -98,7 +98,7 @@ cockpit-storaged-366-1.fc43.noarch
 cockpit-system-366-1.fc43.noarch
 cockpit-ws-366-1.fc43.x86_64
 cockpit-ws-selinux-366-1.fc43.x86_64
-code-insiders-1.136.0-1787751319.el8.x86_64
+code-insiders-1.136.0-1787851026.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -794,7 +794,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-154.0.4241.0-1.x86_64
+microsoft-edge-canary-154.0.4243.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -1205,7 +1205,7 @@ xcb-util-image-0.4.1-9.azl4.x86_64
 xcb-util-keysyms-0.4.1-9.azl4.x86_64
 xcb-util-renderutil-0.3.10-9.azl4.x86_64
 xcb-util-wm-0.4.2-9.azl4.x86_64
-xdg-dbus-proxy-0.1.7-1.fc43.x86_64
+xdg-dbus-proxy-0.1.8-1.fc43.x86_64
 xdg-desktop-portal-1.20.4-1.fc43.x86_64
 xdg-desktop-portal-gnome-49.0-1.fc43.x86_64
 xdg-desktop-portal-gtk-1.15.3-2.fc43.x86_64
