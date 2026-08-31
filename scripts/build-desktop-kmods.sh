@@ -163,11 +163,15 @@ check_vermagic "$HID_MODULE"
 echo "=== stage usbhid done ==="
 fi
 
-# --- psmouse (PS/2 mouse; CONFIG_INPUT_MOUSE unset on AZL x86_64) ---
+# --- psmouse + RMI4 SMBus (PS/2 mouse; CONFIG_INPUT_MOUSE unset on AZL) ---
 # GNOME Boxes / generic libvirt default to PS/2 mouse for unknown Linux.
 # i8042 + libps2 + atkbd are built-in; only the mouse protocol driver is
-# missing. aarch64 AZL already has CONFIG_MOUSE_PS2=m. Minimal set is
-# psmouse-base + always-linked synaptics/focaltech objects. See
+# missing. aarch64 AZL already has CONFIG_MOUSE_PS2=m.
+#
+# Bare-metal ThinkPads (e.g. T470s) need more than relative PS/2:
+# psmouse SMBus handoff + RMI4 (rmi_core + rmi_smbus). AZL has no
+# CONFIG_RMI4_*. Without those, two-finger scroll stays broken. See
+# findings/thinkpad-two-finger-scroll-rmi-smbus.md and
 # findings/hypervisor-mouse-ps2-boxes.md.
 if run_stage psmouse; then
 echo "=== stage psmouse ==="
@@ -194,7 +198,20 @@ for f in alps.c psmouse-smbus.c logips2pp.c elantech.c; do
         cp "$SOURCE_DIR/drivers/input/mouse/$f" "$PS2_DIR/"
     fi
 done
-cat > "$PS2_DIR/Makefile" <<'EOF'
+# RMI4 sources decide whether psmouse may advertise InterTouch SMBus.
+# Without rmi_core/rmi_smbus, CONFIG_RMI4_SMB would hand the pad off and
+# leave it dead. Only enable that path when drivers/input/rmi4 is present.
+RMI_SRC="$SOURCE_DIR/drivers/input/rmi4"
+PSMOUSE_BUILD_RMI=0
+if [[ -d "$RMI_SRC" ]]; then
+    PSMOUSE_BUILD_RMI=1
+fi
+# T470s units can report LEN007f; upstream list already has LEN007a.
+# Add LEN007f only when the RMI companion will ship beside psmouse.
+if [[ "$PSMOUSE_BUILD_RMI" -eq 1 ]] && [[ -f "$PS2_DIR/synaptics.c" ]] && ! grep -q '"LEN007f"' "$PS2_DIR/synaptics.c"; then
+    sed -i '/"LEN007a", \/\* T470s \*\//a\\t"LEN007f", /* T470s */' "$PS2_DIR/synaptics.c"
+fi
+cat > "$PS2_DIR/Makefile" <<EOF
 # Out-of-tree against AZL x86_64 where CONFIG_INPUT_MOUSE is not set.
 ccflags-y += -DCONFIG_INPUT_MOUSE=1
 ccflags-y += -DCONFIG_MOUSE_PS2_MODULE=1
@@ -203,6 +220,15 @@ ccflags-y += -DCONFIG_MOUSE_PS2_ALPS=1
 ccflags-y += -DCONFIG_MOUSE_PS2_SMBUS=1
 ccflags-y += -DCONFIG_MOUSE_PS2_SYNAPTICS_SMBUS=1
 ccflags-y += -DCONFIG_MOUSE_PS2_LOGIPS2PP=1
+EOF
+if [[ "$PSMOUSE_BUILD_RMI" -eq 1 ]]; then
+    # CONFIG_RMI4_SMB tells synaptics.c the SMBus companion exists so
+    # synaptics_intertouch defaults to NOT_SET (allowlist) instead of OFF.
+    cat >> "$PS2_DIR/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_RMI4_SMB=1
+EOF
+fi
+cat >> "$PS2_DIR/Makefile" <<'EOF'
 
 obj-m += psmouse.o
 psmouse-y := psmouse-base.o synaptics.o focaltech.o trackpoint.o alps.o psmouse-smbus.o logips2pp.o
@@ -214,7 +240,7 @@ if [[ ! -f "$PS2_DIR/alps.c" ]]; then
     sed -i '/alps/d; /ALPS/d' "$PS2_DIR/Makefile"
 fi
 if [[ ! -f "$PS2_DIR/psmouse-smbus.c" ]]; then
-    sed -i '/psmouse-smbus/d; /SMBUS/d; /SYNAPTICS_SMBUS/d' "$PS2_DIR/Makefile"
+    sed -i '/psmouse-smbus/d; /SMBUS/d; /SYNAPTICS_SMBUS/d; /RMI4_SMB/d' "$PS2_DIR/Makefile"
 fi
 if [[ ! -f "$PS2_DIR/logips2pp.c" ]]; then
     sed -i '/logips2pp/d; /LOGIPS2PP/d' "$PS2_DIR/Makefile"
@@ -229,6 +255,57 @@ done
 make -C "$BUILD_DIR" M="$PS2_DIR" modules
 PS2_MODULE="$PS2_DIR/psmouse.ko"
 check_vermagic "$PS2_MODULE"
+
+# RMI4: AZL has no CONFIG_RMI4_*. psmouse SMBus creates rmi4_smbus@0x2c;
+# rmi_smbus binds it and rmi_core drives F11/F12 2D + F03 TrackPoint.
+# Build beside psmouse so one RPM ships the full ThinkPad stack.
+RMI_DIR="$PS2_DIR/rmi4"
+if [[ "$PSMOUSE_BUILD_RMI" -eq 1 ]]; then
+    echo "=== stage psmouse/rmi4 ==="
+    mkdir -p "$RMI_DIR"
+    shopt -s nullglob
+    for f in "$RMI_SRC"/*.{c,h}; do
+        cp "$f" "$RMI_DIR/"
+    done
+    shopt -u nullglob
+    cat > "$RMI_DIR/Makefile" <<'EOF'
+# Out-of-tree RMI4 for AZL (CONFIG_RMI4_* unset in-tree).
+ccflags-y += -DCONFIG_RMI4_CORE_MODULE=1
+ccflags-y += -DCONFIG_RMI4_2D_SENSOR=1
+ccflags-y += -DCONFIG_RMI4_F03=1
+ccflags-y += -DCONFIG_RMI4_F03_SERIO=1
+ccflags-y += -DCONFIG_RMI4_F11=1
+ccflags-y += -DCONFIG_RMI4_F12=1
+ccflags-y += -DCONFIG_RMI4_F30=1
+ccflags-y += -DCONFIG_RMI4_SMB_MODULE=1
+
+obj-m += rmi_core.o
+rmi_core-y := rmi_bus.o rmi_driver.o rmi_f01.o
+rmi_core-y += rmi_2d_sensor.o
+rmi_core-y += rmi_f03.o
+rmi_core-y += rmi_f11.o
+rmi_core-y += rmi_f12.o
+rmi_core-y += rmi_f30.o
+
+obj-m += rmi_smbus.o
+EOF
+    for need in rmi_bus.c rmi_driver.c rmi_f01.c rmi_2d_sensor.c \
+        rmi_f03.c rmi_f11.c rmi_f12.c rmi_f30.c rmi_smbus.c; do
+        [[ -f "$RMI_DIR/$need" ]] || {
+            echo "error: rmi4 missing $need from kernel sources" >&2
+            exit 1
+        }
+    done
+    make -C "$BUILD_DIR" M="$RMI_DIR" modules
+    # Flatten next to psmouse.ko so packaging and family-out stay simple.
+    cp -f "$RMI_DIR/rmi_core.ko" "$PS2_DIR/rmi_core.ko"
+    cp -f "$RMI_DIR/rmi_smbus.ko" "$PS2_DIR/rmi_smbus.ko"
+    check_vermagic "$PS2_DIR/rmi_core.ko"
+    check_vermagic "$PS2_DIR/rmi_smbus.ko"
+    echo "=== stage psmouse/rmi4 done ==="
+else
+    echo "warning: drivers/input/rmi4 missing; shipping psmouse without RMI4" >&2
+fi
 echo "=== stage psmouse done ==="
 fi
 
@@ -1165,6 +1242,11 @@ if have_ko "$HID_MODULE"; then
 fi
 if have_ko "$PS2_MODULE"; then
     PRESENT_KOS+=("$PS2_MODULE")
+    # Optional RMI4 companions (same psmouse family dir).
+    RMI_CORE_MODULE="$WORKDIR/psmouse/rmi_core.ko"
+    RMI_SMBUS_MODULE="$WORKDIR/psmouse/rmi_smbus.ko"
+    have_ko "$RMI_CORE_MODULE" && PRESENT_KOS+=("$RMI_CORE_MODULE")
+    have_ko "$RMI_SMBUS_MODULE" && PRESENT_KOS+=("$RMI_SMBUS_MODULE")
     add_pkg psmouse
 fi
 if have_ko "$STOR_MODULE" && have_ko "$UAS_MODULE"; then
@@ -1327,25 +1409,66 @@ fi
 
 if pkg_enabled psmouse; then
     append_requires azurelinux-desktop-psmouse-kmod
+    PSMOUSE_HAS_RMI=0
+    have_ko "$WORKDIR/psmouse/rmi_core.ko" && have_ko "$WORKDIR/psmouse/rmi_smbus.ko" && PSMOUSE_HAS_RMI=1
+    if [[ "$PSMOUSE_HAS_RMI" -eq 1 ]]; then
+        PSMOUSE_SUMMARY="PS/2 mouse + Synaptics RMI4 SMBus for Azure Linux ${KVERREL}"
+        PSMOUSE_DESC="psmouse for Azure Linux kernel ${KVERREL}. Covers GNOME Boxes and other
+hypervisors that default to a PS/2 mouse for unknown Linux guests.
+On bare-metal ThinkPads with Synaptics InterTouch, also ships rmi_core
+and rmi_smbus so the pad can leave relative PS/2 mode (two-finger
+scroll, proper clickpad). See findings/thinkpad-two-finger-scroll-rmi-smbus.md."
+    else
+        PSMOUSE_SUMMARY="PS/2 mouse module for Azure Linux ${KVERREL}"
+        PSMOUSE_DESC="psmouse for Azure Linux kernel ${KVERREL}. Covers GNOME Boxes and other
+hypervisors that default to a PS/2 mouse for unknown Linux guests.
+This build has no drivers/input/rmi4 sources, so RMI4 SMBus modules are not included."
+    fi
     PACKAGE_SECTIONS+="
 %package -n azurelinux-desktop-psmouse-kmod
-Summary:        PS/2 mouse (psmouse) for Azure Linux ${KVERREL}
+Summary:        ${PSMOUSE_SUMMARY}
 Requires:       kernel-core-uname-r = ${KVERREL}
 %description -n azurelinux-desktop-psmouse-kmod
-psmouse for Azure Linux kernel ${KVERREL}. Covers GNOME Boxes and other
-hypervisors that default to a PS/2 mouse for unknown Linux guests.
+${PSMOUSE_DESC}
 "
     INSTALL_SECTION+="$(ko_install_line psmouse.ko)"$'\n'
+    if [[ "$PSMOUSE_HAS_RMI" -eq 1 ]]; then
+        INSTALL_SECTION+="$(ko_install_line rmi_core.ko)"$'\n'
+        INSTALL_SECTION+="$(ko_install_line rmi_smbus.ko)"$'\n'
+    fi
+    # Initramfs: psmouse is enough for early PS/2; RMI loads from rootfs.
     INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-psmouse.conf <<'DRACUT'
 add_drivers+=\" psmouse \"
 DRACUT"$'\n'
-    INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-psmouse.conf <<'ML'
+    # Load RMI before psmouse so SMBus handoff can bind immediately.
+    if [[ "$PSMOUSE_HAS_RMI" -eq 1 ]]; then
+        INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-psmouse.conf <<'ML'
+rmi_core
+rmi_smbus
 psmouse
 ML"$'\n'
+        INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modprobe.d/azurelinux-desktop-psmouse.conf <<'MP'
+# Prefer SMBus+RMI when the pad advertises InterTouch. Safe on VMs:
+# non-Synaptics PS/2 mice never hit this path. softdep keeps order if
+# something else pulls psmouse first.
+options psmouse synaptics_intertouch=1
+softdep psmouse pre: rmi_core rmi_smbus
+MP"$'\n'
+    else
+        INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-psmouse.conf <<'ML'
+psmouse
+ML"$'\n'
+    fi
     FILES_SECTIONS+="
 %files -n azurelinux-desktop-psmouse-kmod
 $(ko_files_line psmouse.ko)
-%config(noreplace) %{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-psmouse.conf
+"
+    if [[ "$PSMOUSE_HAS_RMI" -eq 1 ]]; then
+        FILES_SECTIONS+="$(ko_files_line rmi_core.ko)"$'\n'
+        FILES_SECTIONS+="$(ko_files_line rmi_smbus.ko)"$'\n'
+        FILES_SECTIONS+="%config(noreplace) %{_sysconfdir}/modprobe.d/azurelinux-desktop-psmouse.conf"$'\n'
+    fi
+    FILES_SECTIONS+="%config(noreplace) %{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-psmouse.conf
 %config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desktop-psmouse.conf
 "
     POST_SECTIONS+="

@@ -3,7 +3,10 @@
 **Status:** Diagnosed; product work in flight. Guest agents listed in
 live/installer package sets. psmouse OOT stage in
 `scripts/build-desktop-kmods.sh` (needs kmod republish + image rebuild).
-See also `hypervisor-guest-agents.md`.
+Bare-metal ThinkPad multitouch is a related but separate stack: same
+psmouse package now also ships RMI4 SMBus modules. See
+`thinkpad-two-finger-scroll-rmi-smbus.md`. See also
+`hypervisor-guest-agents.md`.
 
 ## What we saw (GNOME Boxes + live ISO)
 
