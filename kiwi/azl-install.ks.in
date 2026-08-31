@@ -294,11 +294,43 @@ if [ ! -s /etc/yum.repos.d/azl-desktop-kmods.repo ]; then
     exit 1
 fi
 
-sed -i '/^\[azl-base\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-minimal,grub2-common,shim,shim-x64,grub2 grub2-pc grub2-pc-modules grub2-efi-x64 grub2-efi-x64-modules grub2-tools grub2-tools-minimal grub2-common shim shim-x64 gsettings-desktop-schemas dnf5 dnf5daemon-server dnf5daemon-server-polkit libdnf5 libdnf5-cli libdnf5-plugin-actions libdnf5-plugin-appstream libdnf5-plugin-expired-pgp-keys libdnf5-plugin-local/' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
-sed -i '/^\[azl-microsoft\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-minimal,grub2-common,shim,shim-x64,grub2 grub2-pc grub2-pc-modules grub2-efi-x64 grub2-efi-x64-modules grub2-tools grub2-tools-minimal grub2-common shim shim-x64 gsettings-desktop-schemas/' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
-# Keep the version-locked Fedora GRUB family together during later updates.
-sed -i '/^\[azl-base\]/,/^\[/ s/^exclude=/&grub2-tools-extra /' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
-sed -i '/^\[azl-microsoft\]/,/^\[/ s/^exclude=/&grub2-tools-extra /' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
+# Stock azurelinux-repos writes [azurelinux-base] / [azurelinux-microsoft].
+# Kickstart --excludepkgs does not persist into those files. Write
+# excludepkgs so later dnf update keeps Fedora pinentry/grub/dnf5 and
+# AZL owns NM plugins (findings/dnf-update-pinentry-nm-wwan.md).
+python3 - <<'PY'
+from pathlib import Path
+import re
+
+def set_exclude(path, section, pkgs):
+    import sys
+    p = Path(path)
+    if not p.is_file():
+        print(f"warning: missing repo file {path}", file=sys.stderr)
+        return
+    text = p.read_text()
+    # Section body from ^[name] through the line before the next ^[ header.
+    pat = re.compile(
+        r"(^\[" + re.escape(section) + r"\][^\n]*\n.*?)(?=^\[|\Z)",
+        re.M | re.S,
+    )
+    m = pat.search(text)
+    if not m:
+        print(f"warning: section [{section}] not in {path}", file=sys.stderr)
+        return
+    block = m.group(1)
+    if re.search(r"^excludepkgs=", block, re.M):
+        block = re.sub(
+            r"^excludepkgs=.*$", "excludepkgs=" + pkgs, block, count=1, flags=re.M
+        )
+    else:
+        block = block.rstrip("\n") + "\nexcludepkgs=" + pkgs + "\n"
+    p.write_text(text[: m.start(1)] + block + text[m.end(1) :])
+
+set_exclude("/etc/yum.repos.d/azurelinux.repo", "azurelinux-base", "hunspell-en,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,dnf5,dnf5daemon-server,dnf5daemon-server-polkit,libdnf5,libdnf5-cli,libdnf5-plugin-actions,libdnf5-plugin-appstream,libdnf5-plugin-expired-pgp-keys,libdnf5-plugin-local,pinentry")
+set_exclude("/etc/yum.repos.d/azurelinux.repo", "azurelinux-microsoft", "hunspell-en,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,pinentry")
+set_exclude("/etc/yum.repos.d/microsoft.repo", "azurelinux-microsoft", "hunspell-en,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,pinentry")
+PY
 
 systemctl set-default graphical.target
 systemctl enable gdm.service
