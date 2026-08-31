@@ -98,7 +98,7 @@ cockpit-storaged-366-1.fc43.noarch
 cockpit-system-366-1.fc43.noarch
 cockpit-ws-366-1.fc43.x86_64
 cockpit-ws-selinux-366-1.fc43.x86_64
-code-insiders-1.136.0-1787937537.el8.x86_64
+code-insiders-1.136.0-1788165450.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -118,7 +118,7 @@ cryptsetup-libs-2.8.4-2.azl4.x86_64
 cups-filesystem-2.4.19-3.fc43.noarch
 cups-libs-2.4.19-3.fc43.x86_64
 cups-pk-helper-0.2.7-10.fc43.x86_64
-curl-8.15.0-8.fc43.x86_64
+curl-8.15.0-9.fc43.x86_64
 cyrus-sasl-lib-2.1.28-34.azl4.x86_64
 dbus-1.16.0-7.azl4.x86_64
 dbus-broker-37-3.azl4.x86_64
@@ -167,7 +167,7 @@ elfutils-libelf-0.196-1.fc43.x86_64
 elfutils-libs-0.196-1.fc43.x86_64
 emacs-filesystem-30.0-6.azl4.noarch
 enchant2-2.8.19-2.fc43.x86_64
-epiphany-runtime-49.8.1-1.fc43.x86_64
+epiphany-runtime-49.9.1-1.fc43.x86_64
 ethtool-7.1-1.fc43.x86_64
 evolution-3.58.3-1.fc43.x86_64
 evolution-data-server-3.58.3-1.fc43.x86_64
@@ -443,8 +443,8 @@ kernel-core-6.18.31-1.16.azl4.x86_64
 kernel-modules-6.18.31-1.16.azl4.x86_64
 kernel-modules-core-6.18.31-1.16.azl4.x86_64
 kernel-modules-extra-6.18.31-1.16.azl4.x86_64
-kernel-tools-7.1.10-100.fc43.x86_64
-kernel-tools-libs-7.1.10-100.fc43.x86_64
+kernel-tools-7.1.12-100.fc43.x86_64
+kernel-tools-libs-7.1.12-100.fc43.x86_64
 keyutils-libs-1.6.3-6.fc43.x86_64
 kmod-34.2-3.azl4.x86_64
 kmod-libs-34.2-3.azl4.x86_64
@@ -538,7 +538,7 @@ libcloudproviders-0.3.6-3.azl4.x86_64
 libcom_err-1.47.3-3.azl4.x86_64
 libcomps-0.1.23-3.azl4.x86_64
 libcue-2.3.0-12.fc43.x86_64
-libcurl-8.15.0-8.fc43.x86_64
+libcurl-8.15.0-9.fc43.x86_64
 libdaemon-0.14-33.azl4.x86_64
 libdatrie-0.2.13-13.azl4.x86_64
 libdav1d-1.5.3-1.fc43.x86_64
@@ -648,7 +648,7 @@ libnvme-1.16.1-2.azl4.x86_64
 liboauth-1.0.3-27.fc43.x86_64
 liboeffis-1.5.0-2.azl4.x86_64
 libogg-1.3.6-3.azl4.x86_64
-libopenmpt-0.8.7-1.fc43.x86_64
+libopenmpt-0.8.9-1.fc43.x86_64
 libosinfo-1.12.0-6.azl4.x86_64
 libpciaccess-0.16-17.azl4.x86_64
 libpeas1-1.36.0-11.fc43.x86_64
@@ -794,7 +794,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-154.0.4245.0-1.x86_64
+microsoft-edge-canary-154.0.4250.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -888,7 +888,7 @@ perl-Digest-1.20-521.azl4.noarch
 perl-Digest-MD5-2.59-521.azl4.x86_64
 perl-DynaLoader-1.57-525.azl4.x86_64
 perl-Encode-3.21-521.azl4.x86_64
-perl-Errno-1.38-524.fc43.x86_64
+perl-Errno-1.38-525.azl4.x86_64
 perl-Error-0.17030-3.azl4.noarch
 perl-Exporter-5.79-521.azl4.noarch
 perl-Fcntl-1.20-525.azl4.x86_64
@@ -918,7 +918,7 @@ perl-Pod-Simple-3.47-4.azl4.noarch
 perl-Pod-Usage-2.05-521.azl4.noarch
 perl-Scalar-List-Utils-1.70-2.azl4.x86_64
 perl-SelectSaver-1.02-525.azl4.noarch
-perl-Socket-2.043-1.fc43.x86_64
+perl-Socket-2.040-3.azl4.x86_64
 perl-Storable-3.37-522.azl4.x86_64
 perl-Symbol-1.09-525.azl4.noarch
 perl-Term-ANSIColor-5.01-522.azl4.noarch
@@ -933,10 +933,10 @@ perl-Unicode-Normalize-1.32-521.azl4.x86_64
 perl-base-2.27-525.azl4.noarch
 perl-constant-1.33-522.azl4.noarch
 perl-if-0.61.000-525.azl4.noarch
-perl-interpreter-5.42.3-524.fc43.x86_64
+perl-interpreter-5.42.2-525.azl4.x86_64
 perl-lib-0.65-525.azl4.x86_64
 perl-libnet-3.15-522.azl4.noarch
-perl-libs-5.42.3-524.fc43.x86_64
+perl-libs-5.42.2-525.azl4.x86_64
 perl-locale-1.13-525.azl4.noarch
 perl-mro-1.29-525.azl4.x86_64
 perl-overload-1.40-525.azl4.noarch
@@ -1021,7 +1021,7 @@ python3-linux-procfs-0.7.4-3.fc43.noarch
 python3-meh-0.52-9.azl4.noarch
 python3-nftables-1.1.3-7.azl4.noarch
 python3-pam-2.0.2-17.azl4.noarch
-python3-perf-7.1.10-100.fc43.x86_64
+python3-perf-7.1.12-100.fc43.x86_64
 python3-pid-3.0.4-5.azl4.noarch
 python3-ply-3.11-33.fc43.noarch
 python3-policycoreutils-3.9-8.azl4.noarch
