@@ -32,11 +32,16 @@ Stock Azure Linux x86_64 leaves USB HID off.
 ## azurelinux-desktop-psmouse-kmod
 
 `CONFIG_INPUT_MOUSE` is off. GNOME Boxes and libvirt PS/2 mice need this.
+Bare-metal ThinkPad Synaptics InterTouch pads also need RMI4 (AZL has no
+`CONFIG_RMI4_*`). See `thinkpad-two-finger-scroll-rmi-smbus.md`.
 
 * Modules: `psmouse.ko` (base, Synaptics, FocalTech, TrackPoint, ALPS, SMBus,
-  Logitech PS/2++ pieces when the tree has them)
-* Drop-ins: dracut + modules-load for `psmouse`
-* Stock companions: `i8042`, `libps2`, `atkbd`
+  Logitech PS/2++ pieces when the tree has them); `rmi_core.ko`,
+  `rmi_smbus.ko` when the kernel tree has `drivers/input/rmi4`
+* Drop-ins: dracut for `psmouse`; modules-load `rmi_core`, `rmi_smbus`,
+  `psmouse`; modprobe `synaptics_intertouch=1` + softdep on RMI
+* OOT allowlist: `LEN007f` added next to upstream T470s SMBus PNP ids
+* Stock companions: `i8042`, `libps2`, `atkbd`, `i2c_i801` / SMBus host
 
 ## azurelinux-desktop-storage-kmod
 

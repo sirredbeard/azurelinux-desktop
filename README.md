@@ -141,6 +141,9 @@ Azure Linux 4.0 turns several desktop drivers off in the stock cloud kernel. Fin
 This project builds out-of-tree modules against each exact Azure `kernel-devel` release and publishes a small DNF repo hosted by [GitHub Pages](https://sirredbeard.github.io/azurelinux-desktop/repo/):
 
 * `azurelinux-desktop-usbhid-kmod` - `usbhid.ko`
+* `azurelinux-desktop-psmouse-kmod` - `psmouse.ko` plus Synaptics RMI4
+  SMBus (`rmi_core.ko`, `rmi_smbus.ko`) for ThinkPad two-finger scroll; also
+  covers GNOME Boxes PS/2 defaults
 * `azurelinux-desktop-storage-kmod` - `usb-storage.ko` and `uas.ko`
   (replaces `azurelinux-desktop-usb-storage-kmod`; NVMe/ext4/dm stay stock)
 * `azurelinux-desktop-intel-kmod` - Intel Wi-Fi (`iwlwifi` + mvm/dvm/mld);
@@ -158,9 +161,6 @@ This project builds out-of-tree modules against each exact Azure `kernel-devel` 
 * `azurelinux-desktop-surface-kmod` - upstream Microsoft Surface SSAM
   (`surface_aggregator` + clients), `serdev`, `hid-microsoft`,
   `hid-multitouch` (no out-of-tree linux-surface fork)
-* `azurelinux-desktop-psmouse-kmod` - `psmouse.ko` for PS/2 mice
-  (GNOME Boxes and other hypervisors that still default to PS/2; see
-  `findings/hypervisor-mouse-ps2-boxes.md`)
 * `azurelinux-desktop-sensors-kmod` - modules-load policy for stock
   hwmon/i2c sensors (no OOT rebuild)
 * `azurelinux-desktop-performance-kmod` - modules-load + sysctl for
@@ -201,7 +201,8 @@ Further reading:
 * [`findings/azure-kernel-usbhid-kmod.md`](findings/azure-kernel-usbhid-kmod.md) - HID detail
 * [`findings/usb-storage-missing-initrd.md`](findings/usb-storage-missing-initrd.md) - stick boot / storage
 * [`findings/wifi-missing-on-bare-metal.md`](findings/wifi-missing-on-bare-metal.md) - Wi-Fi / `CONFIG_WLAN`
-* [`findings/hypervisor-mouse-ps2-boxes.md`](findings/hypervisor-mouse-ps2-boxes.md) - PS/2 mouse / Boxes
+* [`findings/thinkpad-two-finger-scroll-rmi-smbus.md`](findings/thinkpad-two-finger-scroll-rmi-smbus.md) - ThinkPad pad scroll / RMI4
+* [`findings/hypervisor-mouse-ps2-boxes.md`](findings/hypervisor-mouse-ps2-boxes.md) - Boxes PS/2 mouse / psmouse
 
 Secure Boot note: These are project-built modules, not signed by the Azure kernel key.
 
