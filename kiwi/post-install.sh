@@ -31,8 +31,11 @@ elif [ -s /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop ]; then
     install -m 0644 /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop \
         /usr/share/azurelinux-desktop/gpg/signing-key.asc
 fi
-install -m 0644 /opt/azl-desktop-assets/yum.repos.d/azl-desktop-kmods.repo \
-    /etc/yum.repos.d/azl-desktop-kmods.repo
+# azl-desktop-kmods.repo is installed by the later chroot %post in
+# kiwi/azl-install.ks.in from staged /root/assets. This script runs first
+# inside the target chroot, before assets are copied, and /opt/azl-desktop-
+# assets is only on the installer live root. Do not install the kmods repo
+# here. See findings/installer-kmods-repo-missing.md.
 
 # --- Encrypted disk: regenerate initramfs with LUKS support ---
 if [ -f /etc/crypttab ] && [ -s /etc/crypttab ]; then

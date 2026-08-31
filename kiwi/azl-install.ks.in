@@ -282,6 +282,18 @@ install -m 0644 "$ASSETS"/yum.repos.d/azl-desktop-microsoft-github.repo \
 install -m 0644 "$ASSETS"/yum.repos.d/azl-desktop-rpmfusion.repo \
     /etc/yum.repos.d/azl-desktop-rpmfusion.repo
 
+# Project Pages kmod repo (signed sibling modules). Must land here in the
+# chroot %post that already sees $ASSETS=/root/assets. kiwi/post-install.sh
+# runs earlier via chroot and cannot see installer /opt/azl-desktop-assets,
+# so a kmods install there always failed on metal. See
+# findings/installer-kmods-repo-missing.md.
+install -m 0644 "$ASSETS"/yum.repos.d/azl-desktop-kmods.repo \
+    /etc/yum.repos.d/azl-desktop-kmods.repo
+if [ ! -s /etc/yum.repos.d/azl-desktop-kmods.repo ]; then
+    echo "error: azl-desktop-kmods.repo missing after asset stage" >&2
+    exit 1
+fi
+
 sed -i '/^\[azl-base\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-minimal,grub2-common,shim,shim-x64,grub2 grub2-pc grub2-pc-modules grub2-efi-x64 grub2-efi-x64-modules grub2-tools grub2-tools-minimal grub2-common shim shim-x64 gsettings-desktop-schemas dnf5 dnf5daemon-server dnf5daemon-server-polkit libdnf5 libdnf5-cli libdnf5-plugin-actions libdnf5-plugin-appstream libdnf5-plugin-expired-pgp-keys libdnf5-plugin-local/' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
 sed -i '/^\[azl-microsoft\]/,/^\[/ s/^enabled=1/enabled=1\nexclude=hunspell-en grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-minimal,grub2-common,shim,shim-x64,grub2 grub2-pc grub2-pc-modules grub2-efi-x64 grub2-efi-x64-modules grub2-tools grub2-tools-minimal grub2-common shim shim-x64 gsettings-desktop-schemas/' /etc/yum.repos.d/azurelinux.repo 2>/dev/null || true
 # Keep the version-locked Fedora GRUB family together during later updates.
