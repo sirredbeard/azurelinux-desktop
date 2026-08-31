@@ -154,3 +154,16 @@ Azure Linux base and Fedora `.repo` files come from their packages.
 - `scripts/podman-test-azl4-fedora.sh`, canary tests
 - `github-actions-build.md`
 - `live-iso-installer-parity.md`
+
+## pinentry and NetworkManager-wwan (runtime dnf update)
+
+See `dnf-update-pinentry-nm-wwan.md`.
+
+* pinentry stays on Fedora with pinentry-gnome3; exclude pinentry from AZL base.
+* NetworkManager-wwan stays on AZL with the rest of NetworkManager; exclude from Fedora.
+* Install-time excludepkgs must be rewritten onto stock `[azurelinux-base]`
+  section names or they vanish after first boot.
+
+## perl core
+
+Claw perl, perl-libs, perl-interpreter, perl-Errno to AZL. Fedora newer perl-libs breaks AZL Errno exact NVR require. See dnf-update-pinentry-nm-wwan.md.
