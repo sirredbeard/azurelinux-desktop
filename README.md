@@ -7,7 +7,7 @@
 
 This puts a real GNOME desktop on top of Microsoft's [Azure Linux 4.0](https://github.com/microsoft/azurelinux).
 
-**This not officially supported by Microsoft, Azure, GitHub, or Fedora. This is a personal project, a proof of concept, an experiment only.**
+**This is not officially supported by Microsoft, Azure, GitHub, or Fedora. This is a personal project, a proof of concept, an experiment only.**
 
 This is a follow-up to [Azure Linux Desktop: a Build 2026 mashup of wslc, WinUI Reactor, and Azure Linux 4.0](https://www.boxofcables.dev/azure-linux-desktop-a-build-2026-mashup-of-wslc-winui-reactor-and-azure-linux-4-0/), the original concept, which ran the same basic idea as a themed session inside wslc, inside a .NET app, on Windows.
 
@@ -17,7 +17,7 @@ This is a side project, explored for fun. **It is not affiliated with, sponsored
 
 Third-party scripts/RPM packages are very likely to get confused by the repo mixing here. I strongly encourage using [Flatpak](https://flatpak.org/) for desktop applications. Flatpak is configured on installs with Flathub added and tested in the minimal 'canary' container.
 
-**This project is x86_64-focused for now.** The live ISO, installer ISO, and disk images target Intel-class machines: chipset, GPU, and audio paths that show up on typical Intel laptops and desktops are what get exercised. aarch64 is on the wishlist (I want to get there), but it is not a supported image target yet. Out-of-tree desktop drivers this repo publishes cover some x86_64 gaps Azure's stock kernel leaves open: USB HID/storage, Intel Wi-Fi, ALSA HDA/USB audio, Bluetooth, UVC cameras, ThinkPad ACPI, and USB Type-C/UCSI. If you need another driver for real hardware, [open an issue](https://github.com/sirredbeard/azurelinux-desktop/issues) and I'll do my best.
+**This project is x86_64-focused for now.** The live ISO, installer ISO, and disk images target Intel-class machines: chipset, GPU, and audio paths that show up on typical Intel laptops and desktops are what get exercised. aarch64 is on the wishlist (I want to get there), but it is not a supported image target yet. Out-of-tree desktop drivers this repo publishes cover some x86_64 gaps Azure's stock kernel leaves open: USB HID/storage, Intel Wi-Fi, ALSA HDA/USB audio, Bluetooth, UVC cameras, ThinkPad ACPI, USB Type-C/UCSI, and PS/2 mouse (`psmouse`) for hypervisors that still default to PS/2. If you need another driver for real hardware, [open an issue](https://github.com/sirredbeard/azurelinux-desktop/issues) and I'll do my best.
 
 ## What's included
 
@@ -64,7 +64,7 @@ The result: GNOME, Copilot, PowerShell, Visual Studio Code Insiders, Microsoft E
 
 ### Where the packages actually come from
 
-The base is Azure Linux. Kernel, systemd, NetworkManager, bluez, fwupd-efi, linux-firmware, coreutils, util-linux, cryptsetup, and the rest of the system layer all resolve to Azure Linux. `glibc` has to come from Fedora because `gtk4` needs newer symbol versioning than Azure Linux 4.0's glibc ships right now. A few other packages (`wpa_supplicant`, `fwupd`/`fwupd-efi`, `fuse3`) must come from Fedora/
+The base is Azure Linux. Kernel, systemd, NetworkManager, bluez, fwupd-efi, linux-firmware, coreutils, util-linux, cryptsetup, and the rest of the system layer all resolve to Azure Linux. `glibc` has to come from Fedora because `gtk4` needs newer symbol versioning than Azure Linux 4.0's glibc ships right now. A few other packages (`wpa_supplicant`, `fwupd`, `fuse3`) must come from Fedora. `fwupd-efi` stays on Azure Linux.
 
 Current package-by-package listings are in [`findings/live-package-list.txt`](findings/live-package-list.txt) and [`findings/installer-package-list.txt`](findings/installer-package-list.txt). Successful live and installer ISO builds on Actions refresh those files automatically.
 
@@ -121,7 +121,10 @@ Fast checks first. Real boots and metal last. GitHub-hosted runners build and pu
    Wi-Fi, Bluetooth, and other laptop drivers. Those paths need the
    project modules described under
    [Desktop hardware modules (x86_64)](#desktop-hardware-modules-x86_64).
-   Notes live in [`findings/`](findings/).
+   Notes live in [`findings/`](findings/). On ThinkPad-class hardware,
+   Wi-Fi and `thinkpad_acpi` are the usual pass path; Bluetooth can still
+   hit HCI USB timeouts even with the project bluetooth kmod (see
+   [`findings/bluetooth-hci-timeout-thinkpad.md`](findings/bluetooth-hci-timeout-thinkpad.md)).
 
 ## What else
 
@@ -155,6 +158,9 @@ This project builds out-of-tree modules against each exact Azure `kernel-devel` 
 * `azurelinux-desktop-surface-kmod` - upstream Microsoft Surface SSAM
   (`surface_aggregator` + clients), `serdev`, `hid-microsoft`,
   `hid-multitouch` (no out-of-tree linux-surface fork)
+* `azurelinux-desktop-psmouse-kmod` - `psmouse.ko` for PS/2 mice
+  (GNOME Boxes and other hypervisors that still default to PS/2; see
+  `findings/hypervisor-mouse-ps2-boxes.md`)
 * `azurelinux-desktop-sensors-kmod` - modules-load policy for stock
   hwmon/i2c sensors (no OOT rebuild)
 * `azurelinux-desktop-performance-kmod` - modules-load + sysctl for
@@ -173,6 +179,15 @@ enforcing.
 Userspace/firmware stay on Azure packages where they exist:
 `iwlwifi-*-firmware`, `intel-audio-firmware`, `alsa-ucm`, `bluez`, `NetworkManager-bluetooth`.
 
+The signed kmod RPMs publish to a project DNF repo on GitHub Pages
+([`https://sirredbeard.github.io/azurelinux-desktop/repo/`](https://sirredbeard.github.io/azurelinux-desktop/repo/)).
+Live and installer images are supposed to ship
+`/etc/yum.repos.d/azl-desktop-kmods.repo` (`gpgcheck=1`, project key under
+`/etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop`) so a later kernel bump
+can pull matching sibling kmods with `dnf`. If that file is missing on an
+installed system, the kmods already on disk keep working, but there is no
+repo path for updates until the file is restored.
+
 Build and publish workflows:
 
 * [`.github/workflows/publish-desktop-kmods.yml`](.github/workflows/publish-desktop-kmods.yml)
@@ -186,6 +201,7 @@ Further reading:
 * [`findings/azure-kernel-usbhid-kmod.md`](findings/azure-kernel-usbhid-kmod.md) - HID detail
 * [`findings/usb-storage-missing-initrd.md`](findings/usb-storage-missing-initrd.md) - stick boot / storage
 * [`findings/wifi-missing-on-bare-metal.md`](findings/wifi-missing-on-bare-metal.md) - Wi-Fi / `CONFIG_WLAN`
+* [`findings/hypervisor-mouse-ps2-boxes.md`](findings/hypervisor-mouse-ps2-boxes.md) - PS/2 mouse / Boxes
 
 Secure Boot note: These are project-built modules, not signed by the Azure kernel key.
 
@@ -247,8 +263,8 @@ What you will see:
 
 <img width="677" height="231" alt="Screenshot From 2026-08-04 11-14-50" src="https://github.com/user-attachments/assets/e0048e0b-ba81-4567-b27f-3916ef3ca972" />
 
-6. Language, time zone, and similar spokes ship with defaults. Change them if you care. Storage is the spoke that blocks **begin installation** until you finish it.
-7. The package payload installs from the offline repo on the ISO. No network is required for that step.
+5. Language, time zone, and similar spokes ship with defaults. Change them if you care. Storage is the spoke that blocks **begin installation** until you finish it.
+6. The package payload installs from the offline repo on the ISO. No network is required for that step.
 
 After install, reboot into the new system and sign in with the admin account you created.
 

@@ -19,15 +19,16 @@ README for the full backstory.
    ecosystem doesn't cover something (desktop environment, GUI apps), fall
    back to the Fedora/RHEL ecosystem next. Only reach for a package or a
    system-level change outside Azure Linux/Fedora when it's genuinely
-   necessary. This applies to build tooling too, not just runtime packages -
-   see "Build tooling" below for why that's more constrained than it sounds.
-3. **Keep the release artifacts aligned on what matters.** The live ISO/VM,
+   necessary. This applies to build tooling too, not just runtime packages.
+   Prefer Azure Linux / Fedora tooling for image builds (lorax, livemedia-
+   creator, KIWI-NG, Anaconda) over inventing a parallel stack.
+2. **Keep the release artifacts aligned on what matters.** The live ISO/VM,
    installer ISO, and installed target should stay aligned on package origin
    policy, custom tools, and user-facing behavior wherever their lifecycles
    can reasonably share it. The canary container is part of that parity check
    for repo/source priority and project-specific tools, but remains a canary:
    no full GNOME/GDM/Mutter desktop stack.
-4. **Findings survive, and verification stays systematic.** Every real bug,
+3. **Findings survive, and verification stays systematic.** Every real bug,
    dead end, or piece of research goes
    in `findings/*.md` - written for the next person (human or LLM) who hits
    the same wall, not just as a changelog. Findings get pruned for
@@ -55,19 +56,19 @@ README for the full backstory.
    `ghcr-canary-prune.md`), not vague names like `notes.md` or
    `misc-debug.md`. Put searchable keywords (component, failure mode,
    package name) in the title and first paragraph.
-5. **Key log lines live in the topic file.** When a CI run, journal, or
+4. **Key log lines live in the topic file.** When a CI run, journal, or
    local script fails or proves a fix, copy the smallest useful excerpt
    (command, error, or success signature) into the matching
    `findings/*.md` file. Do not keep a `findings/logs/` archive. Full CI
    dumps and unusable chunks do not belong in the repo.
-6. **Scripts are real, tested artifacts**, not one-off snippets. Anything
+5. **Scripts are real, tested artifacts**, not one-off snippets. Anything
    written to help build, test, or download this project's images goes in
    `/scripts/`, gets documented, and gets actually run (not just written) as
    part of whatever task produced it.
-7. **README.md documents the system, not superlatives.** Focus on what's
+6. **README.md documents the system, not superlatives.** Focus on what's
    actually included and what packages/components come from Azure Linux
    directly, not package counts or percentages, and not marketing language.
-8. **Split validation intentionally: local quick proofs first, intensive runs
+7. **Split validation intentionally: local quick proofs first, intensive runs
    in Actions only when needed.** Start with the fastest meaningful local
    proof (container/overlay/package-resolve/config-render checks, then mount
    and inspect artifacts). Use GitHub Actions for rebuild-heavy, time-
@@ -77,16 +78,16 @@ README for the full backstory.
    local preflight run is stretching past ~15 minutes or repeatedly diverges
    from Actions behavior, stop extending that local loop and move the check
    into a workflow with artifact logs.
-9. **Release artifacts are the final evidence.** Download every published ISO
+8. **Release artifacts are the final evidence.** Download every published ISO
    and disk image with the project downloader, verify its checksum, run the
    matching scripts in `/scripts/`, and compare mounted package/configuration
    state across the live, disk, and installer paths before calling a release
    complete.
-10. **Package policy needs runtime coverage.** Keep the canary container and
+9. **Package policy needs runtime coverage.** Keep the canary container and
    its tests current as an early warning for dependency drift. Test package
    updates and installation from both intended package sources, plus a Flatpak
    install, on the actual image before release.
-11. **Keep the artifacts in reasonable parity.** The live ISO, disk images,
+10. **Keep the artifacts in reasonable parity.** The live ISO, disk images,
     installer ISO, and installed target should share packages and behavior
     wherever their different boot and install lifecycles allow it. The canary
     container is intentionally much smaller: it is a fast canary for the same
@@ -96,17 +97,19 @@ README for the full backstory.
     Mutter, or a desktop package group merely to make it look like an image.
     GUI library dependencies pulled by the selected tools are expected.
 
-12. **Vendor tools stay on latest at build time.** Microsoft and GitHub
+11. **Vendor tools stay on latest at build time.** Microsoft and GitHub
     yum packages are unversioned in kickstarts. Side-loads (Copilot GUI/CLI,
     microsoft/edit, Flathub repo file) go through
     `scripts/fetch-latest-thirdparty.sh` and fail the build if latest cannot
     be resolved. CI may snapshot NEVRAs with
     `scripts/log-latest-vendor-packages.sh`. See
     `findings/latest-vendor-packages.md`.
-13. **Catalogs for agents.** Topic notes live as `findings/*.md` only
+12. **Catalogs for agents.** Topic notes live as `findings/*.md` only
     (no central index, no `findings/README.md`). Filename + first
-    heading are the catalog. `scripts/README.md` indexes build/test
-    helpers. Prefer those over rediscovering paths by grep alone.
+    heading are the catalog. Build/test helpers live under `scripts/`;
+    discover them from the root `README.md`, this file, and
+    `findings/*.md`. Do not create nested `README.md` index files under
+    `scripts/`, `containers/`, or `kickstart/`.
 
 
 ## Problem-solving approach
@@ -138,14 +141,14 @@ README for the full backstory.
    dispatch a research agent to find upstream reports, established fixes, and
    environmental constraints. Then step back and compare the cost of another
    workaround with the project's actual goal.
-5. **Choose the authoritative path deliberately.** Local Podman testing is
+6. **Choose the authoritative path deliberately.** Local Podman testing is
    valuable preflight coverage. GitHub Actions is authoritative for its
    published artifacts. When a host-only difference remains after local
    product proof, build in Actions and test the resulting artifact locally
    instead of trying to reproduce every runner detail. Keep non-GUI package
    and repo-priority checks batchable in CI with per-check logs/artifacts so
    iteration can move forward when local parity hits diminishing returns.
-6. **Preserve the decision.** Record the failure, evidence, scope of any
+7. **Preserve the decision.** Record the failure, evidence, scope of any
    workaround, and the remaining validation in `findings/`. Paste the key
    log lines into that same topic file. Update these instructions when the
    lesson is general enough to prevent the next avoidable rabbit hole.
@@ -305,6 +308,13 @@ README for the full backstory.
   `sk_skb_reason_drop` while Settings shows Bluetooth stuck off. See
   `findings/bluetooth-hci-timeout-thinkpad.md` and
   `scripts/build-desktop-kmods.sh`.
+- **Out-of-tree psmouse kmod:** Azure Linux x86_64 leaves
+  `CONFIG_INPUT_MOUSE` / `CONFIG_MOUSE_PS2` off. GNOME Boxes and other
+  "unknown Linux" hypervisor profiles still present a PS/2 mouse by
+  default. Ship `azurelinux-desktop-psmouse-kmod` so those guests get a
+  pointer without requiring a USB or virtio tablet. See
+  `findings/hypervisor-mouse-ps2-boxes.md` and
+  `scripts/build-desktop-kmods.sh`.
 - **Interactive QEMU/GNOME testing**: quirks, caveats, and the SSH
   port-forwarding pattern for GNOME Wayland testing inside QEMU are
   documented in `findings/qemu-gnome-interactive-testing.md`. Read that
@@ -417,8 +427,9 @@ Same names and material as `copilot-desktop-gtk`:
 | `GPG_KEY_ID` | Short key id |
 
 `gh secret list -R sirredbeard/azurelinux-desktop` shows names only.
-GitHub never returns values. Keep a private offline backup. Detail:
-`packaging/gpg/README.md`.
+GitHub never returns values. Keep a private offline backup. In-tree
+pointers: `packaging/gpg/keyid.txt`, `packaging/gpg/public.asc`, and
+`findings/gpg-key-rotation.md`.
 
 ### Workflows and clients
 
