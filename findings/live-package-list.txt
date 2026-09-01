@@ -45,7 +45,7 @@ authselect-libs-1.6.2-3.azl4.x86_64
 avahi-0.9~rc2-9.azl4.x86_64
 avahi-glib-0.9~rc2-9.azl4.x86_64
 avahi-libs-0.9~rc2-9.azl4.x86_64
-azure-cli-2.89.1-1.el9.x86_64
+azure-cli-2.90.0-1.el9.x86_64
 azurelinux-desktop-bluetooth-kmod-6.18.31-1.16.azl4.x86_64
 azurelinux-desktop-intel-kmod-6.18.31-1.16.azl4.x86_64
 azurelinux-desktop-performance-kmod-6.18.31-1.16.azl4.x86_64
@@ -794,7 +794,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-154.0.4250.0-1.x86_64
+microsoft-edge-canary-154.0.4251.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
