@@ -561,6 +561,7 @@ fi
 mkdir -p /mnt/sysimage/var/lib/flatpak
 cp -a "$STAGE_FP"/. /mnt/sysimage/var/lib/flatpak/
 test -d /mnt/sysimage/var/lib/flatpak/app/com.github.sirredbeard.copilot-desktop-gtk
+test -d /mnt/sysimage/var/lib/flatpak/app/com.tomjwatson.Emote
 test -e /mnt/sysimage/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml \
     || test -e /mnt/sysimage/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml.gz
 test -d /mnt/sysimage/var/lib/flatpak/appstream/flathub/x86_64/active/icons

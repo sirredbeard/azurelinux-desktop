@@ -127,6 +127,25 @@ if [ -n "$DCONF_FILE" ]; then
     grep -q "color-scheme" "$DCONF_FILE" && pass "dconf: color-scheme set" || fail "dconf: color-scheme missing"
     grep -q "picture-uri" "$DCONF_FILE"  && pass "dconf: picture-uri set"  || fail "dconf: picture-uri missing"
     grep -q "adwaita-l.jxl\|\.jxl" "$DCONF_FILE" && fail "dconf: still pointing at JXL (AZL can't render JXL)" || pass "dconf: no JXL paths"
+    if grep -RqsF "show-screenshot-ui=['Print', '<Shift><Super>s']" \
+        "$ROOTFS/etc/dconf/db/local.d" 2>/dev/null; then
+        pass "dconf: Win+Shift+S show-screenshot-ui set"
+    else
+        fail "dconf: Win+Shift+S show-screenshot-ui missing"
+    fi
+    if grep -RqsF "command='flatpak run com.tomjwatson.Emote'" \
+        "$ROOTFS/etc/dconf/db/local.d" 2>/dev/null \
+        && grep -RqsF "binding='<Super>period'" \
+        "$ROOTFS/etc/dconf/db/local.d" 2>/dev/null; then
+        pass "dconf: Win+. Emote binding set"
+    else
+        fail "dconf: Win+. Emote binding missing"
+    fi
+    if [ -d "$ROOTFS/var/lib/flatpak/app/com.tomjwatson.Emote" ]; then
+        pass "flatpak: Emote app prestaged"
+    else
+        fail "flatpak: Emote app missing under /var/lib/flatpak"
+    fi
     # Live ISO sets favorites via the livesys-gnome script at runtime (not dconf).
     # Accept either a dconf local.d file with favorite-apps OR the livesys-gnome patch.
     LIVESYS_GNOME="$ROOTFS/usr/libexec/livesys/sessions.d/livesys-gnome"

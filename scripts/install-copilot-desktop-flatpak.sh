@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # install-copilot-desktop-flatpak.sh
 #
-# Purpose: Install the unofficial Microsoft Copilot GTK desktop app
-#   (com.github.sirredbeard.copilot-desktop-gtk) as a system Flatpak into a
-#   rootfs. Pulls org.gnome.Platform//50 from Flathub, then installs the app
-#   from the project's GitHub Pages Flatpakref so the Pages remote stays
-#   registered for later `flatpak update`. Distinct from the GitHub Copilot
-#   GUI RPM / CLI side-load in fetch-latest-thirdparty.sh.
+# Purpose: Install system Flatpaks into a rootfs:
+#   1. Unofficial Microsoft Copilot GTK
+#      (com.github.sirredbeard.copilot-desktop-gtk) from GitHub Pages
+#   2. Emote emoji picker (com.tomjwatson.Emote) from Flathub
+#   Pulls org.gnome.Platform//50 from Flathub (shared runtime), registers
+#   the Pages remote for Copilot updates, and bakes Flathub AppStream.
+#   Distinct from the GitHub Copilot GUI RPM / CLI side-load in
+#   fetch-latest-thirdparty.sh.
 # Usage:   ./scripts/install-copilot-desktop-flatpak.sh ROOTFS [flathub.flatpakrepo]
 #          ROOTFS is the install root (/mnt/sysimage, /mnt/azl, / for host).
 #          Optional second arg is a staged Flathub .flatpakrepo path; when
@@ -52,12 +54,13 @@ export FLATPAK_USER_CACHE_DIR="${ROOTFS}/var/tmp/flatpak-cache"
 mkdir -p "$FLATPAK_USER_DIR" "$FLATPAK_USER_CACHE_DIR"
 
 APP_ID="com.github.sirredbeard.copilot-desktop-gtk"
+EMOTE_ID="com.tomjwatson.Emote"
 REMOTE_NAME="copilot-desktop-gtk"
 FLATPAKREF_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${APP_ID}.flatpakref"
 REPO_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${REMOTE_NAME}.flatpakrepo"
 RUNTIME_REF="org.gnome.Platform//50"
 
-echo "=== Installing Copilot Flatpak into ${FLATPAK_USER_DIR} ==="
+echo "=== Installing Copilot + Emote Flatpaks into ${FLATPAK_USER_DIR} ==="
 
 if [[ -n "$FLATHUB_REPO_FILE" && -s "$FLATHUB_REPO_FILE" ]]; then
     flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_FILE"
@@ -74,8 +77,13 @@ flatpak install --user --noninteractive -y flathub "$RUNTIME_REF"
 # when Pages is signed, and pulls the app from the Pages OSTree.
 flatpak install --user --noninteractive -y --from "$FLATPAKREF_URL"
 
+# Emote: Windows-like popup emoji picker (Win+. / Win+;). Same Platform//50.
+flatpak install --user --noninteractive -y flathub "$EMOTE_ID"
+
 flatpak info --user "$APP_ID" >/dev/null
+flatpak info --user "$EMOTE_ID" >/dev/null
 flatpak list --user --app --columns=application,origin | grep -F "$APP_ID"
+flatpak list --user --app --columns=application,origin | grep -F "$EMOTE_ID"
 
 if ! flatpak remotes --user --columns=name | grep -qx "$REMOTE_NAME"; then
     # Belt-and-suspenders: if a future flatpakref path skipped remote
@@ -144,14 +152,16 @@ else
     echo "warning: live Pages .flatpakrepo has no GPGKey=; skip gpg-verify assert" >&2
 fi
 
-# Exported launcher id used in GNOME Shell favorite-apps lists.
-if [[ ! -f "${FLATPAK_USER_DIR}/exports/share/applications/${APP_ID}.desktop" ]]; then
-    found="$(find "${FLATPAK_USER_DIR}" -path "*/exports/share/applications/${APP_ID}.desktop" 2>/dev/null | head -1 || true)"
-    if [[ -z "$found" ]]; then
-        echo "error: exported desktop file missing for ${APP_ID}" >&2
-        exit 1
+# Exported launcher ids (Copilot favorites + Emote keybinding target).
+for desk_id in "$APP_ID" "$EMOTE_ID"; do
+    if [[ ! -f "${FLATPAK_USER_DIR}/exports/share/applications/${desk_id}.desktop" ]]; then
+        found="$(find "${FLATPAK_USER_DIR}" -path "*/exports/share/applications/${desk_id}.desktop" 2>/dev/null | head -1 || true)"
+        if [[ -z "$found" ]]; then
+            echo "error: exported desktop file missing for ${desk_id}" >&2
+            exit 1
+        fi
     fi
-fi
+done
 
 # Bake Flathub AppStream into the system tree so GNOME Software curated
 # pages (Learn / Editor's Choice / …) are not empty on first open
@@ -174,4 +184,4 @@ fi
 du -sh "${FLATPAK_USER_DIR}/appstream" 2>/dev/null || true
 echo "=== Flathub AppStream OK ==="
 
-echo "=== Copilot Flatpak install OK (${APP_ID}) ==="
+echo "=== Flatpak install OK (${APP_ID}, ${EMOTE_ID}) ==="

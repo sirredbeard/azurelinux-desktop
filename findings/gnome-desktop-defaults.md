@@ -110,6 +110,37 @@ The two mechanisms do not overlap. `livesys-gnome` is conditioned on
   `00-azl-desktop-defaults`, and disk-image favorites file.
   User-overridable in Settings.
 
+## Win+Shift+S screenshot (Snipping Tool habit)
+
+* Windows uses `Win+Shift+S` for Snipping Tool area capture.
+* Stock GNOME: `show-screenshot-ui` is only `Print`. `Super+s` is
+  Quick Settings. `Alt+Super+s` is screen reader. `Super+Shift+s`
+  was free.
+* Product default in `assets/dconf/db/local.d/00-azl-desktop-defaults`:
+
+  ```
+  [org/gnome/shell/keybindings]
+  show-screenshot-ui=['Print', '<Shift><Super>s']
+  ```
+
+* Keeps Print. Opens the same interactive GNOME Shell screenshot UI
+  ("Take a screenshot interactively"), not a separate custom command.
+* Host check: `gsettings set` accepted the binding; no other schema
+  claimed `<Shift><Super>s`. Manual chord confirmed on the dev host.
+
+## Win+. emoji panel (Emote)
+
+* Windows uses `Win+.` and `Win+;` for the emoji panel.
+* Product ships [Emote](https://github.com/tom-james-watson/Emote)
+  (`com.tomjwatson.Emote` Flathub Flatpak) as the closest popup picker.
+* System dconf custom1/custom2:
+  * `binding='<Super>period'` / `'<Super>semicolon'`
+  * `command='flatpak run com.tomjwatson.Emote'`
+* IBus emoji hotkey cleared (`hotkey=@as []`) so it does not fight the
+  global media-keys chord.
+* Prestaged with Copilot in `install-copilot-desktop-flatpak.sh` /
+  `prestage-copilot-flatpak-system.sh` (shared Platform//50).
+
 ## GNOME Software: polkit and update suppression
 
 * Polkit rule for DNF5 authorization:
