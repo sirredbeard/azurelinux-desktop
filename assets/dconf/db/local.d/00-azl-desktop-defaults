@@ -18,3 +18,8 @@ custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybin
 name='Microsoft Copilot'
 command='flatpak run com.github.sirredbeard.copilot-desktop-gtk'
 binding='<Shift><Super>F23'
+
+# Win+Shift+S (Snipping Tool). Default GNOME only binds Print.
+# Super+s is Quick Settings; Super+Shift+s was free.
+[org/gnome/shell/keybindings]
+show-screenshot-ui=['Print', '<Shift><Super>s']

@@ -188,6 +188,19 @@ check_file "dconf: picture-uri configured" \
     "/etc/dconf/db/local.d/00-dark-mode" \
     "picture-uri"
 
+# Prefer the current asset name; accept legacy 00-dark-mode if present.
+if [ -f "$MOUNTPOINT/etc/dconf/db/local.d/00-azl-desktop-defaults" ]; then
+    check_file "dconf: Win+Shift+S show-screenshot-ui" \
+        "/etc/dconf/db/local.d/00-azl-desktop-defaults" \
+        "show-screenshot-ui=['Print', '<Shift><Super>s']"
+elif [ -f "$MOUNTPOINT/etc/dconf/db/local.d/00-dark-mode" ]; then
+    check_file "dconf: Win+Shift+S show-screenshot-ui" \
+        "/etc/dconf/db/local.d/00-dark-mode" \
+        "show-screenshot-ui=['Print', '<Shift><Super>s']"
+else
+    fail "dconf: no local.d desktop defaults for screenshot binding"
+fi
+
 check_file "azl-powershell-terminal present" \
     "/usr/local/bin/azl-powershell-terminal" \
     ""

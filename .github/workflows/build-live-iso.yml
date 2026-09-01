@@ -539,7 +539,7 @@ jobs:
           picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
           picture-options='zoom'
 
-          # Microsoft Copilot hardware key (LeftMeta+LeftShift+F23).
+          # Microsoft Copilot hardware key + Win+Shift+S (same as 00-azl-desktop-defaults).
           [org/gnome/settings-daemon/plugins/media-keys]
           custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']
 
@@ -547,6 +547,9 @@ jobs:
           name='Microsoft Copilot'
           command='flatpak run com.github.sirredbeard.copilot-desktop-gtk'
           binding='<Shift><Super>F23'
+
+          [org/gnome/shell/keybindings]
+          show-screenshot-ui=['Print', '<Shift><Super>s']
           DCONF
           dconf update
 

@@ -227,6 +227,7 @@ verify_root() {
     check "$label" "$root" /etc/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules 'flatpak|org.freedesktop.Flatpak' || true
     check "$label" "$root" /root/azl-install.ks 'ASSETS=/root/assets|root/assets' || true
     check "$label" "$root" /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults 'prefer-dark|color-scheme' || true
+    check "$label" "$root" /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults "show-screenshot-ui=\\['Print', '<Shift><Super>s'\\]" || true
     check "$label" "$root" /opt/azl-desktop-assets/bin/azl-growroot '.' || true
     check "$label" "$root" /opt/azl-desktop-assets/bin/azl-link-intel-ihd '.' || true
     check "$label" "$root" /opt/azl-desktop-assets/environment.d/50-azurelinux-desktop-libva.conf 'LIBVA|dri-nonfree' || true
@@ -292,12 +293,27 @@ verify_root() {
   # Dark theme dconf (source file and/or compiled db)
   if sudo test -f "$root/etc/dconf/db/local.d/00-azl-desktop-defaults"; then
     check "$label" "$root" /etc/dconf/db/local.d/00-azl-desktop-defaults 'prefer-dark|color-scheme|picture-uri'
+    check "$label" "$root" /etc/dconf/db/local.d/00-azl-desktop-defaults "show-screenshot-ui=\\['Print', '<Shift><Super>s'\\]"
   elif sudo grep -RqsE 'prefer-dark|color-scheme' "$root/etc/dconf/db/local.d" 2>/dev/null \
     || sudo strings "$root/etc/dconf/db/local" 2>/dev/null | grep -qE 'prefer-dark|color-scheme'; then
     sum "PASS  [$label] dconf dark theme keys present (compiled or local.d)"
     pass=$((pass + 1))
   else
     sum "FAIL  [$label] dconf dark theme (prefer-dark) not found"
+    fail=$((fail + 1))
+  fi
+  if sudo grep -RqsF "show-screenshot-ui=['Print', '<Shift><Super>s']" "$root/etc/dconf/db/local.d" 2>/dev/null; then
+    sum "PASS  [$label] dconf Win+Shift+S show-screenshot-ui"
+    pass=$((pass + 1))
+  elif sudo strings "$root/etc/dconf/db/local" 2>/dev/null \
+    | grep -Fq "show-screenshot-ui=['Print', '<Shift><Super>s']"; then
+    sum "PASS  [$label] dconf Win+Shift+S show-screenshot-ui (compiled db)"
+    pass=$((pass + 1))
+  elif [[ "$label" == installer* ]]; then
+    sum "SKIP  [$label] Win+Shift+S dconf (installer runtime; target %post)"
+    skip=$((skip + 1))
+  else
+    sum "FAIL  [$label] dconf Win+Shift+S show-screenshot-ui missing"
     fail=$((fail + 1))
   fi
   check "$label" "$root" /etc/dconf/profile/user 'user-db|system-db'

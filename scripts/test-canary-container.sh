@@ -131,6 +131,10 @@ assert_rpm_source gnome-terminal '.fc43'
 test -s /etc/dconf/db/local
 DCONF_PROFILE=user dconf read /org/gnome/desktop/background/picture-uri-dark \
     | grep -Fq "file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg"
+DCONF_PROFILE=user dconf read /org/gnome/shell/keybindings/show-screenshot-ui \
+    | grep -Fq "<Shift><Super>s"
+grep -Fq "show-screenshot-ui=['Print', '<Shift><Super>s']" \
+    /etc/dconf/db/local.d/00-azl-desktop-defaults
 test -x /usr/local/bin/azl-powershell-terminal
 test -f /usr/share/applications/org.azurelinux.PowerShell.desktop
 grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org.azurelinux.PowerShell.desktop

@@ -110,6 +110,25 @@ The two mechanisms do not overlap. `livesys-gnome` is conditioned on
   `00-azl-desktop-defaults`, and disk-image favorites file.
   User-overridable in Settings.
 
+## Win+Shift+S screenshot (Snipping Tool habit)
+
+* Windows uses `Win+Shift+S` for Snipping Tool area capture.
+* Stock GNOME: `show-screenshot-ui` is only `Print`. `Super+s` is
+  Quick Settings. `Alt+Super+s` is screen reader. `Super+Shift+s`
+  was free.
+* Product default in `assets/dconf/db/local.d/00-azl-desktop-defaults`:
+
+  ```
+  [org/gnome/shell/keybindings]
+  show-screenshot-ui=['Print', '<Shift><Super>s']
+  ```
+
+* Keeps Print. Opens the same interactive GNOME Shell screenshot UI
+  ("Take a screenshot interactively"), not a separate custom command.
+* Host check: `gsettings set` accepted the binding; no other schema
+  claimed `<Shift><Super>s`. Manual chord confirmed on the dev host.
+
+
 ## GNOME Software: polkit and update suppression
 
 * Polkit rule for DNF5 authorization:

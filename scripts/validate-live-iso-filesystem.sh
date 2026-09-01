@@ -127,6 +127,12 @@ if [ -n "$DCONF_FILE" ]; then
     grep -q "color-scheme" "$DCONF_FILE" && pass "dconf: color-scheme set" || fail "dconf: color-scheme missing"
     grep -q "picture-uri" "$DCONF_FILE"  && pass "dconf: picture-uri set"  || fail "dconf: picture-uri missing"
     grep -q "adwaita-l.jxl\|\.jxl" "$DCONF_FILE" && fail "dconf: still pointing at JXL (AZL can't render JXL)" || pass "dconf: no JXL paths"
+    if grep -RqsF "show-screenshot-ui=['Print', '<Shift><Super>s']" \
+        "$ROOTFS/etc/dconf/db/local.d" 2>/dev/null; then
+        pass "dconf: Win+Shift+S show-screenshot-ui set"
+    else
+        fail "dconf: Win+Shift+S show-screenshot-ui missing"
+    fi
     # Live ISO sets favorites via the livesys-gnome script at runtime (not dconf).
     # Accept either a dconf local.d file with favorite-apps OR the livesys-gnome patch.
     LIVESYS_GNOME="$ROOTFS/usr/libexec/livesys/sessions.d/livesys-gnome"
