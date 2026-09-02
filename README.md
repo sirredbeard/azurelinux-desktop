@@ -29,7 +29,7 @@ Third-party scripts/RPM packages are very likely to get confused by the repo mix
 
 * [GNOME](https://www.gnome.org/) from [Fedora](https://fedoraproject.org/)
 * [Copilot](https://github.com/sirredbeard/copilot-desktop-gtk) (unofficial Microsoft Copilot GTK Flatpak)
-* [Emote](https://github.com/tom-james-watson/Emote) emoji picker Flatpak (`Win+.` / `Win+;`)
+* [Smile](https://github.com/mijorus/smile) emoji picker Flatpak (`Win+.` / `Win+;`)
 
 ### Web and Email
 

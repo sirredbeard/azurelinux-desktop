@@ -29,31 +29,32 @@ show-screenshot-ui=['Print', '<Shift><Super>s']
 Host: `gsettings set` accepted the binding. Manual `Win+Shift+S`
 confirmed.
 
-## Emoji (Emote)
+## Emoji (Smile)
 
-Closest Flatpak to the Windows emoji panel is
-[Emote](https://github.com/tom-james-watson/Emote)
-(`com.tomjwatson.Emote` on Flathub). IBus `Super+period` only fires
-with a focused IBus text context. Emote is a global popup.
+Product ships [Smile](https://github.com/mijorus/smile)
+(`it.mijorus.smile` on Flathub) for the Windows-style panel. Tried Emote
+and EmojiMart; Smile is the maintained GNOME picker we want. IBus
+`Super+period` only fires with a focused IBus text context. Smile is a
+global popup via media-keys.
 
 Product dconf:
 
 ```
 [org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1]
 name='Emoji panel'
-command='flatpak run com.tomjwatson.Emote'
+command='flatpak run it.mijorus.smile'
 binding='<Super>period'
 
 [org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2]
 name='Emoji panel'
-command='flatpak run com.tomjwatson.Emote'
+command='flatpak run it.mijorus.smile'
 binding='<Super>semicolon'
 
 [org/freedesktop/ibus/panel/emoji]
 hotkey=@as []
 ```
 
-Host: `flatpak run com.tomjwatson.Emote` opens the picker. gsettings
+Host: `flatpak run it.mijorus.smile` opens the picker. gsettings
 custom1/custom2 accepted Super+period and Super+semicolon.
 
 ## Flatpak preseed
@@ -61,12 +62,13 @@ custom1/custom2 accepted Super+period and Super+semicolon.
 `scripts/install-copilot-desktop-flatpak.sh` now installs both:
 
 * `com.github.sirredbeard.copilot-desktop-gtk` (Pages)
-* `com.tomjwatson.Emote` (Flathub)
+* `it.mijorus.smile` (Flathub)
 
-Same `org.gnome.Platform//50` runtime. `prestage-copilot-flatpak-system.sh`
-asserts both app dirs and exported `.desktop` files. Live kickstart,
-installer `azl-install.ks.in`, and canary Dockerfile fail closed if Emote
-is missing from the staged `/var/lib/flatpak` tree.
+Copilot uses `org.gnome.Platform//50`; Smile uses `//49`. Both are
+prestaged. `prestage-copilot-flatpak-system.sh` asserts both app dirs and
+exported `.desktop` files. Live kickstart, installer `azl-install.ks.in`,
+and canary Dockerfile fail closed if Smile is missing from the staged
+`/var/lib/flatpak` tree.
 
 ## Carried on every path
 
@@ -80,4 +82,4 @@ is missing from the staged `/var/lib/flatpak` tree.
 
 * `validate-live-iso-filesystem.sh` / `validate-live-qcow2.sh`
 * `verify-release-features.sh`
-* `test-canary-container.sh` (dconf strings + `flatpak info` Emote)
+* `test-canary-container.sh` (dconf strings + `flatpak info` Smile)

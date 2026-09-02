@@ -121,7 +121,7 @@ RUN --mount=type=secret,id=github_token,required=false \
         /opt/azl-scripts/install-copilot-desktop-flatpak.sh "$ROOTFS"; \
     fi; \
     test -d "$ROOTFS/var/lib/flatpak/app/com.github.sirredbeard.copilot-desktop-gtk"; \
-    test -d "$ROOTFS/var/lib/flatpak/app/com.tomjwatson.Emote"; \
+    test -d "$ROOTFS/var/lib/flatpak/app/it.mijorus.smile"; \
     test -e "$ROOTFS/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml" \
         || test -e "$ROOTFS/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml.gz"; \
     test -d "$ROOTFS/var/lib/flatpak/appstream/flathub/x86_64/active/icons"; \

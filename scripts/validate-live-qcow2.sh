@@ -193,24 +193,24 @@ if [ -f "$MOUNTPOINT/etc/dconf/db/local.d/00-azl-desktop-defaults" ]; then
     check_file "dconf: Win+Shift+S show-screenshot-ui" \
         "/etc/dconf/db/local.d/00-azl-desktop-defaults" \
         "show-screenshot-ui=['Print', '<Shift><Super>s']"
-    check_file "dconf: Win+. Emote command" \
+    check_file "dconf: Win+. Smile command" \
         "/etc/dconf/db/local.d/00-azl-desktop-defaults" \
-        "command='flatpak run com.tomjwatson.Emote'"
+        "command='flatpak run it.mijorus.smile'"
     check_file "dconf: Win+. Super+period binding" \
         "/etc/dconf/db/local.d/00-azl-desktop-defaults" \
         "binding='<Super>period'"
-    if [ -d "$MOUNTPOINT/var/lib/flatpak/app/com.tomjwatson.Emote" ]; then
-        pass "flatpak: Emote app prestaged"
+    if [ -d "$MOUNTPOINT/var/lib/flatpak/app/it.mijorus.smile" ]; then
+        pass "flatpak: Smile app prestaged"
     else
-        fail "flatpak: Emote app missing"
+        fail "flatpak: Smile app missing"
     fi
 elif [ -f "$MOUNTPOINT/etc/dconf/db/local.d/00-dark-mode" ]; then
     check_file "dconf: Win+Shift+S show-screenshot-ui" \
         "/etc/dconf/db/local.d/00-dark-mode" \
         "show-screenshot-ui=['Print', '<Shift><Super>s']"
-    check_file "dconf: Win+. Emote command" \
+    check_file "dconf: Win+. Smile command" \
         "/etc/dconf/db/local.d/00-dark-mode" \
-        "command='flatpak run com.tomjwatson.Emote'"
+        "command='flatpak run it.mijorus.smile'"
     check_file "dconf: Win+. Super+period binding" \
         "/etc/dconf/db/local.d/00-dark-mode" \
         "binding='<Super>period'"

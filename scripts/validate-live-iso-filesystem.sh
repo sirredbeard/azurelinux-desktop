@@ -133,18 +133,18 @@ if [ -n "$DCONF_FILE" ]; then
     else
         fail "dconf: Win+Shift+S show-screenshot-ui missing"
     fi
-    if grep -RqsF "command='flatpak run com.tomjwatson.Emote'" \
+    if grep -RqsF "command='flatpak run it.mijorus.smile'" \
         "$ROOTFS/etc/dconf/db/local.d" 2>/dev/null \
         && grep -RqsF "binding='<Super>period'" \
         "$ROOTFS/etc/dconf/db/local.d" 2>/dev/null; then
-        pass "dconf: Win+. Emote binding set"
+        pass "dconf: Win+. Smile binding set"
     else
-        fail "dconf: Win+. Emote binding missing"
+        fail "dconf: Win+. Smile binding missing"
     fi
-    if [ -d "$ROOTFS/var/lib/flatpak/app/com.tomjwatson.Emote" ]; then
-        pass "flatpak: Emote app prestaged"
+    if [ -d "$ROOTFS/var/lib/flatpak/app/it.mijorus.smile" ]; then
+        pass "flatpak: Smile app prestaged"
     else
-        fail "flatpak: Emote app missing under /var/lib/flatpak"
+        fail "flatpak: Smile app missing under /var/lib/flatpak"
     fi
     # Live ISO sets favorites via the livesys-gnome script at runtime (not dconf).
     # Accept either a dconf local.d file with favorite-apps OR the livesys-gnome patch.

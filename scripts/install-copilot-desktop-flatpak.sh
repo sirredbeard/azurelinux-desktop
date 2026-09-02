@@ -4,11 +4,11 @@
 # Purpose: Install system Flatpaks into a rootfs:
 #   1. Unofficial Microsoft Copilot GTK
 #      (com.github.sirredbeard.copilot-desktop-gtk) from GitHub Pages
-#   2. Emote emoji picker (com.tomjwatson.Emote) from Flathub
-#   Pulls org.gnome.Platform//50 from Flathub (shared runtime), registers
-#   the Pages remote for Copilot updates, and bakes Flathub AppStream.
-#   Distinct from the GitHub Copilot GUI RPM / CLI side-load in
-#   fetch-latest-thirdparty.sh.
+#   2. Smile emoji picker (it.mijorus.smile) from Flathub
+#   Pulls org.gnome.Platform runtimes from Flathub (Copilot //50, Smile
+#   //49), registers the Pages remote for Copilot updates, and bakes
+#   Flathub AppStream. Distinct from the GitHub Copilot GUI RPM / CLI
+#   side-load in fetch-latest-thirdparty.sh.
 # Usage:   ./scripts/install-copilot-desktop-flatpak.sh ROOTFS [flathub.flatpakrepo]
 #          ROOTFS is the install root (/mnt/sysimage, /mnt/azl, / for host).
 #          Optional second arg is a staged Flathub .flatpakrepo path; when
@@ -54,13 +54,16 @@ export FLATPAK_USER_CACHE_DIR="${ROOTFS}/var/tmp/flatpak-cache"
 mkdir -p "$FLATPAK_USER_DIR" "$FLATPAK_USER_CACHE_DIR"
 
 APP_ID="com.github.sirredbeard.copilot-desktop-gtk"
-EMOTE_ID="com.tomjwatson.Emote"
+SMILE_ID="it.mijorus.smile"
 REMOTE_NAME="copilot-desktop-gtk"
 FLATPAKREF_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${APP_ID}.flatpakref"
 REPO_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${REMOTE_NAME}.flatpakrepo"
-RUNTIME_REF="org.gnome.Platform//50"
+# Copilot GTK tracks Platform//50; Smile tracks //49. Install both so the
+# tree is complete offline without a mid-app resolve surprise.
+COPILOT_RUNTIME_REF="org.gnome.Platform//50"
+SMILE_RUNTIME_REF="org.gnome.Platform//49"
 
-echo "=== Installing Copilot + Emote Flatpaks into ${FLATPAK_USER_DIR} ==="
+echo "=== Installing Copilot + Smile Flatpaks into ${FLATPAK_USER_DIR} ==="
 
 if [[ -n "$FLATHUB_REPO_FILE" && -s "$FLATHUB_REPO_FILE" ]]; then
     flatpak remote-add --user --if-not-exists flathub "$FLATHUB_REPO_FILE"
@@ -69,21 +72,22 @@ else
         https://dl.flathub.org/repo/flathub.flatpakrepo
 fi
 
-# Runtime first so the app install does not surprise-resolve a missing
+# Runtimes first so app installs do not surprise-resolve a missing
 # Platform mid-transaction on a half-populated image root.
-flatpak install --user --noninteractive -y flathub "$RUNTIME_REF"
+flatpak install --user --noninteractive -y flathub "$COPILOT_RUNTIME_REF"
+flatpak install --user --noninteractive -y flathub "$SMILE_RUNTIME_REF"
 
 # flatpakref registers SuggestRemoteName=copilot-desktop-gtk, embeds GPGKey=
 # when Pages is signed, and pulls the app from the Pages OSTree.
 flatpak install --user --noninteractive -y --from "$FLATPAKREF_URL"
 
-# Emote: Windows-like popup emoji picker (Win+. / Win+;). Same Platform//50.
-flatpak install --user --noninteractive -y flathub "$EMOTE_ID"
+# Smile: Windows-like popup emoji picker (Win+. / Win+;).
+flatpak install --user --noninteractive -y flathub "$SMILE_ID"
 
 flatpak info --user "$APP_ID" >/dev/null
-flatpak info --user "$EMOTE_ID" >/dev/null
+flatpak info --user "$SMILE_ID" >/dev/null
 flatpak list --user --app --columns=application,origin | grep -F "$APP_ID"
-flatpak list --user --app --columns=application,origin | grep -F "$EMOTE_ID"
+flatpak list --user --app --columns=application,origin | grep -F "$SMILE_ID"
 
 if ! flatpak remotes --user --columns=name | grep -qx "$REMOTE_NAME"; then
     # Belt-and-suspenders: if a future flatpakref path skipped remote
@@ -152,8 +156,8 @@ else
     echo "warning: live Pages .flatpakrepo has no GPGKey=; skip gpg-verify assert" >&2
 fi
 
-# Exported launcher ids (Copilot favorites + Emote keybinding target).
-for desk_id in "$APP_ID" "$EMOTE_ID"; do
+# Exported launcher ids (Copilot favorites + Smile keybinding target).
+for desk_id in "$APP_ID" "$SMILE_ID"; do
     if [[ ! -f "${FLATPAK_USER_DIR}/exports/share/applications/${desk_id}.desktop" ]]; then
         found="$(find "${FLATPAK_USER_DIR}" -path "*/exports/share/applications/${desk_id}.desktop" 2>/dev/null | head -1 || true)"
         if [[ -z "$found" ]]; then
@@ -184,4 +188,4 @@ fi
 du -sh "${FLATPAK_USER_DIR}/appstream" 2>/dev/null || true
 echo "=== Flathub AppStream OK ==="
 
-echo "=== Flatpak install OK (${APP_ID}, ${EMOTE_ID}) ==="
+echo "=== Flatpak install OK (${APP_ID}, ${SMILE_ID}) ==="

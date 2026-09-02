@@ -135,7 +135,7 @@ DCONF_PROFILE=user dconf read /org/gnome/shell/keybindings/show-screenshot-ui \
     | grep -Fq "<Shift><Super>s"
 grep -Fq "show-screenshot-ui=['Print', '<Shift><Super>s']" \
     /etc/dconf/db/local.d/00-azl-desktop-defaults
-grep -Fq "command='flatpak run com.tomjwatson.Emote'" \
+grep -Fq "command='flatpak run it.mijorus.smile'" \
     /etc/dconf/db/local.d/00-azl-desktop-defaults
 grep -Fq "binding='<Super>period'" \
     /etc/dconf/db/local.d/00-azl-desktop-defaults
@@ -227,11 +227,11 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
 {
     echo '=== Copilot desktop Flatpak (preinstalled) ==='
     flatpak info --system com.github.sirredbeard.copilot-desktop-gtk
-    flatpak info --system com.tomjwatson.Emote
+    flatpak info --system it.mijorus.smile
     flatpak list --system --app --columns=application,version,origin \
         | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
     flatpak list --system --app --columns=application,version,origin \
-        | grep -F 'com.tomjwatson.Emote'
+        | grep -F 'it.mijorus.smile'
     flatpak remotes --system --columns=name | grep -qx 'copilot-desktop-gtk'
     flatpak remotes --system --columns=name | grep -qx 'flathub'
     # Flathub AppStream baked at image build (GNOME Software catalog; issue #6).

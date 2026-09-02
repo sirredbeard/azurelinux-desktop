@@ -128,14 +128,14 @@ The two mechanisms do not overlap. `livesys-gnome` is conditioned on
 * Host check: `gsettings set` accepted the binding; no other schema
   claimed `<Shift><Super>s`. Manual chord confirmed on the dev host.
 
-## Win+. emoji panel (Emote)
+## Win+. emoji panel (Smile)
 
 * Windows uses `Win+.` and `Win+;` for the emoji panel.
-* Product ships [Emote](https://github.com/tom-james-watson/Emote)
-  (`com.tomjwatson.Emote` Flathub Flatpak) as the closest popup picker.
+* Product ships [Smile](https://github.com/mijorus/smile)
+  (`it.mijorus.smile` Flathub Flatpak) as the closest popup picker.
 * System dconf custom1/custom2:
   * `binding='<Super>period'` / `'<Super>semicolon'`
-  * `command='flatpak run com.tomjwatson.Emote'`
+  * `command='flatpak run it.mijorus.smile'`
 * IBus emoji hotkey cleared (`hotkey=@as []`) so it does not fight the
   global media-keys chord.
 * Prestaged with Copilot in `install-copilot-desktop-flatpak.sh` /

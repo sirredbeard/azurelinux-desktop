@@ -539,7 +539,7 @@ jobs:
           picture-uri-dark='file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg'
           picture-options='zoom'
 
-          # Microsoft Copilot hardware key + Win+. Emote (same as 00-azl-desktop-defaults).
+          # Microsoft Copilot hardware key + Win+. Smile (same as 00-azl-desktop-defaults).
           [org/gnome/settings-daemon/plugins/media-keys]
           custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/']
 
@@ -550,12 +550,12 @@ jobs:
 
           [org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1]
           name='Emoji panel'
-          command='flatpak run com.tomjwatson.Emote'
+          command='flatpak run it.mijorus.smile'
           binding='<Super>period'
 
           [org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2]
           name='Emoji panel'
-          command='flatpak run com.tomjwatson.Emote'
+          command='flatpak run it.mijorus.smile'
           binding='<Super>semicolon'
 
           [org/freedesktop/ibus/panel/emoji]

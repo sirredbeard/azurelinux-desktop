@@ -2,12 +2,13 @@
 # prestage-copilot-flatpak-system.sh
 #
 # Purpose: Build a complete /var/lib/flatpak tree for Microsoft Copilot GTK
-#   and Emote (Platform//50 + apps + Pages remote) plus Flathub AppStream
-#   metadata into DEST_DIR. Used by CI *before* livemedia-creator/kiwi so
-#   Anaconda %post only copies the tree. Pulling OSTree inside Anaconda
-#   %post --nochroot hung for 90+ min on GHA; the same install finishes in
-#   ~30s on the build host/container. AppStream bake fills GNOME Software
-#   curated tiles on first open (issue #6). Emote is the Win+. emoji picker.
+#   and Smile (Platform runtimes + apps + Pages remote) plus Flathub
+#   AppStream metadata into DEST_DIR. Used by CI *before*
+#   livemedia-creator/kiwi so Anaconda %post only copies the tree. Pulling
+#   OSTree inside Anaconda %post --nochroot hung for 90+ min on GHA; the
+#   same install finishes in ~30s on the build host/container. AppStream
+#   bake fills GNOME Software curated tiles on first open (issue #6).
+#   Smile (it.mijorus.smile) is the Win+. emoji picker.
 # Usage:   ./scripts/prestage-copilot-flatpak-system.sh DEST_DIR [flathub.flatpakrepo]
 # Needs:  flatpak CLI, network, install-copilot-desktop-flatpak.sh beside this
 #         script (or SCRIPTS_DIR). DEST_DIR is replaced on each run.
@@ -43,7 +44,7 @@ fi
 
 test -f "$WORK/var/lib/flatpak/repo/config"
 test -d "$WORK/var/lib/flatpak/app/com.github.sirredbeard.copilot-desktop-gtk"
-test -d "$WORK/var/lib/flatpak/app/com.tomjwatson.Emote"
+test -d "$WORK/var/lib/flatpak/app/it.mijorus.smile"
 
 rm -rf "$DEST"
 mkdir -p "$DEST"
@@ -51,12 +52,12 @@ cp -a "$WORK/var/lib/flatpak"/. "$DEST"/
 
 test -f "$DEST/repo/config"
 test -d "$DEST/app/com.github.sirredbeard.copilot-desktop-gtk"
-test -d "$DEST/app/com.tomjwatson.Emote"
-# Exported desktop ids (Copilot favorites + Emote keybinding).
+test -d "$DEST/app/it.mijorus.smile"
+# Exported desktop ids (Copilot favorites + Smile keybinding).
 test -e "$DEST/exports/share/applications/com.github.sirredbeard.copilot-desktop-gtk.desktop" \
     || find "$DEST" -name 'com.github.sirredbeard.copilot-desktop-gtk.desktop' | grep -q .
-test -e "$DEST/exports/share/applications/com.tomjwatson.Emote.desktop" \
-    || find "$DEST" -name 'com.tomjwatson.Emote.desktop' | grep -q .
+test -e "$DEST/exports/share/applications/it.mijorus.smile.desktop" \
+    || find "$DEST" -name 'it.mijorus.smile.desktop' | grep -q .
 # Flathub AppStream (GNOME Software first-open catalog; issue #6).
 test -e "$DEST/appstream/flathub/x86_64/active/appstream.xml" \
     || test -e "$DEST/appstream/flathub/x86_64/active/appstream.xml.gz"

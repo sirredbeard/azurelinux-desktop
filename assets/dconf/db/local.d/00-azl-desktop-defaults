@@ -19,17 +19,17 @@ name='Microsoft Copilot'
 command='flatpak run com.github.sirredbeard.copilot-desktop-gtk'
 binding='<Shift><Super>F23'
 
-# Win+. and Win+; open Emote (closest Flatpak to the Windows emoji panel).
+# Win+. and Win+; open Smile (closest Flatpak to the Windows emoji panel).
 # Global media-keys bindings. Clear IBus hotkey so Super+period is not
 # double-handled.
 [org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1]
 name='Emoji panel'
-command='flatpak run com.tomjwatson.Emote'
+command='flatpak run it.mijorus.smile'
 binding='<Super>period'
 
 [org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2]
 name='Emoji panel'
-command='flatpak run com.tomjwatson.Emote'
+command='flatpak run it.mijorus.smile'
 binding='<Super>semicolon'
 
 [org/freedesktop/ibus/panel/emoji]

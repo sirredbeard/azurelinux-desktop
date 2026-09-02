@@ -228,7 +228,7 @@ verify_root() {
     check "$label" "$root" /root/azl-install.ks 'ASSETS=/root/assets|root/assets' || true
     check "$label" "$root" /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults 'prefer-dark|color-scheme' || true
     check "$label" "$root" /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults "show-screenshot-ui=\\['Print', '<Shift><Super>s'\\]" || true
-    check "$label" "$root" /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults "command='flatpak run com\\.tomjwatson\\.Emote'" || true
+    check "$label" "$root" /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults "command='flatpak run it\\.mijorus\\.smile'" || true
     check "$label" "$root" /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults "binding='<Super>period'" || true
     check "$label" "$root" /opt/azl-desktop-assets/bin/azl-growroot '.' || true
     check "$label" "$root" /opt/azl-desktop-assets/bin/azl-link-intel-ihd '.' || true
@@ -296,7 +296,7 @@ verify_root() {
   if sudo test -f "$root/etc/dconf/db/local.d/00-azl-desktop-defaults"; then
     check "$label" "$root" /etc/dconf/db/local.d/00-azl-desktop-defaults 'prefer-dark|color-scheme|picture-uri'
     check "$label" "$root" /etc/dconf/db/local.d/00-azl-desktop-defaults "show-screenshot-ui=\\['Print', '<Shift><Super>s'\\]"
-    check "$label" "$root" /etc/dconf/db/local.d/00-azl-desktop-defaults "command='flatpak run com\\.tomjwatson\\.Emote'"
+    check "$label" "$root" /etc/dconf/db/local.d/00-azl-desktop-defaults "command='flatpak run it\\.mijorus\\.smile'"
     check "$label" "$root" /etc/dconf/db/local.d/00-azl-desktop-defaults "binding='<Super>period'"
   elif sudo grep -RqsE 'prefer-dark|color-scheme' "$root/etc/dconf/db/local.d" 2>/dev/null \
     || sudo strings "$root/etc/dconf/db/local" 2>/dev/null | grep -qE 'prefer-dark|color-scheme'; then
@@ -320,19 +320,19 @@ verify_root() {
     sum "FAIL  [$label] dconf Win+Shift+S show-screenshot-ui missing"
     fail=$((fail + 1))
   fi
-  if sudo grep -RqsF "command='flatpak run com.tomjwatson.Emote'" "$root/etc/dconf/db/local.d" 2>/dev/null \
+  if sudo grep -RqsF "command='flatpak run it.mijorus.smile'" "$root/etc/dconf/db/local.d" 2>/dev/null \
     && sudo grep -RqsF "binding='<Super>period'" "$root/etc/dconf/db/local.d" 2>/dev/null; then
-    sum "PASS  [$label] dconf Win+. Emote binding"
+    sum "PASS  [$label] dconf Win+. Smile binding"
     pass=$((pass + 1))
-  elif sudo strings "$root/etc/dconf/db/local" 2>/dev/null | grep -Fq "flatpak run com.tomjwatson.Emote" \
+  elif sudo strings "$root/etc/dconf/db/local" 2>/dev/null | grep -Fq "flatpak run it.mijorus.smile" \
     && sudo strings "$root/etc/dconf/db/local" 2>/dev/null | grep -Fq "<Super>period"; then
-    sum "PASS  [$label] dconf Win+. Emote binding (compiled db)"
+    sum "PASS  [$label] dconf Win+. Smile binding (compiled db)"
     pass=$((pass + 1))
   elif [[ "$label" == installer* ]]; then
-    sum "SKIP  [$label] Win+. Emote dconf (installer runtime; target %post)"
+    sum "SKIP  [$label] Win+. Smile dconf (installer runtime; target %post)"
     skip=$((skip + 1))
   else
-    sum "FAIL  [$label] dconf Win+. Emote binding missing"
+    sum "FAIL  [$label] dconf Win+. Smile binding missing"
     fail=$((fail + 1))
   fi
   check "$label" "$root" /etc/dconf/profile/user 'user-db|system-db'
@@ -410,16 +410,16 @@ verify_root() {
       fail=$((fail + 1))
     fi
   fi
-  if sudo test -d "$root/var/lib/flatpak/app/com.tomjwatson.Emote" \
-    || sudo flatpak --installation=system --system list --app 2>/dev/null | grep -q com.tomjwatson.Emote; then
-    sum "PASS  [$label] Emote flatpak app dir"
+  if sudo test -d "$root/var/lib/flatpak/app/it.mijorus.smile" \
+    || sudo flatpak --installation=system --system list --app 2>/dev/null | grep -q it.mijorus.smile; then
+    sum "PASS  [$label] Smile flatpak app dir"
     pass=$((pass + 1))
   else
-    if sudo find "$root/var/lib/flatpak" -path '*com.tomjwatson.Emote*' 2>/dev/null | head -5 | tee -a "$LOG" | grep -q .; then
-      sum "PASS  [$label] Emote flatpak paths present"
+    if sudo find "$root/var/lib/flatpak" -path '*it.mijorus.smile*' 2>/dev/null | head -5 | tee -a "$LOG" | grep -q .; then
+      sum "PASS  [$label] Smile flatpak paths present"
       pass=$((pass + 1))
     else
-      sum "FAIL  [$label] Emote flatpak missing"
+      sum "FAIL  [$label] Smile flatpak missing"
       fail=$((fail + 1))
     fi
   fi
