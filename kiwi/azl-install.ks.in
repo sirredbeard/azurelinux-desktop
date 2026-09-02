@@ -190,6 +190,7 @@ if [ -d "$EXTRAS/flatpak-system" ] && [ -f "$EXTRAS/flatpak-system/repo/config" 
     mkdir -p /mnt/sysroot/var/lib/flatpak
     cp -a "$EXTRAS/flatpak-system"/. /mnt/sysroot/var/lib/flatpak/
     test -d /mnt/sysroot/var/lib/flatpak/app/com.github.sirredbeard.copilot-desktop-gtk
+    test -d /mnt/sysroot/var/lib/flatpak/app/com.tomjwatson.Emote
     test -e /mnt/sysroot/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml \
         || test -e /mnt/sysroot/var/lib/flatpak/appstream/flathub/x86_64/active/appstream.xml.gz
     test -d /mnt/sysroot/var/lib/flatpak/appstream/flathub/x86_64/active/icons

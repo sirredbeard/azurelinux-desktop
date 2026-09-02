@@ -131,6 +131,14 @@ assert_rpm_source gnome-terminal '.fc43'
 test -s /etc/dconf/db/local
 DCONF_PROFILE=user dconf read /org/gnome/desktop/background/picture-uri-dark \
     | grep -Fq "file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg"
+DCONF_PROFILE=user dconf read /org/gnome/shell/keybindings/show-screenshot-ui \
+    | grep -Fq "<Shift><Super>s"
+grep -Fq "show-screenshot-ui=['Print', '<Shift><Super>s']" \
+    /etc/dconf/db/local.d/00-azl-desktop-defaults
+grep -Fq "command='flatpak run com.tomjwatson.Emote'" \
+    /etc/dconf/db/local.d/00-azl-desktop-defaults
+grep -Fq "binding='<Super>period'" \
+    /etc/dconf/db/local.d/00-azl-desktop-defaults
 test -x /usr/local/bin/azl-powershell-terminal
 test -f /usr/share/applications/org.azurelinux.PowerShell.desktop
 grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org.azurelinux.PowerShell.desktop
@@ -219,8 +227,11 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
 {
     echo '=== Copilot desktop Flatpak (preinstalled) ==='
     flatpak info --system com.github.sirredbeard.copilot-desktop-gtk
+    flatpak info --system com.tomjwatson.Emote
     flatpak list --system --app --columns=application,version,origin \
         | grep -F 'com.github.sirredbeard.copilot-desktop-gtk'
+    flatpak list --system --app --columns=application,version,origin \
+        | grep -F 'com.tomjwatson.Emote'
     flatpak remotes --system --columns=name | grep -qx 'copilot-desktop-gtk'
     flatpak remotes --system --columns=name | grep -qx 'flathub'
     # Flathub AppStream baked at image build (GNOME Software catalog; issue #6).
