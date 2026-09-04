@@ -93,12 +93,12 @@ clevis-pin-tpm2-0.5.3-11.azl4.x86_64
 cloud-utils-growpart-0.33-12.azl4.noarch
 cmake-filesystem-3.31.11-1.fc43.x86_64
 cmark-lib-0.30.3-8.fc43.x86_64
-cockpit-bridge-366-1.fc43.noarch
-cockpit-storaged-366-1.fc43.noarch
-cockpit-system-366-1.fc43.noarch
-cockpit-ws-366-1.fc43.x86_64
-cockpit-ws-selinux-366-1.fc43.x86_64
-code-insiders-1.137.0-1788387261.el8.x86_64
+cockpit-bridge-367-1.fc43.noarch
+cockpit-storaged-367-1.fc43.noarch
+cockpit-system-367-1.fc43.noarch
+cockpit-ws-367-1.fc43.x86_64
+cockpit-ws-selinux-367-1.fc43.x86_64
+code-insiders-1.137.0-1788456987.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -180,7 +180,7 @@ exempi-2.6.4-9.azl4.x86_64
 exfatprogs-1.4.3-1.fc43.x86_64
 exiv2-0.28.9-1.fc43.x86_64
 exiv2-libs-0.28.9-1.fc43.x86_64
-expat-2.8.1-2.azl4.x86_64
+expat-2.8.3-1.fc43.x86_64
 f2fs-tools-1.16.0-10.azl4.x86_64
 faad2-libs-2.11.2-5.fc43.x86_64
 fdk-aac-2.0.3-5.fc43.x86_64
@@ -235,7 +235,7 @@ gettext-0.25.1-3.azl4.x86_64
 gettext-envsubst-0.25.1-3.azl4.x86_64
 gettext-libs-0.25.1-3.azl4.x86_64
 gettext-runtime-0.25.1-3.azl4.x86_64
-gh-2.99.0-1.x86_64
+gh-2.100.0-1.x86_64
 giflib-5.2.2-10.azl4.x86_64
 git-2.55.0-1.fc43.x86_64
 git-core-2.55.0-1.fc43.x86_64
@@ -443,8 +443,8 @@ kernel-core-6.18.31-1.16.azl4.x86_64
 kernel-modules-6.18.31-1.16.azl4.x86_64
 kernel-modules-core-6.18.31-1.16.azl4.x86_64
 kernel-modules-extra-6.18.31-1.16.azl4.x86_64
-kernel-tools-7.1.12-100.fc43.x86_64
-kernel-tools-libs-7.1.12-100.fc43.x86_64
+kernel-tools-7.1.13-100.fc43.x86_64
+kernel-tools-libs-7.1.13-100.fc43.x86_64
 keyutils-libs-1.6.3-6.fc43.x86_64
 kmod-34.2-3.azl4.x86_64
 kmod-libs-34.2-3.azl4.x86_64
@@ -794,7 +794,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-154.0.4255.0-1.x86_64
+microsoft-edge-canary-154.0.4257.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -982,7 +982,7 @@ psmisc-23.7-7.azl4.x86_64
 publicsuffix-list-dafsa-20260116-2.azl4.noarch
 pulseaudio-libs-17.0-9.fc43.x86_64
 pulseaudio-libs-glib2-17.0-9.fc43.x86_64
-python-pip-wheel-25.1.1-19.azl4.noarch
+python-pip-wheel-25.1.1-19.fc43.noarch
 python-unversioned-command-3.14.7-1.fc43.noarch
 python3-3.14.7-1.fc43.x86_64
 python3-argcomplete-3.6.3-3.azl4.noarch
@@ -1021,7 +1021,7 @@ python3-linux-procfs-0.7.4-3.fc43.noarch
 python3-meh-0.52-9.azl4.noarch
 python3-nftables-1.1.3-7.azl4.noarch
 python3-pam-2.0.2-17.azl4.noarch
-python3-perf-7.1.12-100.fc43.x86_64
+python3-perf-7.1.13-100.fc43.x86_64
 python3-pid-3.0.4-5.azl4.noarch
 python3-ply-3.11-33.fc43.noarch
 python3-policycoreutils-3.9-8.azl4.noarch
@@ -1174,7 +1174,7 @@ vid.stab-1.1.1-7.fc43.x86_64
 vim-data-9.1.2146-4.azl4.noarch
 vim-minimal-9.1.2146-4.azl4.x86_64
 virt-what-1.27-5.azl4.x86_64
-virtualbox-guest-additions-7.2.14-1.fc43.x86_64
+virtualbox-guest-additions-7.2.16-1.fc43.x86_64
 vmaf-models-3.0.0-5.azl4.x86_64
 vo-amrwbenc-0.1.3-24.azl4.x86_64
 volume_key-libs-0.3.12-29.azl4.x86_64
