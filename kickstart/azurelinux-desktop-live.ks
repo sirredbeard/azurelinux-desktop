@@ -486,6 +486,9 @@ install -m 0644 /workspace/assets/udev/60-azurelinux-desktop-iosched.rules \
 install -d -m 0755 /mnt/sysimage/etc/systemd/journald.conf.d
 install -m 0644 /workspace/assets/systemd/journald.conf.d/50-azurelinux-desktop.conf \
     /mnt/sysimage/etc/systemd/journald.conf.d/50-azurelinux-desktop.conf
+install -d -m 0755 /mnt/sysimage/etc/sysctl.d
+install -m 0644 /workspace/assets/sysctl.d/80-azurelinux-desktop-policy-routing.conf \
+    /mnt/sysimage/etc/sysctl.d/80-azurelinux-desktop-policy-routing.conf
 # First-boot prepare: keep Plymouth up during SELinux relabel / disk grow.
 install -d -m 0755 /mnt/sysimage/usr/libexec/azurelinux-desktop \
     /mnt/sysimage/usr/lib/systemd/system/selinux-autorelabel.service.d

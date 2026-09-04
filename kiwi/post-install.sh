@@ -6,6 +6,9 @@ set -x
 # --- Network configuration ---
 install -m 0644 /opt/azl-desktop-assets/systemd/network/20-wired-dhcp.network \
     /etc/systemd/network/20-wired-dhcp.network
+install -d -m 0755 /etc/sysctl.d
+install -m 0644 /opt/azl-desktop-assets/sysctl.d/80-azurelinux-desktop-policy-routing.conf \
+    /etc/sysctl.d/80-azurelinux-desktop-policy-routing.conf
 
 # --- GRUB defaults ---
 install -m 0644 /opt/azl-desktop-assets/default/grub \
