@@ -609,6 +609,12 @@ if [ -f /opt/azl-desktop-assets/systemd/journald.conf.d/50-azurelinux-desktop.co
         /opt/azl-desktop-assets/systemd/journald.conf.d/50-azurelinux-desktop.conf \
         /etc/systemd/journald.conf.d/50-azurelinux-desktop.conf
 fi
+if [ -f /opt/azl-desktop-assets/sysctl.d/80-azurelinux-desktop-policy-routing.conf ]; then
+    install -d -m 0755 /etc/sysctl.d
+    install -m 0644 \
+        /opt/azl-desktop-assets/sysctl.d/80-azurelinux-desktop-policy-routing.conf \
+        /etc/sysctl.d/80-azurelinux-desktop-policy-routing.conf
+fi
 if [ -f /opt/azl-desktop-assets/udev/60-azurelinux-desktop-iosched.rules ]; then
     install -d -m 0755 /etc/udev/rules.d
     install -m 0644 \

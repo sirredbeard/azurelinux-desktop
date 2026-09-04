@@ -93,6 +93,8 @@ RUN --mount=type=secret,id=github_token,required=false \
         "$ROOTFS/etc/systemd/journald.conf.d/50-azurelinux-desktop.conf"; \
     install -Dm0644 /opt/azl-desktop-assets/udev/60-azurelinux-desktop-iosched.rules \
         "$ROOTFS/etc/udev/rules.d/60-azurelinux-desktop-iosched.rules"; \
+    install -Dm0644 /opt/azl-desktop-assets/sysctl.d/80-azurelinux-desktop-policy-routing.conf \
+        "$ROOTFS/etc/sysctl.d/80-azurelinux-desktop-policy-routing.conf"; \
     install -Dm0644 /opt/azl-desktop-assets/dconf/db/local.d/00-azl-desktop-defaults \
         "$ROOTFS/etc/dconf/db/local.d/00-azl-desktop-defaults"; \
     install -Dm0644 /opt/azl-desktop-assets/dconf/profile/user \
