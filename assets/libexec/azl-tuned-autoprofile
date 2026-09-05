@@ -1,0 +1,27 @@
+#!/bin/bash
+# Pick the right tuned profile for the machine this image is actually
+# running on, at real first boot rather than at image build time.
+#
+# The live kickstart and installer %post both used to bake in a
+# hard-coded `tuned-adm profile desktop` at build time. That is correct
+# for bare metal, but this project ships the same rootfs as a live ISO,
+# an installer target, and prebuilt qcow2/VHDX/VDI/VMDK disk images
+# that always run as a VM guest under KVM/Hyper-V/VirtualBox/VMware.
+# Baking "desktop" in ahead of time defeats tuned's own virt-aware
+# auto-detection and leaves every VM boot on a profile tuned for local
+# disks and desktop latency instead of tuned's own "virtual-guest"
+# profile (looser dirty_bytes/swappiness, tuned for a virtio/paravirt
+# I/O path). Build-time detection can't fix this either: CI runners
+# building the live ISO/disk images are commonly VMs themselves, so
+# `systemd-detect-virt` at build time would misclassify bare-metal
+# artifacts too. Deciding at first real boot is the only environment
+# where the check is trustworthy.
+set -uo pipefail
+
+command -v tuned-adm >/dev/null 2>&1 || exit 0
+
+if systemd-detect-virt --vm --quiet; then
+    tuned-adm profile virtual-guest 2>/dev/null || tuned-adm profile balanced 2>/dev/null || true
+else
+    tuned-adm profile desktop 2>/dev/null || tuned-adm profile balanced 2>/dev/null || true
+fi

@@ -739,11 +739,18 @@ systemctl enable gdm.service
 
 # Desktop performance userspace (Fedora packages). tuned desktop profile
 # is balanced + sched_autogroup; our performance kmod owns sysctl/zram conf.
+# The actual profile pick (desktop vs virtual-guest) happens at real first
+# boot via azl-tuned-autoprofile.service, not here - this live kickstart
+# also produces the qcow2/VHDX/VDI/VMDK disk images, which always run as
+# a VM guest, and the CI runner building this image may itself be a VM,
+# so `systemd-detect-virt` here would misclassify the final artifact.
 systemctl enable irqbalance.service 2>/dev/null || true
 systemctl enable tuned.service 2>/dev/null || true
-if command -v tuned-adm >/dev/null 2>&1; then
-    tuned-adm profile desktop 2>/dev/null || tuned-adm profile balanced 2>/dev/null || true
-fi
+install -m 0755 "$ASSETS"/libexec/azl-tuned-autoprofile \
+    /usr/libexec/azl-tuned-autoprofile
+install -m 0644 "$ASSETS"/systemd/azl-tuned-autoprofile.service \
+    /usr/lib/systemd/system/azl-tuned-autoprofile.service
+systemctl enable azl-tuned-autoprofile.service
 systemctl enable thermald.service 2>/dev/null || true
 # Azure VM guest agent is not in the desktop package set. If a later
 # layer pulls it in, keep it from starting on bare metal / local VMs.

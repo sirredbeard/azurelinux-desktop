@@ -481,6 +481,14 @@ install -m 0644 "$ASSETS"/systemd/azl-flatpak-appstream.service \
     /usr/lib/systemd/system/azl-flatpak-appstream.service
 systemctl enable azl-flatpak-appstream.service
 
+# Tuned profile pick (desktop vs virtual-guest) at real first boot, not
+# baked in at install time - see kiwi/post-install.sh for why.
+install -m 0755 "$ASSETS"/libexec/azl-tuned-autoprofile \
+    /usr/libexec/azl-tuned-autoprofile
+install -m 0644 "$ASSETS"/systemd/azl-tuned-autoprofile.service \
+    /usr/lib/systemd/system/azl-tuned-autoprofile.service
+systemctl enable azl-tuned-autoprofile.service
+
 # Bluetooth: never force-load btusb before platform rfkill (ThinkPad).
 # USB device often enumerates before thinkpad_acpi unblocks radio; recover
 # with a USB authorize cycle before bluetooth.service (see findings).
