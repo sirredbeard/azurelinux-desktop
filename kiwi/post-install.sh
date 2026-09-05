@@ -117,11 +117,13 @@ fi
 
 # Desktop performance userspace (Fedora packages). Sysctl/zram conf comes
 # from azurelinux-desktop-performance-kmod; this only enables the daemons.
+# The tuned profile pick (desktop vs virtual-guest) happens at real first
+# boot via azl-tuned-autoprofile.service, staged later in this install by
+# azl-install.ks.in's chroot %post (this script runs too early to see
+# $ASSETS - see the "kiwi/post-install.sh runs earlier via chroot" note
+# there), not forced here.
 systemctl enable irqbalance.service 2>/dev/null || true
 systemctl enable tuned.service 2>/dev/null || true
-if command -v tuned-adm >/dev/null 2>&1; then
-    tuned-adm profile desktop 2>/dev/null || tuned-adm profile balanced 2>/dev/null || true
-fi
 systemctl enable thermald.service 2>/dev/null || true
 # Azure VM guest agent is not in the desktop package set. Mask if present.
 systemctl disable --now walinuxagent.service 2>/dev/null || true
