@@ -6,6 +6,28 @@
 # Usage:   See header flags inside; usually run via publish-desktop-kmods.yml.
 # Needs:   container runtime, kernel-devel matching target kernel, rpmbuild.
 # CI:      Yes. publish-desktop-kmods.yml family matrix.
+#
+# Kconfig convention (all stages must follow this): every Kconfig
+# bool/tristate a stage's driver source needs for its advertised feature
+# set must be forced explicitly, and that forcing must be verified
+# against upstream Kconfig `depends on`/`select` lines plus the real AZL
+# kernel's own /boot/config-* (a dependency already stock =y/=m needs no
+# extra build work; one that's genuinely absent needs its own stage).
+# Two mechanisms exist for this, chosen by stage size, not preference:
+#   - Small, self-contained drivers (1-4 files, own obj-m): force each
+#     flag with `ccflags-y += -DCONFIG_X=1` (or _MODULE=1 for the
+#     enclosing module symbol) in that stage's Makefile heredoc.
+#   - Large multi-file subsystems (sound, and any future stage built via
+#     a full `make CONFIG_X=y/n ...` fake-.config): a stage-local
+#     force-*.h header (`-include`) supplies the matching #define for
+#     every bool/tristate the make-line flips on, since a Kbuild command
+#     line CONFIG_X=y only steers obj-y/obj-m file selection - it is not
+#     visible to C preprocessor #ifdef checks inside those files without
+#     the header. A make-line flag with no matching header #define is a
+#     silent bug (see findings/ for the CONFIG_SND_HDA_I915 case).
+# Flags left off on purpose (debug/test/legacy/hardware genuinely absent)
+# should get a short comment saying so, the same way the on-purpose ones
+# already do, so a future audit doesn't have to re-derive the reasoning.
 
 set -euo pipefail
 
@@ -64,6 +86,65 @@ else
     trap 'rm -rf "$WORKDIR"' EXIT
 fi
 
+# Look up one filename in a kernel.comp.toml. Prints "URL HASH" and
+# returns 0 on a match; returns 1 with no output otherwise (does not
+# raise, so callers can fall back to a different toml revision).
+resolve_from_toml() {
+    local toml_path="$1" expected_filename="$2"
+    python3 - "$toml_path" "$expected_filename" <<'PY'
+import sys
+import tomllib
+
+component_path, expected_filename = sys.argv[1:]
+with open(component_path, "rb") as component_file:
+    component = tomllib.load(component_file)
+
+for source in component["components"]["kernel"]["source-files"]:
+    if source["filename"] == expected_filename:
+        print(source["origin"]["uri"], source["hash"])
+        sys.exit(0)
+sys.exit(1)
+PY
+}
+
+# microsoft/azurelinux's 4.0 branch HEAD only reflects whichever kernel
+# source is current right now; it has no version history of its own.
+# Walk kernel.comp.toml's real git history via the GitHub API (newest
+# first) until a past revision lists our exact filename. Set
+# GITHUB_TOKEN/GH_TOKEN to raise the unauthenticated rate limit in CI.
+resolve_from_history() {
+    local expected_filename="$1"
+    local auth=()
+    if [[ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]]; then
+        auth=(-H "Authorization: Bearer ${GITHUB_TOKEN:-$GH_TOKEN}")
+    fi
+    local page
+    for page in 1 2 3 4 5; do
+        local shas
+        shas="$(curl --fail --silent --location --retry 3 "${auth[@]}" \
+            "https://api.github.com/repos/microsoft/azurelinux/commits?path=base/comps/kernel/kernel.comp.toml&sha=4.0&per_page=100&page=${page}" \
+            | python3 -c 'import json,sys; [print(c["sha"]) for c in json.load(sys.stdin)]' 2>/dev/null)" || break
+        [[ -z "$shas" ]] && break
+        local sha candidate out
+        while IFS= read -r sha; do
+            [[ -z "$sha" ]] && continue
+            candidate="$(mktemp)"
+            if curl --fail --silent --location --retry 2 \
+                "https://raw.githubusercontent.com/microsoft/azurelinux/${sha}/base/comps/kernel/kernel.comp.toml" \
+                -o "$candidate" 2>/dev/null; then
+                if out="$(resolve_from_toml "$candidate" "$expected_filename" 2>/dev/null)"; then
+                    rm -f "$candidate"
+                    echo "Resolved ${expected_filename} via microsoft/azurelinux@${sha:0:8}" >&2
+                    printf '%s\n' "$out"
+                    return 0
+                fi
+            fi
+            rm -f "$candidate"
+        done <<<"$shas"
+    done
+    return 1
+}
+
 prepare_source() {
     if [[ -f "$WORKDIR/.prepared" ]]; then
         # shellcheck disable=SC1091
@@ -76,28 +157,29 @@ prepare_source() {
         test -n "$SOURCE_DIR"
         return 0
     fi
+
+    EXPECTED_FILENAME="kernel-${SOURCE_REF}.tar.gz"
     COMPONENT_TOML="$WORKDIR/kernel.comp.toml"
     curl --fail --location --retry 3 \
         https://raw.githubusercontent.com/microsoft/azurelinux/4.0/base/comps/kernel/kernel.comp.toml \
         -o "$COMPONENT_TOML"
-    read -r SOURCE_URL SOURCE_SHA512 < <(
-        python3 - "$COMPONENT_TOML" "$SOURCE_REF" <<'PY'
-import sys
-import tomllib
 
-component_path, source_ref = sys.argv[1:]
-with open(component_path, "rb") as component_file:
-    component = tomllib.load(component_file)
-
-expected_filename = f"kernel-{source_ref}.tar.gz"
-for source in component["components"]["kernel"]["source-files"]:
-    if source["filename"] == expected_filename:
-        print(source["origin"]["uri"], source["hash"])
-        break
-else:
-    raise SystemExit(f"Azure Linux 4.0 does not define {expected_filename}")
-PY
-    )
+    RESOLVED=""
+    if RESOLVED="$(resolve_from_toml "$COMPONENT_TOML" "$EXPECTED_FILENAME")"; then
+        :
+    else
+        # microsoft/azurelinux's 4.0 branch HEAD only ever lists whatever
+        # kernel source is current right now (rolling, not a versioned
+        # history), so azl-base's published kernel-devel can momentarily
+        # lag it. Walk the file's own git history on GitHub for the commit
+        # where our exact NEVRA's source was still current.
+        echo "kernel.comp.toml at 4.0 HEAD does not list ${EXPECTED_FILENAME}; walking microsoft/azurelinux history" >&2
+        if ! RESOLVED="$(resolve_from_history "$EXPECTED_FILENAME")"; then
+            echo "Azure Linux 4.0 does not define ${EXPECTED_FILENAME} at branch HEAD or in recent kernel.comp.toml history" >&2
+            exit 1
+        fi
+    fi
+    read -r SOURCE_URL SOURCE_SHA512 <<<"$RESOLVED"
     test -n "$SOURCE_URL"
     test -n "$SOURCE_SHA512"
     # Optional host/cache path for local rebuilds (CI leaves unset).
@@ -303,6 +385,36 @@ EOF
     check_vermagic "$PS2_DIR/rmi_core.ko"
     check_vermagic "$PS2_DIR/rmi_smbus.ko"
     echo "=== stage psmouse/rmi4 done ==="
+
+    # rmi_smbus only binds if an SMBus/SMB host controller is already
+    # registered. Stock AZL ships i2c-i801 (Intel) in-tree, which is why
+    # this path already works on Intel ThinkPads. AMD (and legacy Intel
+    # PIIX4) chipsets have no in-tree adapter for it: CONFIG_I2C_PIIX4 is
+    # not set. Without i2c-piix4, an AMD laptop's Synaptics InterTouch pad
+    # stays stuck in relative PS/2 mode even with rmi_core/rmi_smbus
+    # present, the same failure this whole family exists to fix. i2c-piix4
+    # also covers old ATI/Broadcom/Serverworks SMBus controllers.
+    I2C_DIR="$PS2_DIR/i2c-piix4"
+    I2C_SRC="$SOURCE_DIR/drivers/i2c"
+    if [[ -f "$I2C_SRC/busses/i2c-piix4.c" && -f "$I2C_SRC/busses/i2c-piix4.h" && -f "$I2C_SRC/i2c-smbus.c" ]]; then
+        echo "=== stage psmouse/i2c-piix4 ==="
+        mkdir -p "$I2C_DIR"
+        cp "$I2C_SRC/busses/i2c-piix4.c" "$I2C_SRC/busses/i2c-piix4.h" "$I2C_DIR/"
+        cp "$I2C_SRC/i2c-smbus.c" "$I2C_DIR/"
+        cat > "$I2C_DIR/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_I2C_SMBUS_MODULE=1
+obj-m += i2c-smbus.o
+obj-m += i2c-piix4.o
+EOF
+        make -C "$BUILD_DIR" M="$I2C_DIR" modules
+        cp -f "$I2C_DIR/i2c-smbus.ko" "$PS2_DIR/i2c-smbus.ko"
+        cp -f "$I2C_DIR/i2c-piix4.ko" "$PS2_DIR/i2c-piix4.ko"
+        check_vermagic "$PS2_DIR/i2c-smbus.ko"
+        check_vermagic "$PS2_DIR/i2c-piix4.ko"
+        echo "=== stage psmouse/i2c-piix4 done ==="
+    else
+        echo "warning: drivers/i2c/busses/i2c-piix4.c missing; shipping psmouse/RMI4 without the AMD/legacy SMBus adapter" >&2
+    fi
 else
     echo "warning: drivers/input/rmi4 missing; shipping psmouse without RMI4" >&2
 fi
@@ -466,6 +578,7 @@ cat > "$WORKDIR/force-snd.h" <<'EOF'
 #define CONFIG_SND_HDA_GENERIC_LEDS 1
 #define CONFIG_SND_HDA_INTEL_MODULE 1
 #define CONFIG_SND_HDA_COMPONENT 1
+#define CONFIG_SND_HDA_I915 1
 #define CONFIG_SND_HDA_SCODEC_COMPONENT_MODULE 1
 #define CONFIG_SND_HDA_HWDEP 1
 #define CONFIG_SND_HDA_PREALLOC_SIZE 2048
@@ -525,7 +638,7 @@ make -C "$BUILD_DIR" M="$SND_DIR" \
     CONFIG_SND_VMASTER=y CONFIG_SND_DMA_SGBUF=y CONFIG_SND_PCI=y CONFIG_SND_USB=y \
     CONFIG_SND_HDA=m CONFIG_SND_HDA_CORE=m CONFIG_SND_HDA_GENERIC=m \
     CONFIG_SND_HDA_INTEL=m CONFIG_SND_HDA_TEGRA=n CONFIG_SND_HDA_ACPI=n \
-    CONFIG_SND_HDA_COMPONENT=y CONFIG_SND_HDA_I915=n CONFIG_SND_HDA_HWDEP=y \
+    CONFIG_SND_HDA_COMPONENT=y CONFIG_SND_HDA_I915=y CONFIG_SND_HDA_HWDEP=y \
     CONFIG_SND_HDA_INPUT_BEEP=n CONFIG_SND_HDA_PATCH_LOADER=n \
     CONFIG_SND_HDA_RECONFIG=n CONFIG_SND_HDA_GENERIC_LEDS=y \
     CONFIG_SND_HDA_SCODEC_COMPONENT=m \
@@ -667,15 +780,38 @@ check_vermagic "$UVC_COMMON_MODULE" "$UVC_MODULE"
 echo "=== stage uvc done ==="
 fi
 
-# --- thinkpad_acpi (+ ACPI battery + privacy-screen class) ---
+# --- acpibattery: shared ACPI_BATTERY hook core (drivers/acpi/battery.c) ---
+# Stock AZL cloud kernel leaves CONFIG_ACPI_BATTERY off. thinkpad_acpi,
+# ideapad-laptop, lenovo-ymc, dell-laptop, and asus-wmi all hard-depend on
+# battery_hook_register()/devm_battery_hook_register() at link time, so
+# this ships as its own small foundational package. Every family below
+# that needs it still compiles its own private, unshipped copy of
+# battery.o against its own isolated CI container purely to satisfy
+# modpost (families build in independent matrix jobs, no shared
+# Module.symvers between them) and Requires: this package at runtime.
+if run_stage acpibattery; then
+echo "=== stage acpibattery ==="
+AB_DIR="$WORKDIR/acpibattery"
+rm -rf "$AB_DIR"
+mkdir -p "$AB_DIR"
+cp "$SOURCE_DIR/drivers/acpi/battery.c" "$AB_DIR/"
+cat > "$AB_DIR/Makefile" <<'EOF'
+obj-m += battery.o
+EOF
+make -C "$BUILD_DIR" M="$AB_DIR" modules
+check_vermagic "$AB_DIR/battery.ko"
+echo "=== stage acpibattery done ==="
+fi
+
+# --- thinkpad_acpi (+ ACPI battery + privacy-screen class + Lenovo consumer) ---
 if run_stage thinkpad; then
 echo "=== stage thinkpad ==="
 TP_DIR="$WORKDIR/thinkpad"
 rm -rf "$TP_DIR"
 mkdir -p "$TP_DIR/battery-build" "$TP_DIR/privacy-build" "$TP_DIR/tp-build"
 
-# Stock AZL cloud kernel leaves ACPI_BATTERY and DRM_PRIVACY_SCREEN off.
-# Ship both helpers next to thinkpad_acpi (generic names, not machine RPMs).
+# Private, unshipped copy of battery.o for link-time symbols only.
+# azurelinux-desktop-acpi-battery-kmod ships the real battery.ko.
 cp "$SOURCE_DIR/drivers/acpi/battery.c" "$TP_DIR/battery-build/"
 cat > "$TP_DIR/battery-build/Makefile" <<'EOF'
 obj-m += battery.o
@@ -760,11 +896,9 @@ make -C "$BUILD_DIR" M="$TP_DIR/tp-build" \
     CONFIG_THINKPAD_ACPI=m \
     modules
 
-cp -f "$TP_DIR/battery-build/battery.ko" "$TP_DIR/battery.ko"
 cp -f "$TP_DIR/privacy-build/drm_privacy_screen.ko" "$TP_DIR/drm_privacy_screen.ko"
 cp -f "$TP_DIR/tp-build/thinkpad_acpi.ko" "$TP_DIR/thinkpad_acpi.ko"
 check_vermagic \
-    "$TP_DIR/battery.ko" \
     "$TP_DIR/drm_privacy_screen.ko" \
     "$TP_DIR/thinkpad_acpi.ko"
 
@@ -786,6 +920,40 @@ EOF
     make -C "$BUILD_DIR" M="$TP_DIR/hid" CONFIG_HID_LENOVO=m modules
     cp -f "$TP_DIR/hid/hid-lenovo.ko" "$TP_DIR/hid-lenovo.ko"
     check_vermagic "$TP_DIR/hid-lenovo.ko"
+fi
+
+# ideapad-laptop (+ lenovo-ymc) — Lenovo consumer laptop extras (rfkill,
+# hotkeys, backlight, fan/thermal profile) and Yoga tablet-mode switch.
+# Stock AZL has both off; both are in-tree, no firmware blobs. Same
+# ACPI battery hook as thinkpad_acpi, so reuse battery-build's symvers.
+# Shares this package rather than getting its own: same Lenovo vendor,
+# same "consumer sibling of the enterprise ThinkPad line" scope.
+if [[ -f "$SOURCE_DIR/drivers/platform/x86/lenovo/ideapad-laptop.c" ]]; then
+    mkdir -p "$TP_DIR/ideapad"
+    cp "$SOURCE_DIR/drivers/platform/x86/lenovo/ideapad-laptop.c" "$TP_DIR/ideapad/"
+    cp "$SOURCE_DIR/drivers/platform/x86/lenovo/ideapad-laptop.h" "$TP_DIR/ideapad/"
+    cat > "$TP_DIR/ideapad/Makefile" <<'EOF'
+obj-m += ideapad-laptop.o
+EOF
+    make -C "$BUILD_DIR" M="$TP_DIR/ideapad" \
+        KBUILD_EXTRA_SYMBOLS="$TP_DIR/battery-build/Module.symvers" \
+        modules
+    cp -f "$TP_DIR/ideapad/ideapad-laptop.ko" "$TP_DIR/ideapad-laptop.ko"
+    check_vermagic "$TP_DIR/ideapad-laptop.ko"
+
+    if [[ -f "$SOURCE_DIR/drivers/platform/x86/lenovo/ymc.c" ]]; then
+        mkdir -p "$TP_DIR/ymc"
+        cp "$SOURCE_DIR/drivers/platform/x86/lenovo/ymc.c" "$TP_DIR/ymc/"
+        cp "$SOURCE_DIR/drivers/platform/x86/lenovo/ideapad-laptop.h" "$TP_DIR/ymc/"
+        cat > "$TP_DIR/ymc/Makefile" <<'EOF'
+obj-m += ymc.o
+EOF
+        make -C "$BUILD_DIR" M="$TP_DIR/ymc" \
+            KBUILD_EXTRA_SYMBOLS="$TP_DIR/battery-build/Module.symvers $TP_DIR/ideapad/Module.symvers" \
+            modules
+        cp -f "$TP_DIR/ymc/ymc.ko" "$TP_DIR/ymc.ko"
+        check_vermagic "$TP_DIR/ymc.ko"
+    fi
 fi
 
 # USB WWAN / tethering stack — CONFIG_USB_NET_DRIVERS off on AZL x86_64.
@@ -839,6 +1007,516 @@ find "$WWAN_DIR" -name '*.ko' -exec cp -t "$TP_DIR/" {} +
 test -f "$TP_DIR/usbnet.ko"
 check_vermagic "$TP_DIR/usbnet.ko"
 echo "=== stage thinkpad done ==="
+fi
+
+# --- hid-multitouch (generic HID-over-I2C Precision Touchpad/digitizer) ---
+# Stock AZL has CONFIG_I2C_HID=m but CONFIG_HID_MULTITOUCH off. Several
+# modern laptops (not just Surface/ThinkPad) report their trackpad or
+# touchscreen through the generic Windows Precision Touchpad protocol
+# over i2c-hid rather than a vendor-specific PS/2 or SMBus path, so this
+# ships as its own small, hardware-neutral package instead of being
+# locked inside surface-kmod. thinkpad-kmod recommends it.
+if run_stage hidmt; then
+echo "=== stage hidmt ==="
+HIDMT_DIR="$WORKDIR/hidmt"
+rm -rf "$HIDMT_DIR"
+mkdir -p "$HIDMT_DIR"
+cp "$SOURCE_DIR/drivers/hid/hid-multitouch.c" "$HIDMT_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-ids.h" "$HIDMT_DIR/"
+if [[ -f "$SOURCE_DIR/drivers/hid/hid-haptic.h" ]]; then
+    cp "$SOURCE_DIR/drivers/hid/hid-haptic.h" "$HIDMT_DIR/"
+fi
+cat > "$HIDMT_DIR/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -DCONFIG_HID_MULTITOUCH_MODULE=1
+obj-m += hid-multitouch.o
+EOF
+make -C "$BUILD_DIR" M="$HIDMT_DIR" CONFIG_HID_MULTITOUCH=m modules
+test -f "$HIDMT_DIR/hid-multitouch.ko"
+check_vermagic "$HIDMT_DIR/hid-multitouch.ko"
+echo "=== stage hidmt done ==="
+fi
+
+# --- touchpad: I2C-native precision touchpads (ELAN + Synaptics RMI4 I2C) ---
+# Stock AZL has CONFIG_I2C=y but CONFIG_MOUSE_ELAN_I2C and CONFIG_RMI4_I2C
+# are both off. psmouse-kmod already covers PS/2 and RMI4-over-SMBus
+# (used by many ThinkPads); a lot of other consumer and enterprise
+# laptops (Dell, HP, ASUS, Acer, and some newer ThinkPads) instead wire
+# their trackpad straight to an I2C bus, either as a native ELAN
+# controller or a Synaptics RMI4 device over plain I2C rather than
+# SMBus. Ships as its own family, self-contained (its own rmi_core
+# build) so it does not depend on the psmouse stage's artifacts.
+if run_stage touchpad; then
+echo "=== stage touchpad ==="
+TOUCHPAD_DIR="$WORKDIR/touchpad"
+rm -rf "$TOUCHPAD_DIR"
+mkdir -p "$TOUCHPAD_DIR/rmi4" "$TOUCHPAD_DIR/elan"
+
+if [[ -d "$SOURCE_DIR/drivers/input/rmi4" ]]; then
+    for f in rmi_bus.c rmi_bus.h rmi_driver.c rmi_driver.h rmi_f01.c \
+        rmi_2d_sensor.c rmi_2d_sensor.h rmi_f03.c rmi_f11.c rmi_f12.c \
+        rmi_f30.c rmi_i2c.c; do
+        cp "$SOURCE_DIR/drivers/input/rmi4/$f" "$TOUCHPAD_DIR/rmi4/"
+    done
+    cat > "$TOUCHPAD_DIR/rmi4/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_RMI4_CORE_MODULE=1
+ccflags-y += -DCONFIG_RMI4_2D_SENSOR=1
+ccflags-y += -DCONFIG_RMI4_F03=1
+ccflags-y += -DCONFIG_RMI4_F03_SERIO=1
+ccflags-y += -DCONFIG_RMI4_F11=1
+ccflags-y += -DCONFIG_RMI4_F12=1
+ccflags-y += -DCONFIG_RMI4_F30=1
+ccflags-y += -DCONFIG_RMI4_I2C_MODULE=1
+
+obj-m += rmi_core.o
+rmi_core-y := rmi_bus.o rmi_driver.o rmi_f01.o
+rmi_core-y += rmi_2d_sensor.o
+rmi_core-y += rmi_f03.o
+rmi_core-y += rmi_f11.o
+rmi_core-y += rmi_f12.o
+rmi_core-y += rmi_f30.o
+
+obj-m += rmi_i2c.o
+EOF
+    make -C "$BUILD_DIR" M="$TOUCHPAD_DIR/rmi4" modules
+    cp -f "$TOUCHPAD_DIR/rmi4/rmi_core.ko" "$TOUCHPAD_DIR/rmi_core.ko"
+    cp -f "$TOUCHPAD_DIR/rmi4/rmi_i2c.ko" "$TOUCHPAD_DIR/rmi_i2c.ko"
+    check_vermagic "$TOUCHPAD_DIR/rmi_core.ko" "$TOUCHPAD_DIR/rmi_i2c.ko"
+else
+    echo "warning: drivers/input/rmi4 missing; skipping rmi_i2c" >&2
+fi
+
+if [[ -f "$SOURCE_DIR/drivers/input/mouse/elan_i2c_core.c" ]]; then
+    cp "$SOURCE_DIR/drivers/input/mouse/elan_i2c.h" "$TOUCHPAD_DIR/elan/"
+    cp "$SOURCE_DIR/drivers/input/mouse/elan_i2c_core.c" "$TOUCHPAD_DIR/elan/"
+    cp "$SOURCE_DIR/drivers/input/mouse/elan_i2c_i2c.c" "$TOUCHPAD_DIR/elan/"
+    cp "$SOURCE_DIR/drivers/input/mouse/elan_i2c_smbus.c" "$TOUCHPAD_DIR/elan/"
+    cat > "$TOUCHPAD_DIR/elan/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -DCONFIG_MOUSE_ELAN_I2C_MODULE=1
+ccflags-y += -DCONFIG_MOUSE_ELAN_I2C_I2C=1
+ccflags-y += -DCONFIG_MOUSE_ELAN_I2C_SMBUS=1
+
+obj-m += elan_i2c.o
+elan_i2c-y := elan_i2c_core.o elan_i2c_i2c.o elan_i2c_smbus.o
+EOF
+    make -C "$BUILD_DIR" M="$TOUCHPAD_DIR/elan" modules
+    cp -f "$TOUCHPAD_DIR/elan/elan_i2c.ko" "$TOUCHPAD_DIR/elan_i2c.ko"
+    check_vermagic "$TOUCHPAD_DIR/elan_i2c.ko"
+else
+    echo "warning: elan_i2c_core.c missing; skipping elan_i2c" >&2
+fi
+echo "=== stage touchpad done ==="
+fi
+
+# --- logitech: HID++ / Unifying receiver for wireless mice + keyboards ---
+# Stock AZL has CONFIG_HID=y but CONFIG_HID_LOGITECH_DJ and
+# CONFIG_HID_LOGITECH_HIDPP are both off, so hid-generic cannot decode
+# the Logitech Unifying receiver's multiplexed HID++ reports. Very
+# common on both consumer and enterprise desks (Unifying receivers, MX
+# Series, Bluetooth HID++ mice/keyboards).
+if run_stage logitech; then
+echo "=== stage logitech ==="
+LOGI_DIR="$WORKDIR/logitech"
+rm -rf "$LOGI_DIR"
+mkdir -p "$LOGI_DIR/usbhid"
+cp "$SOURCE_DIR/drivers/hid/hid-logitech-dj.c" "$LOGI_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-logitech-hidpp.c" "$LOGI_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-ids.h" "$LOGI_DIR/"
+# hid-logitech-hidpp.c #includes "usbhid/usbhid.h" relative to drivers/hid.
+cp "$SOURCE_DIR/drivers/hid/usbhid/usbhid.h" "$LOGI_DIR/usbhid/"
+cat > "$LOGI_DIR/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -DCONFIG_HID_LOGITECH_DJ_MODULE=1
+ccflags-y += -DCONFIG_HID_LOGITECH_HIDPP_MODULE=1
+
+obj-m += hid-logitech-dj.o
+obj-m += hid-logitech-hidpp.o
+EOF
+make -C "$BUILD_DIR" M="$LOGI_DIR" modules
+check_vermagic "$LOGI_DIR/hid-logitech-dj.ko" "$LOGI_DIR/hid-logitech-hidpp.ko"
+echo "=== stage logitech done ==="
+fi
+
+# --- hidquirks: ASUS laptop keys/backlight + ELAN HID-mode touchpad quirks ---
+# Two small standalone vendor quirk drivers with no framework
+# dependency beyond core HID. hid-asus covers extra keys, keyboard
+# backlight, and the ASUS multi-touch touchpad quirk on consumer and
+# ProArt/commercial ASUS laptops. hid-elan covers ELAN touchpads that
+# present over plain USB/HID rather than native I2C (elan_i2c, in
+# touchpad-kmod, is the separate native-I2C transport).
+if run_stage hidquirks; then
+echo "=== stage hidquirks ==="
+HIDQ_DIR="$WORKDIR/hidquirks"
+rm -rf "$HIDQ_DIR"
+mkdir -p "$HIDQ_DIR"
+cp "$SOURCE_DIR/drivers/hid/hid-asus.c" "$HIDQ_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-elan.c" "$HIDQ_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-ids.h" "$HIDQ_DIR/"
+cat > "$HIDQ_DIR/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -DCONFIG_HID_ASUS_MODULE=1
+ccflags-y += -DCONFIG_HID_ELAN_MODULE=1
+
+obj-m += hid-asus.o
+obj-m += hid-elan.o
+EOF
+make -C "$BUILD_DIR" M="$HIDQ_DIR" modules
+check_vermagic "$HIDQ_DIR/hid-asus.ko" "$HIDQ_DIR/hid-elan.ko"
+echo "=== stage hidquirks done ==="
+fi
+
+# --- tablet: drawing tablet / pen digitizer HID drivers ---
+# Common consumer graphics-tablet HID drivers, all off in stock AZL:
+# Wacom Intuos/Bamboo/Cintiq (USB and Bluetooth), Huion/UC-Logic, and
+# Waltop tablets. Only depend on USB_HID (usbhid-kmod already ships
+# that) plus POWER_SUPPLY/LEDS_CLASS/LEDS_TRIGGERS, all stock in-tree.
+# No firmware blobs. hid-uclogic-core.c needs the same private
+# usbhid/usbhid.h + hid-ids.h headers the surface/hidquirks stages
+# already stage from source; not shipped in kernel-devel.
+if run_stage tablet; then
+echo "=== stage tablet ==="
+TABLET_DIR="$WORKDIR/tablet"
+rm -rf "$TABLET_DIR"
+mkdir -p "$TABLET_DIR/usbhid"
+cp "$SOURCE_DIR/drivers/hid/wacom.h" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/wacom_sys.c" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/wacom_wac.c" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/wacom_wac.h" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-uclogic-core.c" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-uclogic-params.c" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-uclogic-params.h" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-uclogic-rdesc.c" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-uclogic-rdesc.h" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-waltop.c" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-ids.h" "$TABLET_DIR/"
+cp "$SOURCE_DIR/drivers/hid/usbhid/usbhid.h" "$TABLET_DIR/usbhid/"
+cat > "$TABLET_DIR/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -DCONFIG_HID_WACOM_MODULE=1
+ccflags-y += -DCONFIG_HID_UCLOGIC_MODULE=1
+ccflags-y += -DCONFIG_HID_WALTOP_MODULE=1
+
+obj-m += wacom.o
+wacom-y := wacom_wac.o wacom_sys.o
+
+obj-m += hid-uclogic.o
+hid-uclogic-y := hid-uclogic-core.o hid-uclogic-rdesc.o hid-uclogic-params.o
+
+obj-m += hid-waltop.o
+EOF
+make -C "$BUILD_DIR" M="$TABLET_DIR" modules
+check_vermagic "$TABLET_DIR/wacom.ko" "$TABLET_DIR/hid-uclogic.ko" "$TABLET_DIR/hid-waltop.ko"
+echo "=== stage tablet done ==="
+fi
+
+# --- usbeth: USB Ethernet adapters common in docks/dongles ---
+# CONFIG_USB_NET_CDCETHER and generic USBNET/RNDIS are already stock,
+# but the three most common standalone USB Ethernet chipsets are all
+# off: Realtek RTL8152/8153 (nearly every USB-C dock/hub), older ASIX
+# AX8817X, and the newer, more common AX88179/178A USB3 gigabit chips.
+# Wired ethernet through one of these is often the easiest fallback
+# when a laptop's built-in Wi-Fi chipset isn't covered (see the Wi-Fi
+# vendor gap noted above).
+if run_stage usbeth; then
+echo "=== stage usbeth ==="
+USBETH_DIR="$WORKDIR/usbeth"
+rm -rf "$USBETH_DIR"
+mkdir -p "$USBETH_DIR"
+cp "$SOURCE_DIR/drivers/net/usb/r8152.c" "$USBETH_DIR/"
+cp "$SOURCE_DIR/drivers/net/usb/asix.h" "$USBETH_DIR/"
+cp "$SOURCE_DIR/drivers/net/usb/asix_common.c" "$USBETH_DIR/"
+cp "$SOURCE_DIR/drivers/net/usb/asix_devices.c" "$USBETH_DIR/"
+cp "$SOURCE_DIR/drivers/net/usb/ax88172a.c" "$USBETH_DIR/"
+cp "$SOURCE_DIR/drivers/net/usb/ax88179_178a.c" "$USBETH_DIR/"
+cat > "$USBETH_DIR/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -DCONFIG_USB_RTL8152_MODULE=1
+ccflags-y += -DCONFIG_USB_NET_AX8817X_MODULE=1
+ccflags-y += -DCONFIG_USB_NET_AX88179_178A_MODULE=1
+
+obj-m += r8152.o
+obj-m += asix.o
+asix-y := asix_devices.o asix_common.o ax88172a.o
+obj-m += ax88179_178a.o
+EOF
+make -C "$BUILD_DIR" M="$USBETH_DIR" modules
+check_vermagic "$USBETH_DIR/r8152.ko" "$USBETH_DIR/asix.ko" "$USBETH_DIR/ax88179_178a.ko"
+echo "=== stage usbeth done ==="
+fi
+
+# --- gamepad: common USB/Bluetooth game controllers ---
+# CONFIG_HID_STEAM is stock, but the three most common consumer
+# controller families are all off: wired Xbox controllers (xpad),
+# PS3/PS4 DualShock (hid-sony), and PS5 DualSense (hid-playstation,
+# needs the small standalone multicolor LED class for its lightbar/
+# mic-mute LED - not the missing-subsystem class of problem the card
+# reader and HID sensor hub gaps turned out to be). Force feedback
+# (JOYSTICK_XPAD_FF, SONY_FF, PLAYSTATION_FF) and the Xbox LED ring
+# (JOYSTICK_XPAD_LEDS) are plain bool options depending only on
+# INPUT_FF_MEMLESS/LEDS_CLASS, both already stock =m; without the
+# ccflags -D below, rumble and the LED ring silently no-op even though
+# the modules build and load fine.
+if run_stage gamepad; then
+echo "=== stage gamepad ==="
+GAMEPAD_DIR="$WORKDIR/gamepad"
+rm -rf "$GAMEPAD_DIR"
+mkdir -p "$GAMEPAD_DIR"
+cp "$SOURCE_DIR/drivers/input/joystick/xpad.c" "$GAMEPAD_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-sony.c" "$GAMEPAD_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-playstation.c" "$GAMEPAD_DIR/"
+cp "$SOURCE_DIR/drivers/hid/hid-ids.h" "$GAMEPAD_DIR/"
+cp "$SOURCE_DIR/drivers/leds/led-class-multicolor.c" "$GAMEPAD_DIR/"
+cat > "$GAMEPAD_DIR/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -DCONFIG_JOYSTICK_XPAD_MODULE=1
+ccflags-y += -DCONFIG_JOYSTICK_XPAD_FF=1
+ccflags-y += -DCONFIG_JOYSTICK_XPAD_LEDS=1
+ccflags-y += -DCONFIG_HID_SONY_MODULE=1
+ccflags-y += -DCONFIG_SONY_FF=1
+ccflags-y += -DCONFIG_LEDS_CLASS_MULTICOLOR_MODULE=1
+ccflags-y += -DCONFIG_HID_PLAYSTATION_MODULE=1
+ccflags-y += -DCONFIG_PLAYSTATION_FF=1
+
+obj-m += xpad.o
+obj-m += hid-sony.o
+obj-m += led-class-multicolor.o
+obj-m += hid-playstation.o
+EOF
+make -C "$BUILD_DIR" M="$GAMEPAD_DIR" modules
+check_vermagic "$GAMEPAD_DIR/xpad.ko" "$GAMEPAD_DIR/hid-sony.ko" \
+    "$GAMEPAD_DIR/led-class-multicolor.ko" "$GAMEPAD_DIR/hid-playstation.ko"
+echo "=== stage gamepad done ==="
+fi
+
+# --- dell: Dell Latitude/XPS/Precision rfkill+backlight extras ---
+# Stock AZL has DELL_WMI/DELL_SMBIOS on but DELL_LAPTOP off. In-tree, no
+# firmware blobs; needs the same ACPI battery hook thinkpad_acpi does.
+# Private, unshipped battery.o for link-time symbols only —
+# azurelinux-desktop-acpi-battery-kmod ships the real one at runtime.
+if run_stage dell; then
+echo "=== stage dell ==="
+DELL_DIR="$WORKDIR/dell"
+rm -rf "$DELL_DIR"
+mkdir -p "$DELL_DIR/battery-build" "$DELL_DIR/build"
+cp "$SOURCE_DIR/drivers/acpi/battery.c" "$DELL_DIR/battery-build/"
+cat > "$DELL_DIR/battery-build/Makefile" <<'EOF'
+obj-m += battery.o
+EOF
+make -C "$BUILD_DIR" M="$DELL_DIR/battery-build" modules
+
+cp "$SOURCE_DIR/drivers/platform/x86/dell/dell-laptop.c" "$DELL_DIR/build/"
+cp "$SOURCE_DIR/drivers/platform/x86/dell/dell-rbtn.h" "$DELL_DIR/build/"
+cp "$SOURCE_DIR/drivers/platform/x86/dell/dell-smbios.h" "$DELL_DIR/build/"
+cp "$SOURCE_DIR/drivers/platform/x86/dell/dell-wmi-privacy.h" "$DELL_DIR/build/"
+cat > "$DELL_DIR/build/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+obj-m += dell-laptop.o
+EOF
+make -C "$BUILD_DIR" M="$DELL_DIR/build" \
+    KBUILD_EXTRA_SYMBOLS="$DELL_DIR/battery-build/Module.symvers" \
+    modules
+cp -f "$DELL_DIR/build/dell-laptop.ko" "$DELL_DIR/dell-laptop.ko"
+check_vermagic "$DELL_DIR/dell-laptop.ko"
+echo "=== stage dell done ==="
+fi
+
+# --- asus: ASUS WMI platform driver (backlight, rfkill, hotkeys, fan) ---
+# Stock AZL has the legacy ASUS_LAPTOP on but ASUS_WMI/ASUS_NB_WMI (the
+# modern replacement most current ASUS laptops need) off. In-tree, no
+# firmware blobs; also needs the ACPI battery hook. hid-asus in
+# azurelinux-desktop-hid-quirks-kmod covers HID-level quirks separately;
+# this is the platform/WMI driver, a different kernel subsystem.
+if run_stage asus; then
+echo "=== stage asus ==="
+ASUS_DIR="$WORKDIR/asus"
+rm -rf "$ASUS_DIR"
+mkdir -p "$ASUS_DIR/battery-build" "$ASUS_DIR/build"
+cp "$SOURCE_DIR/drivers/acpi/battery.c" "$ASUS_DIR/battery-build/"
+cat > "$ASUS_DIR/battery-build/Makefile" <<'EOF'
+obj-m += battery.o
+EOF
+make -C "$BUILD_DIR" M="$ASUS_DIR/battery-build" modules
+
+cp "$SOURCE_DIR/drivers/platform/x86/asus-wmi.c" "$ASUS_DIR/build/"
+cp "$SOURCE_DIR/drivers/platform/x86/asus-wmi.h" "$ASUS_DIR/build/"
+cp "$SOURCE_DIR/drivers/platform/x86/asus-nb-wmi.c" "$ASUS_DIR/build/"
+cat > "$ASUS_DIR/build/Makefile" <<'EOF'
+ccflags-y += -I$(src)
+ccflags-y += -DCONFIG_ASUS_WMI_MODULE=1
+obj-m += asus-wmi.o
+obj-m += asus-nb-wmi.o
+EOF
+make -C "$BUILD_DIR" M="$ASUS_DIR/build" \
+    KBUILD_EXTRA_SYMBOLS="$ASUS_DIR/battery-build/Module.symvers" \
+    modules
+cp -f "$ASUS_DIR/build/asus-wmi.ko" "$ASUS_DIR/asus-wmi.ko"
+cp -f "$ASUS_DIR/build/asus-nb-wmi.ko" "$ASUS_DIR/asus-nb-wmi.ko"
+check_vermagic "$ASUS_DIR/asus-wmi.ko" "$ASUS_DIR/asus-nb-wmi.ko"
+echo "=== stage asus done ==="
+fi
+
+# --- huawei: Huawei MateBook WMI hotkeys, fn-lock, mic-mute LED ---
+# Stock AZL has no HUAWEI_WMI. In-tree, no firmware blobs; same ACPI
+# battery hook as thinkpad/dell/asus.
+if run_stage huawei; then
+echo "=== stage huawei ==="
+HUAWEI_DIR="$WORKDIR/huawei"
+rm -rf "$HUAWEI_DIR"
+mkdir -p "$HUAWEI_DIR/battery-build" "$HUAWEI_DIR/build"
+cp "$SOURCE_DIR/drivers/acpi/battery.c" "$HUAWEI_DIR/battery-build/"
+cat > "$HUAWEI_DIR/battery-build/Makefile" <<'EOF'
+obj-m += battery.o
+EOF
+make -C "$BUILD_DIR" M="$HUAWEI_DIR/battery-build" modules
+
+cp "$SOURCE_DIR/drivers/platform/x86/huawei-wmi.c" "$HUAWEI_DIR/build/"
+cat > "$HUAWEI_DIR/build/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_HUAWEI_WMI_MODULE=1
+obj-m += huawei-wmi.o
+EOF
+make -C "$BUILD_DIR" M="$HUAWEI_DIR/build" \
+    KBUILD_EXTRA_SYMBOLS="$HUAWEI_DIR/battery-build/Module.symvers" \
+    modules
+cp -f "$HUAWEI_DIR/build/huawei-wmi.ko" "$HUAWEI_DIR/huawei-wmi.ko"
+check_vermagic "$HUAWEI_DIR/huawei-wmi.ko"
+echo "=== stage huawei done ==="
+fi
+
+# --- system76: System76 laptop Fn keys, keyboard backlight, airplane LED ---
+# Stock AZL has no SYSTEM76_ACPI. In-tree, no firmware blobs; same ACPI
+# battery hook as thinkpad/dell/asus/huawei.
+if run_stage system76; then
+echo "=== stage system76 ==="
+S76_DIR="$WORKDIR/system76"
+rm -rf "$S76_DIR"
+mkdir -p "$S76_DIR/battery-build" "$S76_DIR/build"
+cp "$SOURCE_DIR/drivers/acpi/battery.c" "$S76_DIR/battery-build/"
+cat > "$S76_DIR/battery-build/Makefile" <<'EOF'
+obj-m += battery.o
+EOF
+make -C "$BUILD_DIR" M="$S76_DIR/battery-build" modules
+
+cp "$SOURCE_DIR/drivers/platform/x86/system76_acpi.c" "$S76_DIR/build/"
+cat > "$S76_DIR/build/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_SYSTEM76_ACPI_MODULE=1
+obj-m += system76_acpi.o
+EOF
+make -C "$BUILD_DIR" M="$S76_DIR/build" \
+    KBUILD_EXTRA_SYMBOLS="$S76_DIR/battery-build/Module.symvers" \
+    modules
+cp -f "$S76_DIR/build/system76_acpi.ko" "$S76_DIR/system76_acpi.ko"
+check_vermagic "$S76_DIR/system76_acpi.ko"
+echo "=== stage system76 done ==="
+fi
+
+# --- samsung: Samsung laptop function keys, wireless LED, backlight ---
+# Stock AZL has no SAMSUNG_LAPTOP. In-tree, no firmware blobs; same ACPI
+# battery hook as the other vendor platform families above.
+if run_stage samsung; then
+echo "=== stage samsung ==="
+SAMSUNG_DIR="$WORKDIR/samsung"
+rm -rf "$SAMSUNG_DIR"
+mkdir -p "$SAMSUNG_DIR/battery-build" "$SAMSUNG_DIR/build"
+cp "$SOURCE_DIR/drivers/acpi/battery.c" "$SAMSUNG_DIR/battery-build/"
+cat > "$SAMSUNG_DIR/battery-build/Makefile" <<'EOF'
+obj-m += battery.o
+EOF
+make -C "$BUILD_DIR" M="$SAMSUNG_DIR/battery-build" modules
+
+cp "$SOURCE_DIR/drivers/platform/x86/samsung-laptop.c" "$SAMSUNG_DIR/build/"
+cat > "$SAMSUNG_DIR/build/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_SAMSUNG_LAPTOP_MODULE=1
+obj-m += samsung-laptop.o
+EOF
+make -C "$BUILD_DIR" M="$SAMSUNG_DIR/build" \
+    KBUILD_EXTRA_SYMBOLS="$SAMSUNG_DIR/battery-build/Module.symvers" \
+    modules
+cp -f "$SAMSUNG_DIR/build/samsung-laptop.ko" "$SAMSUNG_DIR/samsung-laptop.ko"
+check_vermagic "$SAMSUNG_DIR/samsung-laptop.ko"
+echo "=== stage samsung done ==="
+fi
+
+# --- fujitsu: Fujitsu Lifebook extras (hotkeys, backlight) ---
+# Stock AZL has no FUJITSU_LAPTOP. In-tree, no firmware blobs; same ACPI
+# battery hook as the other vendor platform families above.
+if run_stage fujitsu; then
+echo "=== stage fujitsu ==="
+FUJITSU_DIR="$WORKDIR/fujitsu"
+rm -rf "$FUJITSU_DIR"
+mkdir -p "$FUJITSU_DIR/battery-build" "$FUJITSU_DIR/build"
+cp "$SOURCE_DIR/drivers/acpi/battery.c" "$FUJITSU_DIR/battery-build/"
+cat > "$FUJITSU_DIR/battery-build/Makefile" <<'EOF'
+obj-m += battery.o
+EOF
+make -C "$BUILD_DIR" M="$FUJITSU_DIR/battery-build" modules
+
+cp "$SOURCE_DIR/drivers/platform/x86/fujitsu-laptop.c" "$FUJITSU_DIR/build/"
+cat > "$FUJITSU_DIR/build/Makefile" <<'EOF'
+ccflags-y += -DCONFIG_FUJITSU_LAPTOP_MODULE=1
+obj-m += fujitsu-laptop.o
+EOF
+make -C "$BUILD_DIR" M="$FUJITSU_DIR/build" \
+    KBUILD_EXTRA_SYMBOLS="$FUJITSU_DIR/battery-build/Module.symvers" \
+    modules
+cp -f "$FUJITSU_DIR/build/fujitsu-laptop.ko" "$FUJITSU_DIR/fujitsu-laptop.ko"
+check_vermagic "$FUJITSU_DIR/fujitsu-laptop.ko"
+echo "=== stage fujitsu done ==="
+fi
+
+# --- usbserial: common USB-to-serial converter chips ---
+# Stock AZL has no USB_SERIAL at all. Covers FTDI, Silicon Labs CP210x,
+# Prolific PL2303, and WCH CH340/CH341 - the four chips behind most
+# consumer USB-serial cables/adapters (Arduino, GPS mice, some docks
+# and KVM switch firmware/config ports). No firmware blobs.
+if run_stage usbserial; then
+echo "=== stage usbserial ==="
+USBSERIAL_DIR="$WORKDIR/usbserial"
+rm -rf "$USBSERIAL_DIR"
+mkdir -p "$USBSERIAL_DIR"
+for f in usb-serial.c bus.c generic.c ftdi_sio.c ftdi_sio.h ftdi_sio_ids.h \
+    cp210x.c pl2303.c pl2303.h ch341.c
+do
+    cp "$SOURCE_DIR/drivers/usb/serial/$f" "$USBSERIAL_DIR/"
+done
+cat > "$USBSERIAL_DIR/Makefile" <<'EOF'
+obj-m += usbserial.o
+usbserial-y := usb-serial.o bus.o generic.o
+obj-m += ftdi_sio.o
+obj-m += cp210x.o
+obj-m += pl2303.o
+obj-m += ch341.o
+EOF
+make -C "$BUILD_DIR" M="$USBSERIAL_DIR" modules
+USBSERIAL_MODULE="$USBSERIAL_DIR/usbserial.ko"
+FTDI_SIO_MODULE="$USBSERIAL_DIR/ftdi_sio.ko"
+CP210X_MODULE="$USBSERIAL_DIR/cp210x.ko"
+PL2303_MODULE="$USBSERIAL_DIR/pl2303.ko"
+CH341_MODULE="$USBSERIAL_DIR/ch341.ko"
+check_vermagic "$USBSERIAL_MODULE" "$FTDI_SIO_MODULE" "$CP210X_MODULE" \
+    "$PL2303_MODULE" "$CH341_MODULE"
+echo "=== stage usbserial done ==="
+fi
+
+# --- udl: DisplayLink USB video adapters ---
+# Stock AZL has no DRM_UDL. Covers USB-attached external displays, common
+# on docking stations and multi-monitor USB/KVM-style hubs that lack
+# native DisplayPort/HDMI passthrough. Depends only on stock DRM helpers
+# (DRM_GEM_SHMEM_HELPER, DRM_KMS_HELPER, both already =y). No firmware.
+if run_stage udl; then
+echo "=== stage udl ==="
+UDL_DIR="$WORKDIR/udl"
+rm -rf "$UDL_DIR"
+mkdir -p "$UDL_DIR"
+cp -a "$SOURCE_DIR/drivers/gpu/drm/udl/." "$UDL_DIR/"
+cat > "$UDL_DIR/Makefile" <<'EOF'
+obj-m += udl.o
+udl-y := udl_drv.o udl_edid.o udl_main.o udl_modeset.o udl_transfer.o
+EOF
+make -C "$BUILD_DIR" M="$UDL_DIR" modules
+UDL_MODULE="$UDL_DIR/udl.ko"
+check_vermagic "$UDL_MODULE"
+echo "=== stage udl done ==="
 fi
 
 # --- typec + ucsi ---
@@ -1212,12 +1890,43 @@ if [[ ! -f "$IWL_MODULE" && -f "$WORKDIR/iwlwifi/iwlwifi.ko" ]]; then
 fi
 UVC_COMMON_MODULE="$WORKDIR/uvc/uvc.ko"
 UVC_MODULE="$WORKDIR/uvc/uvcvideo.ko"
-TP_BATTERY_MODULE="$WORKDIR/thinkpad/battery.ko"
+ACPI_BATTERY_MODULE="$WORKDIR/acpibattery/battery.ko"
 TP_PRIVACY_MODULE="$WORKDIR/thinkpad/drm_privacy_screen.ko"
 TP_MODULE="$WORKDIR/thinkpad/thinkpad_acpi.ko"
 TYPEC_MODULE="$WORKDIR/typec/typec.ko"
 TYPEC_UCSI_MODULE="$WORKDIR/typec/typec_ucsi.ko"
 UCSI_ACPI_MODULE="$WORKDIR/typec/ucsi_acpi.ko"
+HIDMT_MODULE="$WORKDIR/hidmt/hid-multitouch.ko"
+TOUCHPAD_RMI_CORE="$WORKDIR/touchpad/rmi_core.ko"
+TOUCHPAD_RMI_I2C="$WORKDIR/touchpad/rmi_i2c.ko"
+TOUCHPAD_ELAN="$WORKDIR/touchpad/elan_i2c.ko"
+LOGI_DJ_MODULE="$WORKDIR/logitech/hid-logitech-dj.ko"
+LOGI_HIDPP_MODULE="$WORKDIR/logitech/hid-logitech-hidpp.ko"
+HIDQ_ASUS_MODULE="$WORKDIR/hidquirks/hid-asus.ko"
+HIDQ_ELAN_MODULE="$WORKDIR/hidquirks/hid-elan.ko"
+WACOM_MODULE="$WORKDIR/tablet/wacom.ko"
+UCLOGIC_MODULE="$WORKDIR/tablet/hid-uclogic.ko"
+WALTOP_MODULE="$WORKDIR/tablet/hid-waltop.ko"
+R8152_MODULE="$WORKDIR/usbeth/r8152.ko"
+ASIX_MODULE="$WORKDIR/usbeth/asix.ko"
+AX88179_MODULE="$WORKDIR/usbeth/ax88179_178a.ko"
+XPAD_MODULE="$WORKDIR/gamepad/xpad.ko"
+HID_SONY_MODULE="$WORKDIR/gamepad/hid-sony.ko"
+LED_MULTICOLOR_MODULE="$WORKDIR/gamepad/led-class-multicolor.ko"
+HID_PLAYSTATION_MODULE="$WORKDIR/gamepad/hid-playstation.ko"
+DELL_LAPTOP_MODULE="$WORKDIR/dell/dell-laptop.ko"
+ASUS_WMI_MODULE="$WORKDIR/asus/asus-wmi.ko"
+ASUS_NB_WMI_MODULE="$WORKDIR/asus/asus-nb-wmi.ko"
+HUAWEI_WMI_MODULE="$WORKDIR/huawei/huawei-wmi.ko"
+SYSTEM76_ACPI_MODULE="$WORKDIR/system76/system76_acpi.ko"
+SAMSUNG_LAPTOP_MODULE="$WORKDIR/samsung/samsung-laptop.ko"
+FUJITSU_LAPTOP_MODULE="$WORKDIR/fujitsu/fujitsu-laptop.ko"
+USBSERIAL_MODULE="$WORKDIR/usbserial/usbserial.ko"
+FTDI_SIO_MODULE="$WORKDIR/usbserial/ftdi_sio.ko"
+CP210X_MODULE="$WORKDIR/usbserial/cp210x.ko"
+PL2303_MODULE="$WORKDIR/usbserial/pl2303.ko"
+CH341_MODULE="$WORKDIR/usbserial/ch341.ko"
+UDL_MODULE="$WORKDIR/udl/udl.ko"
 
 mapfile -t SOUND_MODULES < <(find "$WORKDIR/sound" -name '*.ko' 2>/dev/null | sort || true)
 mapfile -t BT_MODULES < <(
@@ -1247,6 +1956,11 @@ if have_ko "$PS2_MODULE"; then
     RMI_SMBUS_MODULE="$WORKDIR/psmouse/rmi_smbus.ko"
     have_ko "$RMI_CORE_MODULE" && PRESENT_KOS+=("$RMI_CORE_MODULE")
     have_ko "$RMI_SMBUS_MODULE" && PRESENT_KOS+=("$RMI_SMBUS_MODULE")
+    # Optional AMD/legacy SMBus adapter (only useful alongside RMI4).
+    I2C_SMBUS_MODULE="$WORKDIR/psmouse/i2c-smbus.ko"
+    I2C_PIIX4_MODULE="$WORKDIR/psmouse/i2c-piix4.ko"
+    have_ko "$I2C_SMBUS_MODULE" && PRESENT_KOS+=("$I2C_SMBUS_MODULE")
+    have_ko "$I2C_PIIX4_MODULE" && PRESENT_KOS+=("$I2C_PIIX4_MODULE")
     add_pkg psmouse
 fi
 if have_ko "$STOR_MODULE" && have_ko "$UAS_MODULE"; then
@@ -1274,16 +1988,91 @@ elif have_ko "$UVC_MODULE"; then
     add_pkg uvc
 fi
 mapfile -t TP_EXTRA_MODULES < <(find "$WORKDIR/thinkpad" -maxdepth 1 -name '*.ko' 2>/dev/null | sort || true)
-if have_ko "$TP_MODULE" && have_ko "$TP_BATTERY_MODULE" && have_ko "$TP_PRIVACY_MODULE"; then
+if have_ko "$TP_MODULE" && have_ko "$TP_PRIVACY_MODULE"; then
     PRESENT_KOS+=("${TP_EXTRA_MODULES[@]}")
     add_pkg thinkpad
 elif have_ko "$TP_MODULE"; then
     PRESENT_KOS+=("$TP_MODULE")
     add_pkg thinkpad
 fi
+if have_ko "$ACPI_BATTERY_MODULE"; then
+    PRESENT_KOS+=("$ACPI_BATTERY_MODULE")
+    add_pkg acpibattery
+fi
+if have_ko "$DELL_LAPTOP_MODULE"; then
+    PRESENT_KOS+=("$DELL_LAPTOP_MODULE")
+    add_pkg dell
+fi
+if have_ko "$ASUS_WMI_MODULE" && have_ko "$ASUS_NB_WMI_MODULE"; then
+    PRESENT_KOS+=("$ASUS_WMI_MODULE" "$ASUS_NB_WMI_MODULE")
+    add_pkg asus
+fi
+if have_ko "$HUAWEI_WMI_MODULE"; then
+    PRESENT_KOS+=("$HUAWEI_WMI_MODULE")
+    add_pkg huawei
+fi
+if have_ko "$SYSTEM76_ACPI_MODULE"; then
+    PRESENT_KOS+=("$SYSTEM76_ACPI_MODULE")
+    add_pkg system76
+fi
+if have_ko "$SAMSUNG_LAPTOP_MODULE"; then
+    PRESENT_KOS+=("$SAMSUNG_LAPTOP_MODULE")
+    add_pkg samsung
+fi
+if have_ko "$FUJITSU_LAPTOP_MODULE"; then
+    PRESENT_KOS+=("$FUJITSU_LAPTOP_MODULE")
+    add_pkg fujitsu
+fi
+if have_ko "$USBSERIAL_MODULE" && have_ko "$FTDI_SIO_MODULE" \
+    && have_ko "$CP210X_MODULE" && have_ko "$PL2303_MODULE" && have_ko "$CH341_MODULE"; then
+    PRESENT_KOS+=("$USBSERIAL_MODULE" "$FTDI_SIO_MODULE" "$CP210X_MODULE" \
+        "$PL2303_MODULE" "$CH341_MODULE")
+    add_pkg usbserial
+fi
+if have_ko "$UDL_MODULE"; then
+    PRESENT_KOS+=("$UDL_MODULE")
+    add_pkg udl
+fi
 if have_ko "$TYPEC_MODULE" && have_ko "$TYPEC_UCSI_MODULE" && have_ko "$UCSI_ACPI_MODULE"; then
     PRESENT_KOS+=("$TYPEC_MODULE" "$TYPEC_UCSI_MODULE" "$UCSI_ACPI_MODULE")
     add_pkg typec
+fi
+if have_ko "$HIDMT_MODULE"; then
+    PRESENT_KOS+=("$HIDMT_MODULE")
+    add_pkg hidmt
+fi
+TOUCHPAD_KOS=()
+have_ko "$TOUCHPAD_RMI_CORE" && have_ko "$TOUCHPAD_RMI_I2C" && TOUCHPAD_KOS+=("$TOUCHPAD_RMI_CORE" "$TOUCHPAD_RMI_I2C")
+have_ko "$TOUCHPAD_ELAN" && TOUCHPAD_KOS+=("$TOUCHPAD_ELAN")
+if ((${#TOUCHPAD_KOS[@]} > 0)); then
+    PRESENT_KOS+=("${TOUCHPAD_KOS[@]}")
+    add_pkg touchpad
+fi
+if have_ko "$LOGI_DJ_MODULE" && have_ko "$LOGI_HIDPP_MODULE"; then
+    PRESENT_KOS+=("$LOGI_DJ_MODULE" "$LOGI_HIDPP_MODULE")
+    add_pkg logitech
+fi
+if have_ko "$HIDQ_ASUS_MODULE" && have_ko "$HIDQ_ELAN_MODULE"; then
+    PRESENT_KOS+=("$HIDQ_ASUS_MODULE" "$HIDQ_ELAN_MODULE")
+    add_pkg hidquirks
+fi
+if have_ko "$WACOM_MODULE" && have_ko "$UCLOGIC_MODULE" && have_ko "$WALTOP_MODULE"; then
+    PRESENT_KOS+=("$WACOM_MODULE" "$UCLOGIC_MODULE" "$WALTOP_MODULE")
+    add_pkg tablet
+fi
+USBETH_KOS=()
+have_ko "$R8152_MODULE" && USBETH_KOS+=("$R8152_MODULE")
+have_ko "$ASIX_MODULE" && USBETH_KOS+=("$ASIX_MODULE")
+have_ko "$AX88179_MODULE" && USBETH_KOS+=("$AX88179_MODULE")
+if ((${#USBETH_KOS[@]} > 0)); then
+    PRESENT_KOS+=("${USBETH_KOS[@]}")
+    add_pkg usbeth
+fi
+if have_ko "$XPAD_MODULE" && have_ko "$HID_SONY_MODULE" \
+    && have_ko "$LED_MULTICOLOR_MODULE" && have_ko "$HID_PLAYSTATION_MODULE"; then
+    PRESENT_KOS+=("$XPAD_MODULE" "$HID_SONY_MODULE" \
+        "$LED_MULTICOLOR_MODULE" "$HID_PLAYSTATION_MODULE")
+    add_pkg gamepad
 fi
 if ((${#SURFACE_MODULES[@]} >= 6)) \
     && have_ko "$WORKDIR/surface/serdev.ko" \
@@ -1411,6 +2200,8 @@ if pkg_enabled psmouse; then
     append_requires azurelinux-desktop-psmouse-kmod
     PSMOUSE_HAS_RMI=0
     have_ko "$WORKDIR/psmouse/rmi_core.ko" && have_ko "$WORKDIR/psmouse/rmi_smbus.ko" && PSMOUSE_HAS_RMI=1
+    PSMOUSE_HAS_PIIX4=0
+    have_ko "$WORKDIR/psmouse/i2c-smbus.ko" && have_ko "$WORKDIR/psmouse/i2c-piix4.ko" && PSMOUSE_HAS_PIIX4=1
     if [[ "$PSMOUSE_HAS_RMI" -eq 1 ]]; then
         PSMOUSE_SUMMARY="PS/2 mouse + Synaptics RMI4 SMBus for Azure Linux ${KVERREL}"
         PSMOUSE_DESC="psmouse for Azure Linux kernel ${KVERREL}. Covers GNOME Boxes and other
@@ -1418,6 +2209,14 @@ hypervisors that default to a PS/2 mouse for unknown Linux guests.
 On bare-metal ThinkPads with Synaptics InterTouch, also ships rmi_core
 and rmi_smbus so the pad can leave relative PS/2 mode (two-finger
 scroll, proper clickpad). See findings/thinkpad-two-finger-scroll-rmi-smbus.md."
+        if [[ "$PSMOUSE_HAS_PIIX4" -eq 1 ]]; then
+            PSMOUSE_DESC="${PSMOUSE_DESC}
+Also ships i2c-piix4 (plus its i2c-smbus dependency), the SMBus host
+controller AMD chipsets need for that same RMI4 SMBus handoff. Stock
+AZL already builds i2c-i801 in-tree for Intel; i2c-piix4 is its AMD
+(and legacy Intel PIIX4) counterpart, so this pad fix now works on
+AMD laptops too."
+        fi
     else
         PSMOUSE_SUMMARY="PS/2 mouse module for Azure Linux ${KVERREL}"
         PSMOUSE_DESC="psmouse for Azure Linux kernel ${KVERREL}. Covers GNOME Boxes and other
@@ -1436,16 +2235,24 @@ ${PSMOUSE_DESC}
         INSTALL_SECTION+="$(ko_install_line rmi_core.ko)"$'\n'
         INSTALL_SECTION+="$(ko_install_line rmi_smbus.ko)"$'\n'
     fi
+    if [[ "$PSMOUSE_HAS_PIIX4" -eq 1 ]]; then
+        INSTALL_SECTION+="$(ko_install_line i2c-smbus.ko)"$'\n'
+        INSTALL_SECTION+="$(ko_install_line i2c-piix4.ko)"$'\n'
+    fi
     # Initramfs: psmouse is enough for early PS/2; RMI loads from rootfs.
     INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-psmouse.conf <<'DRACUT'
 add_drivers+=\" psmouse \"
 DRACUT"$'\n'
-    # Load RMI before psmouse so SMBus handoff can bind immediately.
+    # Load the SMBus adapter, then RMI, then psmouse, so the handoff can
+    # bind immediately: i2c-piix4 must register the bus before rmi_smbus
+    # can claim the rmi4_smbus device psmouse creates.
     if [[ "$PSMOUSE_HAS_RMI" -eq 1 ]]; then
-        INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-psmouse.conf <<'ML'
-rmi_core
-rmi_smbus
-psmouse
+        PSMOUSE_ML_MODULES="rmi_core"$'\n'"rmi_smbus"$'\n'"psmouse"
+        if [[ "$PSMOUSE_HAS_PIIX4" -eq 1 ]]; then
+            PSMOUSE_ML_MODULES="i2c-piix4"$'\n'"$PSMOUSE_ML_MODULES"
+        fi
+        INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modules-load.d/azurelinux-desktop-psmouse.conf <<ML
+${PSMOUSE_ML_MODULES}
 ML"$'\n'
         INSTALL_SECTION+="install -Dpm 0644 /dev/stdin %{buildroot}%{_sysconfdir}/modprobe.d/azurelinux-desktop-psmouse.conf <<'MP'
 # Prefer SMBus+RMI when the pad advertises InterTouch. Safe on VMs:
@@ -1467,6 +2274,10 @@ $(ko_files_line psmouse.ko)
         FILES_SECTIONS+="$(ko_files_line rmi_core.ko)"$'\n'
         FILES_SECTIONS+="$(ko_files_line rmi_smbus.ko)"$'\n'
         FILES_SECTIONS+="%config(noreplace) %{_sysconfdir}/modprobe.d/azurelinux-desktop-psmouse.conf"$'\n'
+    fi
+    if [[ "$PSMOUSE_HAS_PIIX4" -eq 1 ]]; then
+        FILES_SECTIONS+="$(ko_files_line i2c-smbus.ko)"$'\n'
+        FILES_SECTIONS+="$(ko_files_line i2c-piix4.ko)"$'\n'
     fi
     FILES_SECTIONS+="%config(noreplace) %{_sysconfdir}/dracut.conf.d/90-azurelinux-desktop-psmouse.conf
 %config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desktop-psmouse.conf
@@ -1695,18 +2506,274 @@ ${UVC_FILES}"
 "
 fi
 
+if pkg_enabled hidmt; then
+    append_requires azurelinux-desktop-hid-multitouch-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-hid-multitouch-kmod
+Summary:        Generic HID-over-I2C Precision Touchpad module for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-hid-multitouch-kmod
+hid-multitouch for Azure Linux kernel ${KVERREL}. Covers trackpads and
+touchscreens that report through the generic Windows Precision
+Touchpad / multitouch HID protocol over i2c-hid, used by some modern
+ThinkPad and other laptop models instead of the Synaptics RMI4 SMBus
+path already covered by psmouse-kmod.
+"
+    INSTALL_SECTION+="$(ko_install_line hid-multitouch.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-hid-multitouch-kmod
+$(ko_files_line hid-multitouch.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-hid-multitouch-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-hid-multitouch-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled touchpad; then
+    append_requires azurelinux-desktop-touchpad-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-touchpad-kmod
+Summary:        I2C-native precision touchpad modules for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-touchpad-kmod
+elan_i2c and Synaptics RMI4-over-I2C (rmi_core, rmi_i2c) modules for
+Azure Linux kernel ${KVERREL}. Covers trackpads wired straight to an
+I2C bus instead of PS/2 or SMBus, common on many consumer and
+enterprise laptops (Dell, HP, ASUS, Acer, and some ThinkPads).
+psmouse-kmod already covers PS/2 and RMI4-over-SMBus.
+"
+    TOUCHPAD_INSTALL=""
+    TOUCHPAD_FILES=""
+    if have_ko "$TOUCHPAD_RMI_CORE"; then
+        TOUCHPAD_INSTALL+="$(ko_install_line rmi_core.ko)"$'\n'
+        TOUCHPAD_INSTALL+="$(ko_install_line rmi_i2c.ko)"$'\n'
+        TOUCHPAD_FILES+="$(ko_files_line rmi_core.ko)"$'\n'
+        TOUCHPAD_FILES+="$(ko_files_line rmi_i2c.ko)"$'\n'
+    fi
+    if have_ko "$TOUCHPAD_ELAN"; then
+        TOUCHPAD_INSTALL+="$(ko_install_line elan_i2c.ko)"$'\n'
+        TOUCHPAD_FILES+="$(ko_files_line elan_i2c.ko)"$'\n'
+    fi
+    INSTALL_SECTION+="${TOUCHPAD_INSTALL}"
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-touchpad-kmod
+${TOUCHPAD_FILES}"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-touchpad-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-touchpad-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled logitech; then
+    append_requires azurelinux-desktop-logitech-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-logitech-kmod
+Summary:        Logitech Unifying receiver and HID++ modules for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-logitech-kmod
+hid-logitech-dj and hid-logitech-hidpp modules for Azure Linux kernel
+${KVERREL}. Decodes the Logitech Unifying receiver's multiplexed
+reports and HID++ protocol used by Logitech's wireless and Bluetooth
+mice and keyboards (MX series, Unifying receivers), common on both
+consumer and enterprise desks. Without these, affected devices fall
+back to generic HID and lose battery reporting, DPI/multi-button
+features, and in some cases pairing entirely.
+"
+    INSTALL_SECTION+="$(ko_install_line hid-logitech-dj.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line hid-logitech-hidpp.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-logitech-kmod
+$(ko_files_line hid-logitech-dj.ko)
+$(ko_files_line hid-logitech-hidpp.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-logitech-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-logitech-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled hidquirks; then
+    append_requires azurelinux-desktop-hid-quirks-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-hid-quirks-kmod
+Summary:        ASUS and ELAN HID vendor quirk modules for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-hid-quirks-kmod
+hid-asus and hid-elan modules for Azure Linux kernel ${KVERREL}.
+hid-asus covers extra keys, keyboard backlight, and touchpad quirks on
+ASUS consumer and commercial laptops. hid-elan covers ELAN touchpads
+that present over USB/HID rather than native I2C; azurelinux-desktop-
+touchpad-kmod covers the native I2C transport (elan_i2c) separately.
+"
+    INSTALL_SECTION+="$(ko_install_line hid-asus.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line hid-elan.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-hid-quirks-kmod
+$(ko_files_line hid-asus.ko)
+$(ko_files_line hid-elan.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-hid-quirks-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-hid-quirks-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled tablet; then
+    append_requires azurelinux-desktop-tablet-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-tablet-kmod
+Summary:        Drawing tablet / pen digitizer HID modules for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-tablet-kmod
+wacom.ko, hid-uclogic.ko, and hid-waltop.ko for Azure Linux kernel
+${KVERREL}. Covers Wacom Intuos/Bamboo/Cintiq (USB and Bluetooth),
+Huion/UC-Logic, and Waltop graphics tablets and pen displays. Stock
+AZL has none of HID_WACOM/HID_UCLOGIC/HID_WALTOP.
+"
+    INSTALL_SECTION+="$(ko_install_line wacom.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line hid-uclogic.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line hid-waltop.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-tablet-kmod
+$(ko_files_line wacom.ko)
+$(ko_files_line hid-uclogic.ko)
+$(ko_files_line hid-waltop.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-tablet-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-tablet-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled usbeth; then
+    append_requires azurelinux-desktop-usbeth-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-usbeth-kmod
+Summary:        USB Ethernet adapter modules for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-usbeth-kmod
+r8152 (Realtek RTL8152/8153, nearly every USB-C dock/hub), asix
+(older ASIX AX8817X), and ax88179_178a (newer ASIX USB3 gigabit)
+modules for Azure Linux kernel ${KVERREL}. Wired ethernet through one
+of these chips is often the simplest fallback when a laptop's
+built-in Wi-Fi chipset isn't covered by azurelinux-desktop-intel-kmod.
+"
+    USBETH_INSTALL=""
+    USBETH_FILES=""
+    if have_ko "$R8152_MODULE"; then
+        USBETH_INSTALL+="$(ko_install_line r8152.ko)"$'\n'
+        USBETH_FILES+="$(ko_files_line r8152.ko)"$'\n'
+    fi
+    if have_ko "$ASIX_MODULE"; then
+        USBETH_INSTALL+="$(ko_install_line asix.ko)"$'\n'
+        USBETH_FILES+="$(ko_files_line asix.ko)"$'\n'
+    fi
+    if have_ko "$AX88179_MODULE"; then
+        USBETH_INSTALL+="$(ko_install_line ax88179_178a.ko)"$'\n'
+        USBETH_FILES+="$(ko_files_line ax88179_178a.ko)"$'\n'
+    fi
+    INSTALL_SECTION+="${USBETH_INSTALL}"
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-usbeth-kmod
+${USBETH_FILES}"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-usbeth-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-usbeth-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled gamepad; then
+    append_requires azurelinux-desktop-gamepad-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-gamepad-kmod
+Summary:        Common USB/Bluetooth game controller modules for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-gamepad-kmod
+xpad (wired Xbox controllers), hid-sony (PS3/PS4 DualShock), and
+hid-playstation (PS5 DualSense, plus the small led-class-multicolor
+helper its lightbar/mic-mute LED needs) for Azure Linux kernel
+${KVERREL}. The stock kernel already ships CONFIG_HID_STEAM in-tree;
+this package covers the other common consumer controller families.
+"
+    INSTALL_SECTION+="$(ko_install_line xpad.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line hid-sony.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line led-class-multicolor.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line hid-playstation.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-gamepad-kmod
+$(ko_files_line xpad.ko)
+$(ko_files_line hid-sony.ko)
+$(ko_files_line led-class-multicolor.ko)
+$(ko_files_line hid-playstation.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-gamepad-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-gamepad-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled acpibattery; then
+    append_requires azurelinux-desktop-acpi-battery-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-acpi-battery-kmod
+Summary:        ACPI battery module for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-acpi-battery-kmod
+battery.ko (drivers/acpi/battery.c) for Azure Linux kernel ${KVERREL}.
+Stock AZL leaves CONFIG_ACPI_BATTERY off since it targets cloud/server
+hardware without a battery. A handful of vendor laptop platform
+drivers (thinkpad_acpi, ideapad-laptop, dell-laptop, asus-wmi, and
+their siblings) hard-depend on its battery_hook_register() API at
+link time, so it ships as its own small foundational package instead
+of being duplicated in each of theirs.
+"
+    INSTALL_SECTION+="$(ko_install_line battery.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-acpi-battery-kmod
+$(ko_files_line battery.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-acpi-battery-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-acpi-battery-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
 if pkg_enabled thinkpad; then
     append_requires azurelinux-desktop-thinkpad-kmod
     PACKAGE_SECTIONS+="
 %package -n azurelinux-desktop-thinkpad-kmod
-Summary:        ThinkPad platform, HID, and WWAN modules for Azure Linux ${KVERREL}
+Summary:        ThinkPad and Lenovo consumer laptop modules for Azure Linux ${KVERREL}
 Requires:       kernel-core-uname-r = ${KVERREL}
+Requires:       azurelinux-desktop-acpi-battery-kmod
+Recommends:     azurelinux-desktop-hid-multitouch-kmod
 %description -n azurelinux-desktop-thinkpad-kmod
-thinkpad_acpi (hotkey poll + video), ACPI battery, privacy-screen,
-hid-lenovo, and USB WWAN/tether (usbnet, cdc_mbim, qmi_wwan, …) for
-${KVERREL}. PS/2 TrackPoint/ALPS/SMBus live in psmouse-kmod.
-hid-multitouch ships in surface-kmod (shared via policy). Stock AZL
-already has think-lmi, intel-hid, and Lenovo WMI helpers.
+thinkpad_acpi (hotkey poll + video), privacy-screen, hid-lenovo, USB
+WWAN/tether (usbnet, cdc_mbim, qmi_wwan, …), ideapad-laptop (rfkill,
+hotkeys, backlight, fan/thermal profile on Lenovo IdeaPad and Legion
+consumer laptops), and lenovo-ymc (tablet-mode switch on Lenovo Yoga
+convertibles) for ${KVERREL}. PS/2 TrackPoint/ALPS/SMBus live in
+psmouse-kmod. Some newer ThinkPad trackpads report through the generic
+HID-over-I2C Precision Touchpad protocol instead of the Synaptics RMI4
+SMBus path; this package recommends azurelinux-desktop-hid-multitouch-
+kmod for full trackpad coverage on those models. Stock AZL already has
+think-lmi, intel-hid, and Lenovo WMI helpers.
 "
     TP_FILES=""
     mapfile -t _tp_src < <(find "$WORKDIR/thinkpad" -maxdepth 1 -name '*.ko' -printf '%f\n' 2>/dev/null | sort || true)
@@ -1729,6 +2796,222 @@ ${TP_FILES}%config(noreplace) %{_sysconfdir}/modules-load.d/azurelinux-desktop-t
 %post -n azurelinux-desktop-thinkpad-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
 %postun -n azurelinux-desktop-thinkpad-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled dell; then
+    append_requires azurelinux-desktop-dell-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-dell-kmod
+Summary:        Dell laptop platform extras for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+Requires:       azurelinux-desktop-acpi-battery-kmod
+%description -n azurelinux-desktop-dell-kmod
+dell-laptop.ko for Azure Linux kernel ${KVERREL}. Adds rfkill and
+backlight control on Dell Latitude, XPS, Precision, and Inspiron
+laptops. Stock AZL already has dell-wmi and dell-smbios, which this
+depends on; dell-laptop is the missing piece that actually exposes
+rfkill/backlight through them.
+"
+    INSTALL_SECTION+="$(ko_install_line dell-laptop.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-dell-kmod
+$(ko_files_line dell-laptop.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-dell-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-dell-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled asus; then
+    append_requires azurelinux-desktop-asus-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-asus-kmod
+Summary:        ASUS WMI laptop platform extras for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+Requires:       azurelinux-desktop-acpi-battery-kmod
+%description -n azurelinux-desktop-asus-kmod
+asus-wmi and asus-nb-wmi for Azure Linux kernel ${KVERREL}. Adds
+backlight, rfkill, keyboard backlight, and hotkey support on modern
+ASUS laptops (Zenbook, Vivobook, ROG, TUF) via their WMI interface.
+Stock AZL only has the legacy ASUS_LAPTOP driver, which doesn't cover
+current-generation ASUS hardware; azurelinux-desktop-hid-quirks-kmod
+covers hid-asus separately (HID-level quirks, a different subsystem).
+"
+    INSTALL_SECTION+="$(ko_install_line asus-wmi.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line asus-nb-wmi.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-asus-kmod
+$(ko_files_line asus-wmi.ko)
+$(ko_files_line asus-nb-wmi.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-asus-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-asus-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled huawei; then
+    append_requires azurelinux-desktop-huawei-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-huawei-kmod
+Summary:        Huawei laptop WMI platform extras for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+Requires:       azurelinux-desktop-acpi-battery-kmod
+%description -n azurelinux-desktop-huawei-kmod
+huawei-wmi.ko for Azure Linux kernel ${KVERREL}. Adds hotkeys, fn-lock,
+battery charge control, and mic-mute LED on Huawei MateBook laptops.
+Stock AZL has no HUAWEI_WMI.
+"
+    INSTALL_SECTION+="$(ko_install_line huawei-wmi.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-huawei-kmod
+$(ko_files_line huawei-wmi.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-huawei-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-huawei-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled system76; then
+    append_requires azurelinux-desktop-system76-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-system76-kmod
+Summary:        System76 laptop ACPI platform extras for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+Requires:       azurelinux-desktop-acpi-battery-kmod
+%description -n azurelinux-desktop-system76-kmod
+system76_acpi.ko for Azure Linux kernel ${KVERREL}. Adds Fn-Fx hotkeys,
+keyboard backlight, and airplane-mode LED on System76 laptops running
+open firmware. Stock AZL has no SYSTEM76_ACPI.
+"
+    INSTALL_SECTION+="$(ko_install_line system76_acpi.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-system76-kmod
+$(ko_files_line system76_acpi.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-system76-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-system76-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled samsung; then
+    append_requires azurelinux-desktop-samsung-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-samsung-kmod
+Summary:        Samsung laptop platform extras for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+Requires:       azurelinux-desktop-acpi-battery-kmod
+%description -n azurelinux-desktop-samsung-kmod
+samsung-laptop.ko for Azure Linux kernel ${KVERREL}. Adds function
+keys, wireless LED, and LCD backlight control on Samsung laptops.
+Stock AZL has no SAMSUNG_LAPTOP.
+"
+    INSTALL_SECTION+="$(ko_install_line samsung-laptop.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-samsung-kmod
+$(ko_files_line samsung-laptop.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-samsung-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-samsung-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled fujitsu; then
+    append_requires azurelinux-desktop-fujitsu-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-fujitsu-kmod
+Summary:        Fujitsu Lifebook laptop platform extras for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+Requires:       azurelinux-desktop-acpi-battery-kmod
+%description -n azurelinux-desktop-fujitsu-kmod
+fujitsu-laptop.ko for Azure Linux kernel ${KVERREL}. Adds hotkeys and
+backlight control on Fujitsu Lifebook laptops. Stock AZL has no
+FUJITSU_LAPTOP.
+"
+    INSTALL_SECTION+="$(ko_install_line fujitsu-laptop.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-fujitsu-kmod
+$(ko_files_line fujitsu-laptop.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-fujitsu-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-fujitsu-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled usbserial; then
+    append_requires azurelinux-desktop-usbserial-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-usbserial-kmod
+Summary:        Common USB-to-serial converter modules for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-usbserial-kmod
+usbserial.ko plus ftdi_sio.ko, cp210x.ko, pl2303.ko, and ch341.ko for
+Azure Linux kernel ${KVERREL}. Covers FTDI, Silicon Labs CP210x,
+Prolific PL2303, and WCH CH340/CH341 - the chips behind most consumer
+USB-serial cables and adapters (Arduino, GPS mice, some docks and KVM
+switch config ports). Stock AZL has no USB_SERIAL at all.
+"
+    INSTALL_SECTION+="$(ko_install_line usbserial.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line ftdi_sio.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line cp210x.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line pl2303.ko)"$'\n'
+    INSTALL_SECTION+="$(ko_install_line ch341.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-usbserial-kmod
+$(ko_files_line usbserial.ko)
+$(ko_files_line ftdi_sio.ko)
+$(ko_files_line cp210x.ko)
+$(ko_files_line pl2303.ko)
+$(ko_files_line ch341.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-usbserial-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-usbserial-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+"
+fi
+
+if pkg_enabled udl; then
+    append_requires azurelinux-desktop-udl-kmod
+    PACKAGE_SECTIONS+="
+%package -n azurelinux-desktop-udl-kmod
+Summary:        DisplayLink USB video adapter driver for Azure Linux ${KVERREL}
+Requires:       kernel-core-uname-r = ${KVERREL}
+%description -n azurelinux-desktop-udl-kmod
+udl.ko for Azure Linux kernel ${KVERREL}. Adds KMS/DRM support for
+USB-attached DisplayLink video adapters, common on docking stations
+and multi-monitor USB hubs without native DisplayPort/HDMI
+passthrough. Stock AZL has no DRM_UDL.
+"
+    INSTALL_SECTION+="$(ko_install_line udl.ko)"$'\n'
+    FILES_SECTIONS+="
+%files -n azurelinux-desktop-udl-kmod
+$(ko_files_line udl.ko)
+"
+    POST_SECTIONS+="
+%post -n azurelinux-desktop-udl-kmod
+/usr/sbin/depmod -a ${KVERREL} || :
+%postun -n azurelinux-desktop-udl-kmod
 /usr/sbin/depmod -a ${KVERREL} || :
 "
 fi

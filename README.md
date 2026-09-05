@@ -142,8 +142,11 @@ This project builds out-of-tree modules against each exact Azure `kernel-devel` 
 
 * `azurelinux-desktop-usbhid-kmod` - `usbhid.ko`
 * `azurelinux-desktop-psmouse-kmod` - `psmouse.ko` plus Synaptics RMI4
-  SMBus (`rmi_core.ko`, `rmi_smbus.ko`) for ThinkPad two-finger scroll; also
-  covers GNOME Boxes PS/2 defaults
+  SMBus (`rmi_core.ko`, `rmi_smbus.ko`) for ThinkPad two-finger scroll;
+  also ships `i2c-piix4.ko`/`i2c-smbus.ko`, the SMBus host controller
+  AMD (and legacy Intel PIIX4) chipsets need for that same handoff -
+  stock AZL already builds Intel's `i2c-i801` in-tree, this is its AMD
+  counterpart; also covers GNOME Boxes PS/2 defaults
 * `azurelinux-desktop-storage-kmod` - `usb-storage.ko` and `uas.ko`
   (replaces `azurelinux-desktop-usb-storage-kmod`; NVMe/ext4/dm stay stock)
 * `azurelinux-desktop-intel-kmod` - Intel Wi-Fi (`iwlwifi` + mvm/dvm/mld);
@@ -154,8 +157,62 @@ This project builds out-of-tree modules against each exact Azure `kernel-devel` 
 * `azurelinux-desktop-bluetooth-kmod` - Bluetooth core + `btusb` and
   Intel/Realtek/Broadcom/MediaTek helpers
 * `azurelinux-desktop-uvc-kmod` - `uvcvideo.ko`
-* `azurelinux-desktop-thinkpad-kmod` - `thinkpad_acpi.ko` (+ battery /
-  privacy-screen, `hid-lenovo`, USB WWAN/tether helpers)
+* `azurelinux-desktop-acpi-battery-kmod` - `battery.ko`, the
+  `CONFIG_ACPI_BATTERY` battery-hook subsystem stock AZL leaves off.
+  Required by `thinkpad-kmod`, `dell-kmod`, `asus-kmod`, `huawei-kmod`,
+  `system76-kmod`, `samsung-kmod`, and `fujitsu-kmod`'s platform
+  drivers, which all call `battery_hook_register()`
+* `azurelinux-desktop-thinkpad-kmod` - `thinkpad_acpi.ko` (+
+  privacy-screen, `hid-lenovo`, USB WWAN/tether helpers), plus
+  `ideapad-laptop.ko` and `ymc.ko` (Lenovo Yoga tablet-mode switch) for
+  IdeaPad/Yoga models. Recommends
+  `azurelinux-desktop-hid-multitouch-kmod` for ThinkPad models with a
+  HID-over-I2C Precision Touchpad
+* `azurelinux-desktop-dell-kmod` - `dell-laptop.ko` (Dell laptop
+  platform keys/rfkill/backlight)
+* `azurelinux-desktop-asus-kmod` - `asus-wmi.ko`, `asus-nb-wmi.ko`
+  (ASUS laptop platform keys/rfkill/backlight)
+* `azurelinux-desktop-huawei-kmod` - `huawei-wmi.ko` (Huawei MateBook
+  hotkeys, fn-lock, mic-mute LED)
+* `azurelinux-desktop-system76-kmod` - `system76_acpi.ko` (System76
+  laptop Fn keys, keyboard backlight, airplane-mode LED)
+* `azurelinux-desktop-samsung-kmod` - `samsung-laptop.ko` (Samsung
+  laptop function keys, wireless LED, backlight)
+* `azurelinux-desktop-fujitsu-kmod` - `fujitsu-laptop.ko` (Fujitsu
+  Lifebook hotkeys and backlight)
+* `azurelinux-desktop-hid-multitouch-kmod` - `hid-multitouch.ko`, the
+  generic Windows Precision Touchpad/multitouch HID driver used by some
+  modern ThinkPad and other laptop trackpads/touchscreens over i2c-hid,
+  instead of the Synaptics RMI4 SMBus path in `psmouse-kmod`
+* `azurelinux-desktop-touchpad-kmod` - `rmi_core.ko`, `rmi_i2c.ko`
+  (Synaptics RMI4 over plain I2C), `elan_i2c.ko` (native ELAN I2C
+  touchpad), common on Dell/HP/ASUS/Acer and some ThinkPads that don't
+  wire the touchpad to PS/2 or SMBus
+* `azurelinux-desktop-logitech-kmod` - `hid-logitech-dj.ko`,
+  `hid-logitech-hidpp.ko` for the Logitech Unifying receiver and HID++
+  wireless/Bluetooth mice and keyboards (MX series and similar)
+* `azurelinux-desktop-hid-quirks-kmod` - `hid-asus.ko` (extra keys,
+  keyboard backlight, touchpad quirks on ASUS laptops), `hid-elan.ko`
+  (ELAN touchpads presenting over USB/HID rather than native I2C)
+* `azurelinux-desktop-tablet-kmod` - `wacom.ko` (Wacom Intuos/Bamboo/
+  Cintiq, USB and Bluetooth), `hid-uclogic.ko` (Huion/UC-Logic),
+  `hid-waltop.ko` (Waltop) drawing tablets and pen digitizers
+* `azurelinux-desktop-usbserial-kmod` - `usbserial.ko` plus
+  `ftdi_sio.ko`, `cp210x.ko`, `pl2303.ko`, `ch341.ko` - the chips
+  behind most consumer USB-serial cables and adapters (Arduino, GPS
+  mice, some docks and KVM switch config ports)
+* `azurelinux-desktop-udl-kmod` - `udl.ko`, KMS/DRM support for
+  USB-attached DisplayLink video adapters, common on docking stations
+  and multi-monitor USB hubs without native DisplayPort/HDMI
+  passthrough
+* `azurelinux-desktop-usbeth-kmod` - `r8152.ko` (Realtek RTL8152/8153,
+  nearly every USB-C dock/hub), `asix.ko` (older ASIX AX8817X),
+  `ax88179_178a.ko` (newer ASIX USB3 gigabit) - a wired fallback when
+  the built-in Wi-Fi chipset isn't covered
+* `azurelinux-desktop-gamepad-kmod` - `xpad.ko` (wired Xbox
+  controllers), `hid-sony.ko` (PS3/PS4 DualShock), `hid-playstation.ko`
+  + `led-class-multicolor.ko` (PS5 DualSense, including its lightbar/
+  mic-mute LED). The stock kernel already ships `CONFIG_HID_STEAM`
 * `azurelinux-desktop-typec-kmod` - `typec.ko`, `typec_ucsi.ko`,
   `ucsi_acpi.ko` (USB4/Thunderbolt stays stock)
 * `azurelinux-desktop-surface-kmod` - upstream Microsoft Surface SSAM
