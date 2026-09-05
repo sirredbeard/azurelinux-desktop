@@ -1,8 +1,0 @@
-[Match]
-Name=en* eth*
-
-[Network]
-DHCP=yes
-
-[DHCPv4]
-UseDNS=yes

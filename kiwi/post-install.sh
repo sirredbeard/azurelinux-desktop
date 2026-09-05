@@ -4,8 +4,9 @@
 set -x
 
 # --- Network configuration ---
-install -m 0644 /opt/azl-desktop-assets/systemd/network/20-wired-dhcp.network \
-    /etc/systemd/network/20-wired-dhcp.network
+# NetworkManager owns networking on the installed target; no networkd
+# .network file is installed here since systemd-networkd is disabled
+# below and never manages this system's interfaces.
 install -d -m 0755 /etc/sysctl.d
 install -m 0644 /opt/azl-desktop-assets/sysctl.d/80-azurelinux-desktop-policy-routing.conf \
     /etc/sysctl.d/80-azurelinux-desktop-policy-routing.conf
@@ -123,6 +124,13 @@ if command -v tuned-adm >/dev/null 2>&1; then
     tuned-adm profile desktop 2>/dev/null || tuned-adm profile balanced 2>/dev/null || true
 fi
 systemctl enable thermald.service 2>/dev/null || true
+# NetworkManager owns networking on this image, not systemd-networkd, but
+# systemd-networkd-wait-online.service still rides in enabled via systemd's
+# own preset. It then blocks graphical.target for its full 2 minute
+# timeout every boot since networkd never configures anything here.
+# Disable both explicitly.
+systemctl disable systemd-networkd-wait-online.service 2>/dev/null || true
+systemctl disable systemd-networkd.service 2>/dev/null || true
 # Azure VM guest agent is not in the desktop package set. Mask if present.
 systemctl disable --now walinuxagent.service 2>/dev/null || true
 systemctl mask walinuxagent.service 2>/dev/null || true

@@ -38,7 +38,12 @@ timezone America/New_York --utc
 selinux --enforcing
 firewall --enabled --ssh
 network --hostname=azurelinux-desktop
-services --enabled=sshd,systemd-networkd,systemd-resolved,gdm,NetworkManager
+# NetworkManager owns networking on the installed target, not
+# systemd-networkd - see post-install.sh, which explicitly disables
+# systemd-networkd/systemd-networkd-wait-online. Do not re-add
+# systemd-networkd here; enabling it in both places just fights the
+# later disable.
+services --enabled=sshd,systemd-resolved,gdm,NetworkManager
 
 bootloader
 # Platform-required partitions only (UEFI ESP / BIOS biosboot). Do not add

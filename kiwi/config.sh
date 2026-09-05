@@ -622,6 +622,14 @@ if [ -f /opt/azl-desktop-assets/udev/60-azurelinux-desktop-iosched.rules ]; then
         /etc/udev/rules.d/60-azurelinux-desktop-iosched.rules
 fi
 
+# NetworkManager owns networking on this image, not systemd-networkd, but
+# systemd-networkd-wait-online.service still rides in enabled via systemd's
+# own preset. It then blocks graphical.target for its full 2 minute
+# timeout every boot since networkd never configures anything here.
+# Disable both explicitly.
+systemctl disable systemd-networkd-wait-online.service 2>/dev/null || true
+systemctl disable systemd-networkd.service 2>/dev/null || true
+
 # First-boot prepare override for the installed target tree. Also staged
 # by azl-install.ks.in; keep both paths so offline media and %post agree.
 if [ -f /opt/azl-desktop-assets/polkit-1/rules.d/10-azurelinux-desktop-flatpak.rules ]; then
