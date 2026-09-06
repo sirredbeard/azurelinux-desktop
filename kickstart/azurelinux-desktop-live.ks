@@ -50,7 +50,13 @@ rootpw --lock
 # ("NonCriticalInstallationError: Cannot enable ... ModemManager") trying
 # to enable a systemd unit for a service that was never installed - only
 # list services here for units that are actually part of %packages.
-services --disabled=sshd --enabled=gdm,NetworkManager,livesys,livesys-late
+# systemd-networkd and systemd-networkd-wait-online ride in enabled via
+# systemd's own preset regardless of this being a NetworkManager-only
+# image; systemd-networkd-wait-online then blocks graphical.target for
+# its full 2 minute timeout every boot since NetworkManager, not
+# networkd, is the one actually bringing up the network. Disable both
+# explicitly.
+services --disabled=sshd,systemd-networkd,systemd-networkd-wait-online --enabled=gdm,NetworkManager,livesys,livesys-late
 
 # Live ISO layout: single filesystem for the squashfs capture. No real
 # bootloader/EFI/swap. Disk-image builds sed these three lines:
