@@ -1,0 +1,13 @@
+[Unit]
+Description=Pick tuned profile (desktop vs virtual-guest) on first real boot
+Before=tuned.service
+Wants=tuned.service
+ConditionPathExists=!/etc/tuned/active_profile
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/azl-tuned-autoprofile
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
