@@ -45,6 +45,22 @@ grep -Fq "azurelinux-desktop-sound-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-bluetooth-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-uvc-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-thinkpad-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-hid-multitouch-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-touchpad-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-logitech-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-hid-quirks-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-tablet-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-usbserial-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-udl-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-usbeth-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-gamepad-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-acpi-battery-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-dell-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-asus-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-huawei-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-system76-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-samsung-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
+grep -Fq "azurelinux-desktop-fujitsu-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-typec-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-surface-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
 grep -Fq "azurelinux-desktop-sensors-kmod" "$LOG_DIR/desktop-kmod-resolve.log"
@@ -68,19 +84,65 @@ test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/serdev.ko"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/surface_aggregator.ko"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-microsoft.ko"
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-multitouch.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/elan_i2c.ko"
+# rmi_core/rmi_i2c only ship when drivers/input/rmi4 was present at build
+# time; elan_i2c alone is a valid touchpad-kmod set otherwise.
+if [[ -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/rmi_core.ko" ]]; then
+    test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/rmi_i2c.ko"
+fi
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-logitech-dj.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-logitech-hidpp.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-asus.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-elan.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/wacom.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-uclogic.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-waltop.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/usbserial.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/ftdi_sio.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/cp210x.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/pl2303.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/ch341.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/udl.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/r8152.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/asix.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/ax88179_178a.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/xpad.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-sony.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/led-class-multicolor.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/hid-playstation.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/battery.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/ideapad-laptop.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/ymc.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/dell-laptop.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/asus-wmi.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/asus-nb-wmi.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/huawei-wmi.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/system76_acpi.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/samsung-laptop.ko"
+test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/fujitsu-laptop.ko"
 # ALSA controller module name uses hyphens from upstream
 test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/snd-hda-intel.ko" \
     || test -f "/usr/lib/modules/$kver/extra/azurelinux-desktop/snd_hda_intel.ko"
 for name in usbhid usb-storage uas iwlwifi iwlmvm iwldvm iwlmld \
     bluetooth btusb uvcvideo thinkpad_acpi typec typec_ucsi ucsi_acpi \
-    serdev surface_aggregator; do
+    serdev surface_aggregator r8152 asix ax88179_178a xpad battery \
+    ideapad-laptop ymc dell-laptop asus-wmi asus-nb-wmi huawei-wmi \
+    system76_acpi samsung-laptop fujitsu-laptop wacom \
+    usbserial ftdi_sio cp210x pl2303 ch341 udl; do
     modinfo -F vermagic "/usr/lib/modules/$kver/extra/azurelinux-desktop/$name.ko" \
         | grep -Fq "$kver"
 done
 # Hyphenated Surface HID module names
-for name in hid-microsoft hid-multitouch; do
+for name in hid-microsoft hid-multitouch hid-logitech-dj hid-logitech-hidpp \
+    hid-asus hid-elan hid-sony hid-playstation hid-uclogic hid-waltop; do
     modinfo -F vermagic "/usr/lib/modules/$kver/extra/azurelinux-desktop/$name.ko" \
         | grep -Fq "$kver"
+done
+# I2C-native touchpad modules (elan_i2c ships alone if rmi4 files unavailable)
+for name in rmi_core rmi_i2c elan_i2c led-class-multicolor; do
+    mod="/usr/lib/modules/$kver/extra/azurelinux-desktop/$name.ko"
+    [[ -f "$mod" ]] || continue
+    modinfo -F vermagic "$mod" | grep -Fq "$kver"
 done
 # storage-kmod ships both new + legacy dracut drop-in names
 test -f /etc/dracut.conf.d/90-azurelinux-desktop-storage.conf \

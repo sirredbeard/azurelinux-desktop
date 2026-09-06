@@ -106,6 +106,22 @@ jobs:
             azurelinux-desktop-bluetooth-kmod \
             azurelinux-desktop-uvc-kmod \
             azurelinux-desktop-thinkpad-kmod \
+            azurelinux-desktop-hid-multitouch-kmod \
+            azurelinux-desktop-touchpad-kmod \
+            azurelinux-desktop-logitech-kmod \
+            azurelinux-desktop-hid-quirks-kmod \
+            azurelinux-desktop-tablet-kmod \
+            azurelinux-desktop-usbserial-kmod \
+            azurelinux-desktop-udl-kmod \
+            azurelinux-desktop-usbeth-kmod \
+            azurelinux-desktop-gamepad-kmod \
+            azurelinux-desktop-acpi-battery-kmod \
+            azurelinux-desktop-dell-kmod \
+            azurelinux-desktop-asus-kmod \
+            azurelinux-desktop-huawei-kmod \
+            azurelinux-desktop-system76-kmod \
+            azurelinux-desktop-samsung-kmod \
+            azurelinux-desktop-fujitsu-kmod \
             azurelinux-desktop-typec-kmod \
             azurelinux-desktop-surface-kmod \
             azurelinux-desktop-sensors-kmod \
@@ -136,7 +152,7 @@ jobs:
 
           # Family matrix. Keep order stable; 'all' expands to the full set.
           # Legacy aliases: iwlwifi→intel, usb-storage→storage.
-          all='["usbhid","psmouse","storage","intel","sound","bluetooth","uvc","thinkpad","typec","surface","sensors","performance"]'
+          all='["usbhid","psmouse","storage","intel","sound","bluetooth","uvc","thinkpad","hidmt","touchpad","logitech","hidquirks","tablet","usbeth","gamepad","acpibattery","dell","asus","huawei","system76","samsung","fujitsu","typec","surface","sensors","performance","usbserial","udl"]'
           if [[ "$FAMILIES_IN" == "all" || -z "$FAMILIES_IN" ]]; then
             echo "families_json=$all" >> "$GITHUB_OUTPUT"
             echo "full_set=true" >> "$GITHUB_OUTPUT"
@@ -145,8 +161,10 @@ jobs:
           import json, sys
           allowed = {
               "usbhid","psmouse","storage","usb-storage","intel","iwlwifi",
-              "sound","bluetooth","uvc","thinkpad","typec","surface",
-              "sensors","performance",
+              "sound","bluetooth","uvc","thinkpad","hidmt","touchpad",
+              "logitech","hidquirks","tablet","usbeth","gamepad","acpibattery","dell",
+              "asus","huawei","system76","samsung","fujitsu","typec","surface",
+              "sensors","performance","usbserial","udl",
           }
           raw = [p.strip() for p in sys.argv[1].split(",") if p.strip()]
           rename = {"iwlwifi": "intel", "usb-storage": "storage"}
@@ -159,7 +177,9 @@ jobs:
               raise SystemExit("empty families list")
           full = {
               "usbhid","psmouse","storage","intel","sound","bluetooth","uvc",
-              "thinkpad","typec","surface","sensors","performance",
+              "thinkpad","hidmt","touchpad","logitech","hidquirks","tablet",
+              "usbeth","gamepad","acpibattery","dell","asus","huawei","system76","samsung",
+              "fujitsu","typec","surface","sensors","performance","usbserial","udl",
           }
           print("families_json=" + json.dumps(raw))
           print("full_set=" + ("true" if set(raw) == full else "false"))
@@ -311,6 +331,22 @@ jobs:
               ;;
             uvc) cp -a kmod-work/uvc family-out/ ;;
             thinkpad) cp -a kmod-work/thinkpad family-out/ ;;
+            hidmt) cp -a kmod-work/hidmt family-out/ ;;
+            touchpad) cp -a kmod-work/touchpad family-out/ ;;
+            logitech) cp -a kmod-work/logitech family-out/ ;;
+            hidquirks) cp -a kmod-work/hidquirks family-out/ ;;
+            tablet) cp -a kmod-work/tablet family-out/ ;;
+            usbserial) cp -a kmod-work/usbserial family-out/ ;;
+            udl) cp -a kmod-work/udl family-out/ ;;
+            usbeth) cp -a kmod-work/usbeth family-out/ ;;
+            gamepad) cp -a kmod-work/gamepad family-out/ ;;
+            acpibattery) cp -a kmod-work/acpibattery family-out/ ;;
+            dell) cp -a kmod-work/dell family-out/ ;;
+            asus) cp -a kmod-work/asus family-out/ ;;
+            huawei) cp -a kmod-work/huawei family-out/ ;;
+            system76) cp -a kmod-work/system76 family-out/ ;;
+            samsung) cp -a kmod-work/samsung family-out/ ;;
+            fujitsu) cp -a kmod-work/fujitsu family-out/ ;;
             typec) cp -a kmod-work/typec family-out/ ;;
             surface) cp -a kmod-work/surface family-out/ ;;
             sensors) cp -a kmod-work/sensors family-out/ ;;
