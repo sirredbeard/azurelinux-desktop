@@ -170,7 +170,7 @@ check_rootfs_file \
 
 # early-kms.conf drivers (may be in /etc/dracut.conf.d/ on live rootfs)
 check_rootfs_file \
-    "early-kms.conf: hyperv_drm bochs_drm added (Issue 3b)" \
+    "early-kms.conf: hyperv_drm added (Issue 3b)" \
     "/etc/dracut.conf.d/early-kms.conf" \
     "hyperv_drm"
 
