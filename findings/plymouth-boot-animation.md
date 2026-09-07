@@ -54,8 +54,13 @@ Lorax's `/images/pxeboot/initrd.img`.
 All three kickstarts and `config.sh` must write:
 
 ```bash
-add_drivers+=" virtio_gpu hyperv_drm bochs_drm "
+add_drivers+=" virtio_gpu hyperv_drm qxl vmwgfx "
 ```
+
+Do not put `bochs_drm` on that line. AZL x86_64 sets
+`# CONFIG_DRM_BOCHS is not set`, and upstream names the module
+`bochs.ko` anyway, so dracut fails to find it on every initramfs
+rebuild. See `findings/early-kms-bochs-drm-missing.md`.
 
 AZL `plymouthd.defaults` already sets `UseSimpledrmNoLuks=1` for EFI
 simpledrm fallback.

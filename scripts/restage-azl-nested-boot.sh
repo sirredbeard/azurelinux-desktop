@@ -148,10 +148,6 @@ main() {
         install -m 0755 "$mod_src/azl-nested-partx.sh" \
             "$MNT/usr/lib/dracut/modules.d/50azl-nested-partx/azl-nested-partx.sh"
     fi
-    # Drop missing bochs_drm from early-kms if present (not in AZL module set).
-    if [ -f "$MNT/etc/dracut.conf.d/early-kms.conf" ]; then
-        sed -i 's/bochs_drm//g' "$MNT/etc/dracut.conf.d/early-kms.conf"
-    fi
 
     # Keep first-boot and hardware-check logs across reboots on the nested root.
     mkdir -p "$MNT/var/log/journal" "$MNT/etc/systemd/journald.conf.d"
