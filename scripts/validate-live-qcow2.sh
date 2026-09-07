@@ -180,7 +180,7 @@ check_file "PowerShell.desktop: StartupWMClass" \
     "/usr/share/applications/org.azurelinux.PowerShell.desktop" \
     "StartupWMClass=org.azurelinux.PowerShell"
 
-check_file "early-kms.conf: hyperv_drm bochs_drm (Issue 3b)" \
+check_file "early-kms.conf: hyperv_drm (Issue 3b)" \
     "/etc/dracut.conf.d/early-kms.conf" \
     "hyperv_drm"
 
