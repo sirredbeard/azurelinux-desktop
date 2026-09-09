@@ -114,7 +114,7 @@ cockpit-storaged-367-1.fc43.noarch
 cockpit-system-367-1.fc43.noarch
 cockpit-ws-367-1.fc43.x86_64
 cockpit-ws-selinux-367-1.fc43.x86_64
-code-insiders-1.137.0-1788763566.el8.x86_64
+code-insiders-1.137.0-1788901718.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -256,7 +256,7 @@ giflib-5.2.2-10.azl4.x86_64
 git-2.55.0-1.fc43.x86_64
 git-core-2.55.0-1.fc43.x86_64
 git-core-doc-2.55.0-1.fc43.noarch
-github-1.1.15-1.x86_64
+github-1.1.16-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.86.0-2.fc43.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
@@ -810,7 +810,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-155.0.4264.0-1.x86_64
+microsoft-edge-canary-155.0.4267.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -990,7 +990,7 @@ poppler-25.07.0-5.fc43.x86_64
 poppler-data-0.4.11-11.azl4.noarch
 poppler-glib-25.07.0-5.fc43.x86_64
 popt-1.19-10.azl4.x86_64
-powershell-7.6.5-1.rh.x86_64
+powershell-7.6.6-1.rh.x86_64
 procps-ng-4.0.4-7.azl4.1.x86_64
 protobuf-3.19.6-20.azl4.x86_64
 protobuf-c-1.5.2-2.azl4.x86_64
