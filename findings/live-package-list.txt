@@ -114,7 +114,7 @@ cockpit-storaged-367-1.fc43.noarch
 cockpit-system-367-1.fc43.noarch
 cockpit-ws-367-1.fc43.x86_64
 cockpit-ws-selinux-367-1.fc43.x86_64
-code-insiders-1.139.0-1789579083.el8.x86_64
+code-insiders-1.139.0-1789665856.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -221,7 +221,7 @@ flite-2.2-12.fc43.x86_64
 fmt-11.2.0-4.azl4.x86_64
 fontconfig-2.17.0-4.azl4.x86_64
 fonts-filesystem-2.0.5-24.azl4.noarch
-freerdp-libs-3.31.0-1.fc43.x86_64
+freerdp-libs-3.31.1-1.fc43.x86_64
 freetype-2.13.3-4.azl4.x86_64
 fribidi-1.0.16-4.azl4.x86_64
 fuse-2.9.9-25.azl4.x86_64
@@ -762,7 +762,7 @@ libwayland-egl-1.26.0-1.fc43.x86_64
 libwayland-server-1.26.0-1.fc43.x86_64
 libwbclient-4.23.12-1.fc43.x86_64
 libwebp-1.6.0-4.azl4.x86_64
-libwinpr-3.31.0-1.fc43.x86_64
+libwinpr-3.31.1-1.fc43.x86_64
 libxcb-1.17.0-7.azl4.x86_64
 libxcrypt-4.5.2-3.azl4.x86_64
 libxcvt-0.1.2-11.azl4.x86_64
@@ -810,7 +810,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-155.0.4283.0-1.x86_64
+microsoft-edge-canary-156.0.4285.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
