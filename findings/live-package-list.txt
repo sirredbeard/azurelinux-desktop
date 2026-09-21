@@ -256,7 +256,7 @@ giflib-5.2.2-10.azl4.x86_64
 git-2.55.0-1.fc43.x86_64
 git-core-2.55.0-1.fc43.x86_64
 git-core-doc-2.55.0-1.fc43.noarch
-github-1.1.22-1.x86_64
+github-1.1.23-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.86.0-2.fc43.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
