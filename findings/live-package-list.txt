@@ -114,7 +114,7 @@ cockpit-storaged-367-1.fc43.noarch
 cockpit-system-367-1.fc43.noarch
 cockpit-ws-367-1.fc43.x86_64
 cockpit-ws-selinux-367-1.fc43.x86_64
-code-insiders-1.139.0-1790039536.el8.x86_64
+code-insiders-1.139.0-1790072577.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -810,7 +810,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-156.0.4293.0-1.x86_64
+microsoft-edge-canary-156.0.4295.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -1161,7 +1161,7 @@ tesseract-common-5.5.3-1.fc43.noarch
 tesseract-langpack-eng-4.1.0-11.fc43.noarch
 tesseract-libs-5.5.3-1.fc43.x86_64
 tesseract-tessdata-doc-4.1.0-11.fc43.noarch
-thermald-2.5.12-3.fc43.x86_64
+thermald-2.5.13-1.fc43.x86_64
 tinysparql-3.10.1-6.azl4.x86_64
 tiwilink-firmware-20260221-2.azl4.noarch
 totem-43.2-6.fc43.x86_64
