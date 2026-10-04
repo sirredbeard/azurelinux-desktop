@@ -114,7 +114,7 @@ cockpit-storaged-367-1.fc43.noarch
 cockpit-system-367-1.fc43.noarch
 cockpit-ws-367-1.fc43.x86_64
 cockpit-ws-selinux-367-1.fc43.x86_64
-code-insiders-1.141.0-1790961944.el8.x86_64
+code-insiders-1.141.0-1791053271.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -699,7 +699,7 @@ librtmp-2.6-2.20240301.git6f6bb13.fc43.x86_64
 libsamplerate-0.2.2-12.azl4.x86_64
 libsbc-2.0-8.azl4.x86_64
 libseccomp-2.6.1-2.fc43.x86_64
-libsecret-0.21.7-10.azl4.x86_64
+libsecret-0.21.8.2-2.fc43.x86_64
 libselinux-3.9-6.azl4.x86_64
 libselinux-utils-3.9-6.azl4.x86_64
 libsemanage-3.9-5.azl4.x86_64
@@ -1055,7 +1055,7 @@ python3-referencing-0.36.2-6.azl4.noarch
 python3-requests-2.33.1-1.fc43.noarch
 python3-requests-file-2.0.0-10.azl4.noarch
 python3-requests-ftp-0.3.1-43.azl4.noarch
-python3-rpds-py-0.27.0-3.azl4.x86_64
+python3-rpds-py-0.27.0-5.fc43.x86_64
 python3-rpm-6.0.2-1.fc43.x86_64
 python3-satyr-0.43-10.azl4.x86_64
 python3-setools-4.6.0-5.azl4.x86_64
