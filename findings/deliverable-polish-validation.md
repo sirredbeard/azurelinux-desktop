@@ -67,7 +67,7 @@ Live ISO / qcow2 mount checks:
 - D-Bus `org.azurelinux.PowerShell.service`
 - dconf dark mode + wallpaper URIs; files under
   `/usr/share/backgrounds/azurelinux/`
-- `early-kms.conf` contains `virtio_gpu hyperv_drm bochs_drm`
+- `early-kms.conf` contains `virtio_gpu hyperv_drm qxl vmwgfx`
 
 Installer ISO:
 

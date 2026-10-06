@@ -307,7 +307,7 @@ mkdir -p "$OFFLINE_REPO"
 # reasoning for ms-prod's aznfs/mdatp exclude - scoped to that repo only,
 # matching the live ISO's `repo --name=ms-prod --excludepkgs=aznfs,mdatp`
 # line exactly instead of a global exclude.
-AZL_BASE_EXCLUDES="hunspell-en,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,dnf5,dnf5daemon-server,dnf5daemon-server-polkit,libdnf5,libdnf5-cli,libdnf5-plugin-actions,libdnf5-plugin-appstream,libdnf5-plugin-expired-pgp-keys,libdnf5-plugin-local,pinentry"
+AZL_BASE_EXCLUDES="hunspell-en,avahi,avahi-autoipd,avahi-compat-howl,avahi-compat-howl-devel,avahi-compat-libdns_sd,avahi-compat-libdns_sd-devel,avahi-devel,avahi-dnsconfd,avahi-glib,avahi-glib-devel,avahi-gobject,avahi-gobject-devel,avahi-libs,avahi-tools,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,dnf5,dnf5daemon-server,dnf5daemon-server-polkit,libdnf5,libdnf5-cli,libdnf5-plugin-actions,libdnf5-plugin-appstream,libdnf5-plugin-expired-pgp-keys,libdnf5-plugin-local,pinentry"
 AZL_MICROSOFT_EXCLUDES="hunspell-en,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,pinentry"
 MS_PROD_EXCLUDES="aznfs,mdatp"
 
@@ -535,10 +535,12 @@ if [ -x /usr/sbin/plymouth-set-default-theme ] \
         /usr/share/plymouth/themes/azurelinux/azurelinuxlogo.png
     mkdir -p /etc/dracut.conf.d
     printf '%s\n' 'add_dracutmodules+=" plymouth "' > /etc/dracut.conf.d/50-azurelinux-plymouth.conf
-    # KMS drivers for graphical Plymouth during the installer boot itself —
-    # same set as the live ISO and installed target: virtio-gpu (QEMU virtio
-    # VGA), hyperv_drm (Hyper-V Gen2), bochs_drm (QEMU std VGA/BIOS).
-    printf '%s\n' 'add_drivers+=" virtio_gpu hyperv_drm bochs_drm "' \
+    # KMS drivers for graphical Plymouth during the installer boot itself,
+    # same set as the live ISO and installed target: virtio_gpu (QEMU virtio
+    # VGA), hyperv_drm (Hyper-V Gen2), qxl (QEMU -vga qxl), vmwgfx (VMware
+    # SVGA II, which VirtualBox VMSVGA also emulates). Do not add bochs_drm,
+    # AZL x86_64 sets CONFIG_DRM_BOCHS off and upstream names it bochs.ko.
+    printf '%s\n' 'add_drivers+=" virtio_gpu hyperv_drm qxl vmwgfx "' \
         > /etc/dracut.conf.d/early-kms.conf
     # Same plymouth-quit-wait.service ordering fix as the live ISO
     # (kickstart/azurelinux-desktop-live.ks) - keeps the animation alive
