@@ -113,10 +113,13 @@ else
         # during the installer boot itself)
         KMS="$SQUASH_DIR/etc/dracut.conf.d/early-kms.conf"
         if [ -f "$KMS" ]; then
+            grep -q "virtio_gpu" "$KMS" && pass "early-kms.conf: virtio_gpu present in installer env" || fail "early-kms.conf: virtio_gpu missing from installer env"
             grep -q "hyperv_drm" "$KMS" && pass "early-kms.conf: hyperv_drm present in installer env" || fail "early-kms.conf: hyperv_drm missing from installer env"
             grep -q "qxl"       "$KMS" && pass "early-kms.conf: qxl present in installer env"       || fail "early-kms.conf: qxl missing from installer env"
             grep -q "vmwgfx"    "$KMS" && pass "early-kms.conf: vmwgfx present in installer env"    || fail "early-kms.conf: vmwgfx missing from installer env"
-            grep -q "bochs"     "$KMS" && fail "early-kms.conf: bochs_drm is back, AZL x86_64 does not build it" || pass "early-kms.conf: no bochs_drm in installer env"
+            grep -Eq '(^|[[:space:]"])(bochs|bochs_drm)([[:space:]"]|$)' "$KMS" \
+                && fail "early-kms.conf: bochs or bochs_drm is back, AZL x86_64 does not build it" \
+                || pass "early-kms.conf: no bochs or bochs_drm in installer env"
         else
             fail "early-kms.conf not found in installer squashfs (add to kiwi/config.sh)"
         fi

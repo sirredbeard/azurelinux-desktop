@@ -40,6 +40,18 @@ check_rootfs_file() {
     fi
 }
 
+check_rootfs_file_absent() {
+    local label="$1" path="$2" pattern="$3"
+    local out
+    out=$(debugfs -R "cat $path" "$ROOTFS" 2>/dev/null) || { fail "$label (debugfs read error)"; return; }
+    if echo "$out" | grep -qF "$pattern"; then
+        fail "$label (pattern '$pattern' unexpectedly present)"
+        echo "    content preview: $(echo "$out" | head -5)"
+    else
+        pass "$label"
+    fi
+}
+
 echo "========================================"
 echo "Azure Linux Desktop live ISO validation"
 echo "ISO:     $ISO"
@@ -170,9 +182,25 @@ check_rootfs_file \
 
 # early-kms.conf drivers (may be in /etc/dracut.conf.d/ on live rootfs)
 check_rootfs_file \
+    "early-kms.conf: virtio_gpu added (Issue 3b)" \
+    "/etc/dracut.conf.d/early-kms.conf" \
+    "virtio_gpu"
+check_rootfs_file \
     "early-kms.conf: hyperv_drm added (Issue 3b)" \
     "/etc/dracut.conf.d/early-kms.conf" \
     "hyperv_drm"
+check_rootfs_file \
+    "early-kms.conf: qxl present (Issue 36)" \
+    "/etc/dracut.conf.d/early-kms.conf" \
+    "qxl"
+check_rootfs_file \
+    "early-kms.conf: vmwgfx present (Issue 36)" \
+    "/etc/dracut.conf.d/early-kms.conf" \
+    "vmwgfx"
+check_rootfs_file_absent \
+    "early-kms.conf: bochs absent (Issue 36)" \
+    "/etc/dracut.conf.d/early-kms.conf" \
+    "bochs"
 
 # dconf wallpaper setting
 check_rootfs_file \
