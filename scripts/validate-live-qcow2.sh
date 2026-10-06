@@ -42,6 +42,21 @@ check_file() {
     fi
 }
 
+check_absent() {
+    local label="$1" path="$2" pattern="${3:-}"
+    local full="$MOUNTPOINT$path"
+    if [ ! -f "$full" ]; then
+        fail "$label (not found: $path)"
+        return
+    fi
+    if grep -qF "$pattern" "$full"; then
+        fail "$label (pattern '$pattern' unexpectedly present in $path)"
+        echo "    preview: $(head -5 "$full")"
+    else
+        pass "$label"
+    fi
+}
+
 cleanup() {
     echo ""
     echo "--- Cleanup ---"
@@ -160,6 +175,22 @@ fi
 echo ""
 echo "--- Step 4: Key file checks ---"
 
+check_file "early-kms.conf: virtio_gpu (Issue 3b)" \
+    "/etc/dracut.conf.d/early-kms.conf" \
+    "virtio_gpu"
+check_file "early-kms.conf: hyperv_drm (Issue 3b)" \
+    "/etc/dracut.conf.d/early-kms.conf" \
+    "hyperv_drm"
+check_file "early-kms.conf: qxl (Issue 36)" \
+    "/etc/dracut.conf.d/early-kms.conf" \
+    "qxl"
+check_file "early-kms.conf: vmwgfx (Issue 36)" \
+    "/etc/dracut.conf.d/early-kms.conf" \
+    "vmwgfx"
+check_absent "early-kms.conf: bochs is absent (Issue 36)" \
+    "/etc/dracut.conf.d/early-kms.conf" \
+    "bochs"
+
 check_file "Plymouth: ScaleLogoToFit (Issue 4)" \
     "/usr/share/plymouth/themes/azurelinux/azurelinux.script" \
     "ScaleLogoToFit"
@@ -179,10 +210,6 @@ check_file "D-Bus PowerShell service" \
 check_file "PowerShell.desktop: StartupWMClass" \
     "/usr/share/applications/org.azurelinux.PowerShell.desktop" \
     "StartupWMClass=org.azurelinux.PowerShell"
-
-check_file "early-kms.conf: hyperv_drm (Issue 3b)" \
-    "/etc/dracut.conf.d/early-kms.conf" \
-    "hyperv_drm"
 
 check_file "dconf: picture-uri configured" \
     "/etc/dconf/db/local.d/00-dark-mode" \

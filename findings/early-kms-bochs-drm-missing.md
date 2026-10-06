@@ -1,7 +1,7 @@
 # dracut-install: Failed to find module 'bochs_drm' on every kmod install
 
 Symptom: installing or reinstalling any `azurelinux-desktop-*-kmod`
-package prints a `dracut[E]: FAILED` line from it's `%post` scriptlet.
+package prints a `dracut[E]: FAILED` line from its `%post` scriptlet.
 Same thing on every kernel update, since the same `early-kms.conf`
 drives every initramfs rebuild. Issue 36.
 
@@ -99,7 +99,7 @@ Before this, `virtio_gpu` covered qcow2 and `hyperv_drm` covered VHDX.
 The other two published disk formats got nothing.
 
 Changed in `assets/dracut.conf.d/early-kms.conf` and `kiwi/config.sh`,
-which writes it's own copy for the installer environment. The live and
+which writes its own copy for the installer environment. The live and
 installer kickstarts both `install -m 0644` the asset, so they pick it
 up for free. Validation scripts updated, and `validate-installer-iso.sh`
 now fails if `bochs` comes back.

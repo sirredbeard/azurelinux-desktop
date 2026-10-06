@@ -36,6 +36,20 @@ check() {
     pass "$label"
 }
 
+check_absent() {
+    local label="$1" file="$2" pattern="$3"
+    if [ ! -e "$ROOTFS$file" ]; then
+        fail "$label ($file missing)"
+        return
+    fi
+    if grep -qF "$pattern" "$ROOTFS$file" 2>/dev/null; then
+        fail "$label (unexpected pattern found: $pattern)"
+        echo "    content: $(head -5 "$ROOTFS$file" 2>/dev/null)"
+        return
+    fi
+    pass "$label"
+}
+
 echo "========================================"
 echo "Azure Linux Desktop live ISO filesystem check"
 echo "ISO:     $ISO"
@@ -95,6 +109,7 @@ check "early-kms.conf: virtio_gpu" "/etc/dracut.conf.d/early-kms.conf" "virtio_g
 check "early-kms.conf: hyperv_drm (Issue 3b)" "/etc/dracut.conf.d/early-kms.conf" "hyperv_drm"
 check "early-kms.conf: qxl (Issue 36)" "/etc/dracut.conf.d/early-kms.conf" "qxl"
 check "early-kms.conf: vmwgfx (Issue 36)" "/etc/dracut.conf.d/early-kms.conf" "vmwgfx"
+check_absent "early-kms.conf: no bochs or bochs_drm (Issue 36)" "/etc/dracut.conf.d/early-kms.conf" "bochs"
 
 echo ""
 echo "--- Desktop launchers ---"

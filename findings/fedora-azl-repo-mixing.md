@@ -164,6 +164,10 @@ See `dnf-update-pinentry-nm-wwan.md`.
 * Install-time excludepkgs must be rewritten onto stock `[azurelinux-base]`
   section names or they vanish after first boot.
 
-## perl core
+## perl core and compiled modules
 
-Claw perl, perl-libs, perl-interpreter, perl-Errno to AZL. Fedora newer perl-libs breaks AZL Errno exact NVR require. See dnf-update-pinentry-nm-wwan.md.
+Claw perl, perl-libs, perl-interpreter, perl-Errno, and perl-Socket to
+AZL. Fedora newer perl-libs breaks the AZL Errno exact NVR require.
+Fedora perl-Socket can also be built against a newer Perl module ABI
+than Azure Linux provides. See `dnf-update-pinentry-nm-wwan.md` and
+`perl-socket-module-compat-mismatch.md`.
