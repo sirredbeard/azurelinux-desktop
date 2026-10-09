@@ -259,6 +259,9 @@ gnome-logs
 gnome-connections
 gnome-weather
 gnome-screenshot
+# Wayland-native command-line clipboard support. gh auth login uses
+# wl-copy/wl-paste when WAYLAND_DISPLAY is set; xclip/xsel are X11 tools.
+wl-clipboard
 # GTK3 Adwaita + Adwaita-dark theme files. Without this, dconf
 # gtk-theme='Adwaita-dark' points at a missing theme and GTK3 apps
 # (gnome-screenshot) render mixed light/dark chrome. libadwaita/GTK4
