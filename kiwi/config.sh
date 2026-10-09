@@ -138,6 +138,8 @@ INSTALL_PKGS=(
     gnome-connections
     gnome-weather
     gnome-screenshot
+    # Wayland-native command-line clipboard support for tools such as gh.
+    wl-clipboard
     # GTK3 Adwaita-dark theme files for gtk-theme='Adwaita-dark' dconf.
     gnome-themes-extra
     evolution
