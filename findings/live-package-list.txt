@@ -109,12 +109,12 @@ clevis-pin-tpm2-0.5.3-11.azl4.x86_64
 cloud-utils-growpart-0.33-12.azl4.noarch
 cmake-filesystem-3.31.11-1.fc43.x86_64
 cmark-lib-0.30.3-8.fc43.x86_64
-cockpit-bridge-367-1.fc43.noarch
-cockpit-storaged-367-1.fc43.noarch
-cockpit-system-367-1.fc43.noarch
-cockpit-ws-367-1.fc43.x86_64
-cockpit-ws-selinux-367-1.fc43.x86_64
-code-insiders-1.142.0-1791393840.el8.x86_64
+cockpit-bridge-368-1.fc43.noarch
+cockpit-storaged-368-1.fc43.noarch
+cockpit-system-368-1.fc43.noarch
+cockpit-ws-368-1.fc43.x86_64
+cockpit-ws-selinux-368-1.fc43.x86_64
+code-insiders-1.142.0-1791480556.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -256,7 +256,7 @@ giflib-5.2.2-10.azl4.x86_64
 git-2.56.0-1.fc43.x86_64
 git-core-2.56.0-1.fc43.x86_64
 git-core-doc-2.56.0-1.fc43.noarch
-github-1.1.27-1.x86_64
+github-1.1.28-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.86.0-2.fc43.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
@@ -810,7 +810,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-157.0.4325.0-1.x86_64
+microsoft-edge-canary-157.0.4327.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -1137,7 +1137,7 @@ spirv-tools-libs-2026.1-3.azl4.x86_64
 sqlite-libs-3.50.2-3.fc43.x86_64
 sratom-0.6.22-1.fc43.x86_64
 srt-libs-1.5.7-1.fc43.x86_64
-sscg-4.0.3-3.azl4.x86_64
+sscg-4.0.4-1.fc43.x86_64
 sso-mib-libs-0.8.0-1.fc43.x86_64
 startup-notification-0.12-33.azl4.x86_64
 sudo-1.9.17-7.p2.azl4.x86_64
