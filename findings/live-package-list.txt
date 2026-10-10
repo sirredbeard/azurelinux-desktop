@@ -114,7 +114,7 @@ cockpit-storaged-368-1.fc43.noarch
 cockpit-system-368-1.fc43.noarch
 cockpit-ws-368-1.fc43.x86_64
 cockpit-ws-selinux-368-1.fc43.x86_64
-code-insiders-1.142.0-1791480556.el8.x86_64
+code-insiders-1.142.0-1791566759.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -399,11 +399,11 @@ highcontrast-icon-theme-3.28-23.fc43.noarch
 highlight-4.20-3.fc43.x86_64
 highway-1.3.0-2.azl4.x86_64
 hiredis-1.2.0-8.azl4.x86_64
-hunspell-1.7.2-11.azl4.x86_64
+hunspell-1.7.5-1.fc43.x86_64
 hunspell-en-0.20201207-13.azl4.noarch
 hunspell-en-GB-0.20201207-13.azl4.noarch
 hunspell-en-US-0.20201207-13.azl4.noarch
-hunspell-filesystem-1.7.2-11.azl4.x86_64
+hunspell-filesystem-1.7.5-1.fc43.x86_64
 hwdata-0.404-2.azl4.noarch
 hyperv-daemons-6.10-3.azl4.x86_64
 hyperv-daemons-license-6.10-3.azl4.noarch
@@ -810,7 +810,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-157.0.4327.0-1.x86_64
+microsoft-edge-canary-157.0.4329.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
