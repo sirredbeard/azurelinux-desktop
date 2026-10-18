@@ -95,8 +95,8 @@ btrfs-progs-7.1-1.fc43.x86_64
 bubblewrap-0.12.0-1.fc43.x86_64
 bzip2-libs-1.0.8-22.azl4.x86_64
 ca-certificates-2025.2.80_v9.0.304-1.1.azl4.noarch
-cairo-1.18.4-5.azl4.x86_64
-cairo-gobject-1.18.4-5.azl4.x86_64
+cairo-1.18.6-1.fc43.x86_64
+cairo-gobject-1.18.6-1.fc43.x86_64
 cairomm1.16-1.18.0-13.azl4.x86_64
 capstone-5.0.5-8.azl4.x86_64
 cdparanoia-libs-10.2-49.azl4.x86_64
@@ -236,8 +236,8 @@ fwupd-plugin-uefi-capsule-data-2.0.20-1.fc43.x86_64
 game-music-emu-0.6.4-3.azl4.x86_64
 gawk-5.3.2-3.azl4.x86_64
 gawk-all-langpacks-5.3.2-3.azl4.x86_64
-gcr-4.4.0.1-4.fc43.x86_64
-gcr-libs-4.4.0.1-4.fc43.x86_64
+gcr-4.4.1-1.fc43.x86_64
+gcr-libs-4.4.1-1.fc43.x86_64
 gcr3-3.41.1-11.fc43.x86_64
 gcr3-base-3.41.1-11.fc43.x86_64
 gdbm-1.23-11.azl4.x86_64
