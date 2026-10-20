@@ -97,7 +97,7 @@ bzip2-libs-1.0.8-22.azl4.x86_64
 ca-certificates-2025.2.80_v9.0.304-1.1.azl4.noarch
 cairo-1.18.6-1.fc43.x86_64
 cairo-gobject-1.18.6-1.fc43.x86_64
-cairomm1.16-1.18.0-13.azl4.x86_64
+cairomm1.16-1.18.1-1.fc43.x86_64
 capstone-5.0.5-8.azl4.x86_64
 cdparanoia-libs-10.2-49.azl4.x86_64
 checkpolicy-3.9-3.azl4.x86_64
@@ -109,12 +109,12 @@ clevis-pin-tpm2-0.5.3-11.azl4.x86_64
 cloud-utils-growpart-0.33-12.azl4.noarch
 cmake-filesystem-3.31.11-1.fc43.x86_64
 cmark-lib-0.30.3-8.fc43.x86_64
-cockpit-bridge-368-1.fc43.noarch
-cockpit-storaged-368-1.fc43.noarch
-cockpit-system-368-1.fc43.noarch
-cockpit-ws-368-1.fc43.x86_64
-cockpit-ws-selinux-368-1.fc43.x86_64
-code-insiders-1.143.0-1792198845.el8.x86_64
+cockpit-bridge-369-1.fc43.noarch
+cockpit-storaged-369-1.fc43.noarch
+cockpit-system-369-1.fc43.noarch
+cockpit-ws-369-1.fc43.x86_64
+cockpit-ws-selinux-369-1.fc43.x86_64
+code-insiders-1.143.0-1792445008.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -134,7 +134,7 @@ cryptsetup-libs-2.8.4-2.azl4.x86_64
 cups-filesystem-2.4.19-3.fc43.noarch
 cups-libs-2.4.19-3.fc43.x86_64
 cups-pk-helper-0.2.7-10.fc43.x86_64
-curl-8.15.0-10.fc43.x86_64
+curl-8.15.0-12.fc43.x86_64
 cyrus-sasl-lib-2.1.28-34.azl4.x86_64
 dbus-1.16.0-7.azl4.x86_64
 dbus-broker-37-3.azl4.x86_64
@@ -334,6 +334,7 @@ gpg-pubkey-bc528686b50d79e339d3721ceb3e94adbe1229cf-5631588c.(none)
 gpg-pubkey-c6e7f081cf80e13146676e88829b606631645531-66b6dccf.(none)
 gpg-pubkey-e9a491a3de247814e7e067eae06f8ecdd651ff2e-5dadbbc1.(none)
 gpgme-1.24.3-7.azl4.x86_64
+gpgme2-2.0.1-5.fc43.x86_64
 gpgmepp-1.24.3-7.azl4.x86_64
 graphene-1.10.8-4.azl4.x86_64
 graphite2-1.3.14-20.azl4.x86_64
@@ -554,7 +555,7 @@ libcloudproviders-0.3.6-3.azl4.x86_64
 libcom_err-1.47.3-3.azl4.x86_64
 libcomps-0.1.23-3.azl4.x86_64
 libcue-2.3.0-12.fc43.x86_64
-libcurl-8.15.0-10.fc43.x86_64
+libcurl-8.15.0-12.fc43.x86_64
 libdaemon-0.14-33.azl4.x86_64
 libdatrie-0.2.13-13.azl4.x86_64
 libdav1d-1.5.4-1.fc43.x86_64
@@ -811,7 +812,7 @@ mesa-libgbm-25.3.6-3.fc43.x86_64
 mesa-va-drivers-25.3.6-3.fc43.x86_64
 mesa-vulkan-drivers-25.3.6-3.fc43.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-158.0.4344.0-1.x86_64
+microsoft-edge-canary-158.0.4350.0-1.x86_64
 minizip-ng-compat-4.0.10-3.azl4.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-4.fc43.noarch
@@ -862,7 +863,7 @@ open-vm-tools-desktop-13.1.0-2.fc43.x86_64
 openal-soft-1.24.2-4.fc43.x86_64
 opencore-amr-0.1.6-10.azl4.x86_64
 openjpeg-2.5.4-3.azl4.x86_64
-openldap-2.6.14-1.fc43.x86_64
+openldap-2.6.15-1.fc43.x86_64
 openpgm-5.3.128-6.azl4.x86_64
 openssh-10.0p1-7.azl4.x86_64
 openssh-clients-10.0p1-7.azl4.x86_64
@@ -1063,8 +1064,8 @@ python3-setools-4.6.0-5.azl4.x86_64
 python3-simpleline-1.9.0-18.azl4.noarch
 python3-systemd-235-18.azl4.x86_64
 python3-unbound-1.26.1-1.fc43.x86_64
-python3-urllib3+socks-2.8.0-1.fc43.noarch
-python3-urllib3-2.8.0-1.fc43.noarch
+python3-urllib3+socks-2.8.0-3.fc43.noarch
+python3-urllib3-2.8.0-3.fc43.noarch
 python3-xkbregistry-0.3-9.azl4.x86_64
 python3.12-3.12.15-1.fc43.x86_64
 python3.12-libs-3.12.15-1.fc43.x86_64
@@ -1197,7 +1198,7 @@ vid.stab-1.1.1-7.fc43.x86_64
 vim-data-9.1.2146-4.azl4.noarch
 vim-minimal-9.1.2146-4.azl4.x86_64
 virt-what-1.27-5.azl4.x86_64
-virtualbox-guest-additions-7.2.16-1.fc43.x86_64
+virtualbox-guest-additions-7.2.20-1.fc43.x86_64
 vmaf-models-3.0.0-5.azl4.x86_64
 vo-amrwbenc-0.1.3-24.azl4.x86_64
 volume_key-libs-0.3.12-29.azl4.x86_64
@@ -1210,9 +1211,9 @@ wcurl-2026.01.05-1.fc43.noarch
 webkit2gtk4.1-2.54.1-1.fc43.x86_64
 webkitgtk6.0-2.54.1-1.fc43.x86_64
 webrtc-audio-processing-1.3-9.fc43.x86_64
-wget2-2.2.1-2.azl4.x86_64
-wget2-libs-2.2.1-2.azl4.x86_64
-wget2-wget-2.2.1-2.azl4.x86_64
+wget2-2.3.0-1.fc43.x86_64
+wget2-libs-2.3.0-1.fc43.x86_64
+wget2-wget-2.3.0-1.fc43.x86_64
 which-2.23-4.azl4.x86_64
 whois-nls-5.6.6-2.azl4.noarch
 wireless-regdb-2026.09.03-1.fc43.noarch
@@ -1247,7 +1248,7 @@ xmlrpc-c-client-1.60.04-5.azl4.x86_64
 xmlsec1-1.2.41-3.fc43.x86_64
 xmlsec1-openssl-1.2.41-3.fc43.x86_64
 xmodmap-1.0.11-10.azl4.x86_64
-xorg-x11-server-Xwayland-24.1.13-1.fc43.x86_64
+xorg-x11-server-Xwayland-24.1.14-1.fc43.x86_64
 xorg-x11-xauth-1.1.4-2.fc43.x86_64
 xorg-x11-xinit-1.4.3-3.fc43.x86_64
 xprop-1.2.8-5.azl4.x86_64
