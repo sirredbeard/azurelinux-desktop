@@ -992,7 +992,7 @@ poppler-25.07.0-5.fc43.x86_64
 poppler-data-0.4.11-11.azl4.noarch
 poppler-glib-25.07.0-5.fc43.x86_64
 popt-1.19-10.azl4.x86_64
-powershell-7.6.8-1.rh.x86_64
+powershell-7.6.9-1.rh.x86_64
 procps-ng-4.0.4-7.azl4.1.x86_64
 protobuf-3.19.6-20.azl4.x86_64
 protobuf-c-1.5.2-2.azl4.x86_64
