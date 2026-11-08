@@ -1067,8 +1067,8 @@ python3-unbound-1.26.1-1.fc43.x86_64
 python3-urllib3+socks-2.8.0-3.fc43.noarch
 python3-urllib3-2.8.0-3.fc43.noarch
 python3-xkbregistry-0.3-9.azl4.x86_64
-python3.12-3.12.15-1.fc43.x86_64
-python3.12-libs-3.12.15-1.fc43.x86_64
+python3.12-3.12.16-2.fc43.x86_64
+python3.12-libs-3.12.16-2.fc43.x86_64
 qcom-wwan-firmware-20260221-2.azl4.noarch
 qemu-guest-agent-10.1.5-1.fc43.x86_64
 qrencode-libs-4.1.1-11.fc43.x86_64
