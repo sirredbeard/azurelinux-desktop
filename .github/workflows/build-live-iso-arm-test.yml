@@ -1,0 +1,98 @@
+name: Build live ISO (ARM64 test)
+
+# ARM64 workshop build for the Fedora 45 rebase. Same lorax path as the
+# product build, run natively on an ARM64 runner: the tool image is
+# built on the runner from containers/build-lorax/Dockerfile.aarch64,
+# and the kickstart is the product live kickstart passed through
+# scripts/make-arm-ks.py (aarch64 repos and EFI packages, x86_64-only
+# packages dropped, x86_64 side-loads neutralized). The vendor prestage
+# step is skipped: its binaries are x86_64. Build-only: products land
+# as Actions artifacts and nothing is published. The squashfs artifact
+# is the rootfs the systemd-nspawn sanity boot runs.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-iso-arm:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Show disk space
+        run: df -h / "$GITHUB_WORKSPACE"
+
+      - name: Build lorax tool image (aarch64)
+        run: >
+          docker build -f containers/build-lorax/Dockerfile.aarch64
+          -t build-lorax:f45-arm containers/build-lorax
+
+      - name: Generate ARM64 kickstart
+        run: >
+          python3 scripts/make-arm-ks.py
+          kickstart/azurelinux-desktop-live.ks azurelinux-desktop-live-arm.ks
+
+      - name: Build live ISO (lorax + livemedia-creator --no-virt)
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          docker run --rm --privileged -v /dev:/dev \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "$GITHUB_WORKSPACE/out:/out" \
+            build-lorax:f45-arm bash -c '
+              set -e
+              for f in /usr/share/lorax/templates.d/99-generic/live/config_files/aarch64/grub2-efi.cfg /usr/share/lorax/templates.d/99-generic/live/config_files/x86/grub2-efi.cfg; do
+                if [ -f "$f" ]; then
+                  sed -i '\''s/^set default="1"/set default="0"/; s/^set timeout=60/set timeout_style=hidden\nset timeout=1/; s/@PRODUCT@ @VERSION@/@PRODUCT@/g'\'' "$f"
+                fi
+              done
+              livemedia-creator --no-virt --resultdir /out/result --make-iso --nomacboot --iso-only \
+                --iso-name azurelinux-desktop-live-f45-arm.iso \
+                --ks /workspace/azurelinux-desktop-live-arm.ks \
+                --project "Azure Linux Desktop" --releasever 45 --volid AZLDESKTOP \
+                --rootfs-type squashfs-ext4 --logfile /out/livemedia-build.log
+            '
+          ls -lah "$GITHUB_WORKSPACE/out/result"
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-iso-arm
+          path: out/result/*.iso
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Extract and upload LiveOS squashfs artifact
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          isos=(out/result/*.iso)
+          test "${#isos[@]}" -ge 1
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" build-lorax:f45-arm \
+            xorriso -osirrox on -indev "/w/${isos[0]}" \
+            -extract /LiveOS/squashfs.img /w/out/squashfs.img
+          ls -lah out/squashfs.img
+
+      - name: Upload squashfs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-squashfs-arm
+          path: out/squashfs.img
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Upload build log (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-build-log-arm
+          path: out/livemedia-build.log
+          if-no-files-found: warn
+          retention-days: 3
