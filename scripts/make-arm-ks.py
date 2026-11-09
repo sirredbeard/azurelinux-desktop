@@ -1,7 +1,10 @@
 # Generate the ARM64 variant of the live kickstart: aarch64 repo URLs
 # and EFI packages, x86_64-only packages dropped, and the %post blocks
 # that side-load x86_64 binaries (thirdparty fetch, Copilot Flatpak
-# prestage) neutralized. Usage: make-arm-ks.py <in.ks> <out.ks>
+# prestage) neutralized. Edge has no arm64 Linux build, so the ARM
+# variant also adds the edge-arm-bridge repo and package: FEX running
+# the x86_64 Edge build, with the sync service mirroring the profile
+# to native Chromium. Usage: make-arm-ks.py <in.ks> <out.ks>
 import re, sys, pathlib
 src = pathlib.Path(sys.argv[1]).read_text()
 # Arch URLs
@@ -23,6 +26,11 @@ src = '\n'.join(out)
 drops = ['azurelinux-desktop-policy','microsoft-edge-canary','powershell','code-insiders','gh','github-desktop','virtualbox-guest-additions','microcode_ctl','thermald','intel-media-driver','intel-mediasdk']
 for pkg in drops:
     src = re.sub(r'(?m)^'+re.escape(pkg)+r'\n', '', src)
+# Edge on ARM comes from the edge-arm-bridge Pages repo (baseurl matches
+# the project's published .repo file, which sets gpgcheck=0).
+src = re.sub(r'(?m)^(repo --name=azl-desktop-kmods .*)$',
+    r'\1\nrepo --name=edge-arm-bridge --baseurl=https://sirredbeard.github.io/edge-arm-bridge/repo/ --cost=1', src, count=1)
+src = re.sub(r'(?m)^(%packages.*)$', r'\1\nedge-arm-bridge', src, count=1)
 # Neutralize the thirdparty fetch block in %post --nochroot
 src = src.replace('''if [ ! -x /workspace/scripts/fetch-latest-thirdparty.sh ]; then
     echo "error: /workspace/scripts/fetch-latest-thirdparty.sh missing" >&2
