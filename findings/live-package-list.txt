@@ -256,7 +256,6 @@ giflib-5.2.2-10.azl4.x86_64
 git-2.56.0-1.fc43.x86_64
 git-core-2.56.0-1.fc43.x86_64
 git-core-doc-2.56.0-1.fc43.noarch
-github-1.1.35-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.86.0-2.fc43.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
@@ -1176,7 +1175,7 @@ tslib-1.23-3.azl4.x86_64
 tuned-2.27.0-1.fc43.noarch
 tuned-ppd-2.27.0-1.fc43.noarch
 twolame-libs-0.4.0-9.azl4.x86_64
-tzdata-2026e-1.fc43.noarch
+tzdata-2026f-1.fc43.noarch
 uchardet-0.0.8-9.azl4.x86_64
 udftools-2.3-12.fc43.x86_64
 udisks2-2.11.2-1.fc43.x86_64
@@ -1211,9 +1210,9 @@ wcurl-2026.01.05-1.fc43.noarch
 webkit2gtk4.1-2.54.2-1.fc43.x86_64
 webkitgtk6.0-2.54.2-1.fc43.x86_64
 webrtc-audio-processing-1.3-9.fc43.x86_64
-wget2-2.3.0-2.fc43.x86_64
-wget2-libs-2.3.0-2.fc43.x86_64
-wget2-wget-2.3.0-2.fc43.x86_64
+wget2-2.3.0-3.fc43.x86_64
+wget2-libs-2.3.0-3.fc43.x86_64
+wget2-wget-2.3.0-3.fc43.x86_64
 which-2.23-4.azl4.x86_64
 whois-nls-5.6.6-2.azl4.noarch
 wireless-regdb-2026.09.03-1.fc43.noarch
