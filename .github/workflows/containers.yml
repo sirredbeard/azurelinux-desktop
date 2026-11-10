@@ -333,6 +333,42 @@ jobs:
           chmod +x scripts/prune-ghcr-container.sh
           ./scripts/prune-ghcr-container.sh azurelinux-desktop/build-kmods 2
 
+  # The same toolchain image built natively for aarch64, for the ARM
+  # kmod families (publish-desktop-kmods.yml's ARM legs). One tag,
+  # azl4-arm64: ghcr-tag-push.sh always pushes latest plus a date tag,
+  # and both of those belong to the x86_64 image. Runs after the x86_64
+  # job: two jobs pushing to the same GHCR package at once race, and
+  # GHCR denies the second manifest push (write_package, seen on the
+  # first combined run, Nov 9).
+  build-kmods-arm64:
+    needs: [plan, build-kmods]
+    if: needs.plan.outputs.build_kmods == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build build-kmods image (aarch64)
+        uses: docker/build-push-action@v6
+        with:
+          context: containers/build-kmods
+          file: containers/build-kmods/Dockerfile
+          load: true
+          tags: azurelinux-desktop-build-kmods-arm64:local
+          build-args: |
+            AZL_BASE_URL=https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+          cache-from: type=gha,scope=build-kmods-arm64
+          cache-to: type=gha,mode=max,scope=build-kmods-arm64
+      - name: Tag and push (azl4-arm64)
+        run: |
+          set -euo pipefail
+          docker tag azurelinux-desktop-build-kmods-arm64:local \
+            "ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64"
+          docker push "ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64"
+
   build-canary:
     needs: plan
     if: needs.plan.outputs.build_canary == 'true'
@@ -409,7 +445,7 @@ jobs:
           if-no-files-found: warn
 
   summary:
-    needs: [plan, build-lorax, build-kiwi, build-kmods, build-canary, canary-test]
+    needs: [plan, build-lorax, build-kiwi, build-kmods, build-kmods-arm64, build-canary, canary-test]
     if: always()
     runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
     outputs:
@@ -425,6 +461,7 @@ jobs:
           echo "lorax=${{ needs.build-lorax.result }} want=${{ needs.plan.outputs.build_lorax }}"
           echo "kiwi=${{ needs.build-kiwi.result }} want=${{ needs.plan.outputs.build_kiwi }}"
           echo "kmods=${{ needs.build-kmods.result }} want=${{ needs.plan.outputs.build_kmods }}"
+          echo "kmods-arm64=${{ needs.build-kmods-arm64.result }} want=${{ needs.plan.outputs.build_kmods }}"
           echo "canary=${{ needs.build-canary.result }} want=${{ needs.plan.outputs.build_canary }}"
           echo "canary-test=${{ needs.canary-test.result }} want=${{ needs.plan.outputs.run_canary_test }}"
           {
@@ -438,5 +475,6 @@ jobs:
           if [ "${{ needs.plan.outputs.build_lorax }}" = "true" ] && [ "${{ needs.build-lorax.result }}" != "success" ]; then fail=1; fi
           if [ "${{ needs.plan.outputs.build_kiwi }}" = "true" ] && [ "${{ needs.build-kiwi.result }}" != "success" ]; then fail=1; fi
           if [ "${{ needs.plan.outputs.build_kmods }}" = "true" ] && [ "${{ needs.build-kmods.result }}" != "success" ]; then fail=1; fi
+          if [ "${{ needs.plan.outputs.build_kmods }}" = "true" ] && [ "${{ needs.build-kmods-arm64.result }}" != "success" ]; then fail=1; fi
           if [ "${{ needs.plan.outputs.build_canary }}" = "true" ] && [ "${{ needs.build-canary.result }}" != "success" ]; then fail=1; fi
           exit "$fail"
