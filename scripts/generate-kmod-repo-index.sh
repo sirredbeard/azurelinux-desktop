@@ -27,7 +27,7 @@ repo_url="https://sirredbeard.github.io/azurelinux-desktop/repo/"
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>azurelinux-desktop kmod repo (x86_64)</title>
+<title>azurelinux-desktop kmod repo (x86_64 and aarch64)</title>
 <style>
   :root { color-scheme: light dark; }
   body { font-family: system-ui, sans-serif; line-height: 1.45; max-width: 52rem;
@@ -47,13 +47,15 @@ repo_url="https://sirredbeard.github.io/azurelinux-desktop/repo/"
 <body>
 HTML
   cat <<HTML
-<h1>Desktop kmod DNF repo (x86_64)</h1>
+<h1>Desktop kmod DNF repo (x86_64 and aarch64)</h1>
 <p class="muted">Generated ${generated_at}. Base URL:
 <code>${repo_url}</code></p>
 <p>
 Out-of-tree kernel modules for Azure Linux Desktop on <strong>x86_64</strong>:
 USB HID/storage, Intel Wi-Fi, ALSA HDA/USB audio, Bluetooth, UVC cameras,
-ThinkPad ACPI, and USB Type-C/UCSI. Built against each exact Azure
+ThinkPad ACPI, and USB Type-C/UCSI. On <strong>aarch64</strong> the repo
+carries the ALSA/ASoC sound family for the Arduino Ventuno Q (Qualcomm
+QDSP6) and its matching policy RPM. Built against each exact Azure
 <code>kernel-devel</code> release. A policy RPM couples them so a kernel-only
 update cannot orphan the modules.
 </p>
@@ -173,7 +175,7 @@ HTML
 <p>
 This site hosts the project DNF repository of out-of-tree desktop kernel
 modules for Azure Linux 4.0 on x86_64 (USB HID, USB mass storage, Intel
-Wi-Fi), plus matching policy RPMs.
+Wi-Fi) and aarch64 (the Ventuno Q sound family), plus matching policy RPMs.
 </p>
 <ul>
   <li><a href="repo/"><strong>Browse the kmod repo</strong></a>

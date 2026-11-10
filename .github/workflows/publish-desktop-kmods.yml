@@ -60,6 +60,11 @@ env:
   KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4
   KMOD_IMAGE_FALLBACK: mcr.microsoft.com/azurelinux-beta/base/core:4.0
   AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64
+  # The aarch64 track (Ventuno Q hardware enablement): same repo, one
+  # flat createrepo, arch-suffixed filenames. The ARM jobs below
+  # override KMOD_IMAGE and AZL_BASE_URL at job level.
+  KMOD_IMAGE_ARM: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
+  AZL_BASE_URL_ARM: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
 
 jobs:
   detect:
@@ -186,6 +191,63 @@ jobs:
           PY
           fi
 
+  # The aarch64 track ships exactly two RPMs: the sound family and the
+  # policy that couples it to the exact kernel. The shipped aarch64
+  # kernel already carries the wlan, bluetooth, and uvc drivers, so
+  # there is nothing else to build out of tree (findings/ventunoq-arm-
+  # hardware-enablement.md, Phase 0). Job-level env points every step
+  # at the ARM toolchain image and the aarch64 base repo.
+  detect-arm:
+    runs-on: ubuntu-24.04-arm
+    env:
+      KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+    outputs:
+      build_required: ${{ steps.detect.outputs.build_required }}
+      kernel_nevra: ${{ steps.detect.outputs.kernel_nevra }}
+      families_json: ${{ steps.detect.outputs.families_json }}
+    steps:
+      - id: detect
+        env:
+          REPUBLISH: ${{ inputs.republish || 'false' }}
+          PRUNE_OLD: ${{ inputs.prune_old || 'false' }}
+        run: |
+          set -euo pipefail
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          if ! docker pull "$KMOD_IMAGE" 2>/dev/null; then
+            echo "WARN: $KMOD_IMAGE missing; fallback $KMOD_IMAGE_FALLBACK"
+            docker pull "$KMOD_IMAGE_FALLBACK"
+            KMOD_IMAGE="$KMOD_IMAGE_FALLBACK"
+          fi
+          kernel_nevra="$(
+            docker run --rm "$KMOD_IMAGE" \
+              bash -c "dnf5 repoquery --setopt=reposdir=/dev/null \
+                --repofrompath=azl-base,$AZL_BASE_URL --repo=azl-base --available \
+                --latest-limit=1 --qf '%{name}-%{version}-%{release}.%{arch}' kernel"
+          )"
+          test -n "$kernel_nevra"
+          echo "kernel_nevra=$kernel_nevra" >> "$GITHUB_OUTPUT"
+
+          krel="${kernel_nevra#kernel-}"
+          curl --fail --silent --show-error --location \
+            "$KMOD_REPO_URL/manifest.txt" -o /tmp/manifest.txt || : > /tmp/manifest.txt
+          missing=0
+          for base in \
+            azurelinux-desktop-policy \
+            azurelinux-desktop-sound-kmod
+          do
+            grep -Fxq "${base}-${krel}.rpm" /tmp/manifest.txt || missing=1
+          done
+
+          build=false
+          if [[ "$REPUBLISH" == "true" || "$PRUNE_OLD" == "true" ]]; then
+            build=true
+          elif [[ "$missing" -ne 0 ]]; then
+            build=true
+          fi
+          echo "build_required=$build" >> "$GITHUB_OUTPUT"
+          echo "families_json=[\"sound\"]" >> "$GITHUB_OUTPUT"
+
   prepare:
     needs: detect
     if: ${{ needs.detect.outputs.build_required == 'true' }}
@@ -238,6 +300,64 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kmod-prepare
+          path: kmod-work/
+          retention-days: 2
+          if-no-files-found: error
+
+  prepare-arm:
+    needs: detect-arm
+    if: ${{ needs.detect-arm.outputs.build_required == 'true' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    env:
+      KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch kernel source into reusable workdir
+        env:
+          KERNEL_NEVRA: ${{ needs.detect-arm.outputs.kernel_nevra }}
+        run: |
+          set -euo pipefail
+          mkdir -p kmod-work kmod-output
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          if ! docker pull "$KMOD_IMAGE"; then
+            echo "WARN: $KMOD_IMAGE missing; fallback $KMOD_IMAGE_FALLBACK"
+            docker pull "$KMOD_IMAGE_FALLBACK"
+            KMOD_IMAGE="$KMOD_IMAGE_FALLBACK"
+            echo "KMOD_IMAGE=$KMOD_IMAGE_FALLBACK" >> "$GITHUB_ENV"
+          fi
+          for attempt in 1 2 3; do
+            echo "prepare attempt $attempt"
+            if docker run --rm \
+              -v "$GITHUB_WORKSPACE:/workspace" \
+              -e DESKTOP_KMOD_WORKDIR=/workspace/kmod-work \
+              -e DESKTOP_KMOD_PREPARE_TARBALL_ONLY=1 \
+              "$KMOD_IMAGE" \
+              bash /workspace/scripts/build-desktop-kmods.sh \
+                /workspace/kmod-output "$KERNEL_NEVRA" prepare
+            then
+              break
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
+          test -f kmod-work/.prepared
+          test -f kmod-work/env.sh
+          test -f kmod-work/kernel.tar.gz
+          if compgen -G 'kmod-work/CBL-Mariner-Linux-Kernel-*' >/dev/null; then
+            docker run --rm -v "$GITHUB_WORKSPACE:/workspace" "$KMOD_IMAGE" \
+              bash -c 'rm -rf /workspace/kmod-work/CBL-Mariner-Linux-Kernel-*'
+          fi
+          ls -lh kmod-work/
+
+      - name: Upload prepare artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmod-prepare-arm
           path: kmod-work/
           retention-days: 2
           if-no-files-found: error
@@ -376,6 +496,85 @@ jobs:
           # hidden files and the package job would skip sensors/performance.
           include-hidden-files: true
 
+  build-family-arm:
+    needs: [detect-arm, prepare-arm]
+    if: ${{ needs.detect-arm.outputs.build_required == 'true' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    env:
+      KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+    strategy:
+      fail-fast: false
+      matrix:
+        family: ${{ fromJSON(needs.detect-arm.outputs.families_json) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download prepare artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kmod-prepare-arm
+          path: kmod-work
+
+      - name: Build ${{ matrix.family }} (resilient)
+        env:
+          KERNEL_NEVRA: ${{ needs.detect-arm.outputs.kernel_nevra }}
+          FAMILY: ${{ matrix.family }}
+        run: |
+          set -euo pipefail
+          mkdir -p kmod-output
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          if ! docker pull "$KMOD_IMAGE"; then
+            echo "WARN: $KMOD_IMAGE missing; fallback $KMOD_IMAGE_FALLBACK"
+            docker pull "$KMOD_IMAGE_FALLBACK"
+            KMOD_IMAGE="$KMOD_IMAGE_FALLBACK"
+            echo "KMOD_IMAGE=$KMOD_IMAGE_FALLBACK" >> "$GITHUB_ENV"
+          fi
+          test -f kmod-work/kernel.tar.gz
+          test -f kmod-work/env.sh
+          # shellcheck disable=SC1091
+          source kmod-work/env.sh
+          if ! compgen -G 'kmod-work/CBL-Mariner-Linux-Kernel-*' >/dev/null; then
+            tar -xzf kmod-work/kernel.tar.gz -C kmod-work
+          fi
+          touch kmod-work/.prepared
+
+          ok=0
+          for attempt in 1 2 3; do
+            echo "=== family=$FAMILY attempt=$attempt ==="
+            if docker run --rm \
+              -v "$GITHUB_WORKSPACE:/workspace" \
+              -e DESKTOP_KMOD_WORKDIR=/workspace/kmod-work \
+              "$KMOD_IMAGE" \
+              bash /workspace/scripts/build-desktop-kmods.sh \
+                /workspace/kmod-output "$KERNEL_NEVRA" "$FAMILY"
+            then
+              ok=1
+              break
+            fi
+            echo "family=$FAMILY attempt=$attempt failed"
+            sleep $((attempt * 20))
+          done
+          test "$ok" -eq 1
+          rm -rf family-out
+          mkdir -p family-out
+          case "$FAMILY" in
+            sound) cp -a kmod-work/sound family-out/ ;;
+            *) echo "unknown family $FAMILY"; exit 1 ;;
+          esac
+          find family-out -name '*.ko' | tee family-out/modules.list
+          test -s family-out/modules.list
+
+      - name: Upload ${{ matrix.family }} modules
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmod-family-arm-${{ matrix.family }}
+          path: family-out/
+          retention-days: 2
+          if-no-files-found: error
+          include-hidden-files: true
+
   package:
     needs: [detect, prepare, build-family]
     # Publish whatever families succeeded. Do not require the full matrix.
@@ -405,7 +604,17 @@ jobs:
           set -euo pipefail
           mkdir -p kmod-output
           shopt -s nullglob
-          families=(family-artifacts/kmod-family-*)
+          families=()
+          for d in family-artifacts/kmod-family-*; do
+            # The kmod-family-* pattern also matches the ARM job's
+            # kmod-family-arm-* artifacts. Merging those put aarch64
+            # modules in the x86 workdir and check_vermagic failed
+            # the package (canaries 42717601133, 42718938903).
+            case "$d" in
+              family-artifacts/kmod-family-arm-*) continue ;;
+            esac
+            families+=("$d")
+          done
           if ((${#families[@]} == 0)); then
             echo "No family artifacts uploaded; nothing to package" >&2
             exit 1
@@ -460,23 +669,279 @@ jobs:
           retention-days: 2
           if-no-files-found: error
 
+  package-arm:
+    needs: [detect-arm, prepare-arm, build-family-arm]
+    if: ${{ needs.detect-arm.outputs.build_required == 'true' && needs.prepare-arm.result == 'success' && !cancelled() && (needs.build-family-arm.result == 'success' || needs.build-family-arm.result == 'failure') }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    env:
+      KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download prepare artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kmod-prepare-arm
+          path: kmod-work
+
+      - name: Download all family module artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kmod-family-arm-*
+          path: family-artifacts
+          merge-multiple: false
+
+      - name: Assemble workdir and package RPMs
+        env:
+          KERNEL_NEVRA: ${{ needs.detect-arm.outputs.kernel_nevra }}
+        run: |
+          set -euo pipefail
+          mkdir -p kmod-output
+          shopt -s nullglob
+          families=(family-artifacts/kmod-family-arm-*)
+          if ((${#families[@]} == 0)); then
+            echo "No family artifacts uploaded; nothing to package" >&2
+            exit 1
+          fi
+          for d in "${families[@]}"; do
+            echo "merge $d"
+            cp -a "$d"/. kmod-work/
+          done
+          # shellcheck disable=SC1091
+          source kmod-work/env.sh
+          if ! compgen -G 'kmod-work/CBL-Mariner-Linux-Kernel-*' >/dev/null; then
+            tar -xzf kmod-work/kernel.tar.gz -C kmod-work
+          fi
+          touch kmod-work/.prepared
+
+          echo "Assembled modules:"
+          find kmod-work -name '*.ko' | sort
+          test "$(find kmod-work -name '*.ko' | wc -l)" -ge 1
+
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          if ! docker pull "$KMOD_IMAGE"; then
+            echo "WARN: $KMOD_IMAGE missing; fallback $KMOD_IMAGE_FALLBACK"
+            docker pull "$KMOD_IMAGE_FALLBACK"
+          fi
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -e DESKTOP_KMOD_WORKDIR=/workspace/kmod-work \
+            "$KMOD_IMAGE" \
+            bash /workspace/scripts/build-desktop-kmods.sh \
+              /workspace/kmod-output "$KERNEL_NEVRA" package
+
+          ls -la kmod-output/*.rpm
+          krel="${KERNEL_NEVRA#"kernel-"}"
+          test -f "kmod-output/azurelinux-desktop-policy-${krel}.rpm"
+          shopt -s nullglob
+          kmods=(kmod-output/azurelinux-desktop-*-kmod-*.rpm)
+          test "${#kmods[@]}" -ge 1
+          echo "Packaged ${#kmods[@]} kmod RPMs + policy"
+          cat kmod-output/present-families.txt || true
+
+      - name: Upload RPM set
+        uses: actions/upload-artifact@v4
+        with:
+          name: kmod-rpms-arm
+          path: |
+            kmod-output/*.rpm
+            kmod-output/present-families.txt
+          retention-days: 2
+          if-no-files-found: error
+
+  # Stage 5: upstream deb repacks. Detect reads the apt indices of
+  # the Arduino repo, the Canonical Dragonwing PPA, and Ubuntu
+  # noble ports, and compares each tracked deb's version against
+  # the RPM set already in the Pages repo (the manifest is the
+  # state; no state file). A repack rebuilds on a spec change
+  # too: each published RPM carries a spec-hash Provides next to
+  # its deb-version Provides, and detect compares both. Build
+  # repacks the changed debs with the
+  # specs in packaging/<name>/ on an ARM runner inside the Fedora
+  # 45 container (the same shape the specs were first built with).
+  # Publish below merges the results into the flat repo; its
+  # carry-forward keeps them there. Known v1 limit: publish still
+  # runs on kmod publishes, so a repack-only drift waits for the
+  # next kmod publish to land.
+  detect-repacks:
+    runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+      any: ${{ steps.detect.outputs.any }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare tracked debs against the published repo
+        id: detect
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-delay 3 \
+            "$KMOD_REPO_URL/manifest.txt" -o manifest.txt || : > manifest.txt
+          # Published state lives in the repo metadata itself: each
+          # repacked RPM carries a deb-version(<name>) Provides with
+          # the deb version it was built from.
+          mkdir -p idx
+          curl -fsSL "$KMOD_REPO_URL/repodata/repomd.xml" -o idx/repomd.xml || : > idx/repomd.xml
+          PRIMARY=$(grep -o 'href="[^"]*primary.xml.gz"' idx/repomd.xml | head -1 | cut -d'"' -f2 || true)
+          if [[ -n "${PRIMARY:-}" ]]; then
+            curl -fsSL "$KMOD_REPO_URL/$PRIMARY" | gunzip > idx/primary.xml || : > idx/primary.xml
+          else
+            : > idx/primary.xml
+          fi
+          curl -fsSL https://apt-repo.arduino.cc/dists/stable/main/binary-arm64/Packages.gz \
+            | gunzip > idx/arduino.txt
+          curl -fsSL https://ppa.launchpadcontent.net/ubuntu-qcom-iot/qcom-ppa/ubuntu/dists/noble/main/binary-arm64/Packages.gz \
+            | gunzip > idx/dragonwing.txt
+          curl -fsSL http://ports.ubuntu.com/ubuntu-ports/dists/noble/main/binary-arm64/Packages.gz \
+            | gunzip > idx/noble.txt
+          python3 - <<'PY'
+          import hashlib, json, re, os
+          # deb name -> (index file, repo base URL, rpm name, arch)
+          TRACKED = {
+              "qcom-fastrpc1":      ("dragonwing", "https://ppa.launchpadcontent.net/ubuntu-qcom-iot/qcom-ppa/ubuntu/", "qcom-fastrpc", "aarch64"),
+              "qcom-libdmabufheap": ("dragonwing", "https://ppa.launchpadcontent.net/ubuntu-qcom-iot/qcom-ppa/ubuntu/", "qcom-libdmabufheap", "aarch64"),
+              "alsa-conf-qcom":     ("dragonwing", "https://ppa.launchpadcontent.net/ubuntu-qcom-iot/qcom-ppa/ubuntu/", "alsa-conf-qcom", "noarch"),
+              "qrtr-tools":         ("noble", "http://ports.ubuntu.com/ubuntu-ports/", "qrtr-tools", "aarch64"),
+          }
+          def parse_index(path):
+              pkgs = {}
+              cur = {}
+              for line in open(path, encoding="utf-8", errors="replace"):
+                  if line == "\n":
+                      if "Package" in cur:
+                          pkgs[cur["Package"]] = cur
+                      cur = {}
+                  elif ": " in line and not line.startswith(" "):
+                      k, v = line.split(": ", 1)
+                      cur[k] = v.strip()
+              if "Package" in cur:
+                  pkgs[cur["Package"]] = cur
+              return pkgs
+          manifest = open("manifest.txt").read().split()
+          primary = open("idx/primary.xml", encoding="utf-8", errors="replace").read()
+          published_deb = {}
+          published_hash = {}
+          for block in primary.split("<package type=\"rpm\">")[1:]:
+              nm = re.search(r"<name>([^<]+)</name>", block)
+              pv = re.search(r"<rpm:entry name=\"deb-version\([^)]+\)\"[^>]*?ver=\"([^\"]+)\"(?:\s+rel=\"([^\"]+)\")?", block)
+              hv = re.search(r"<rpm:entry name=\"spec-hash\([^)]+\)\"[^>]*?ver=\"([^\"]+)\"", block)
+              if nm and pv:
+                  published_deb[nm.group(1)] = pv.group(1) + ("-" + pv.group(2) if pv.group(2) else "")
+              if nm and hv:
+                  published_hash[nm.group(1)] = hv.group(1)
+          def spec_hash(rpm_name):
+              try:
+                  data = open(f"packaging/{rpm_name}/{rpm_name}.spec", "rb").read()
+              except OSError:
+                  return ""
+              return hashlib.sha256(data).hexdigest()[:16]
+          out = []
+          for deb, (idx, base, rpm_name, arch) in TRACKED.items():
+              rec = parse_index(f"idx/{idx}.txt")[deb]
+              deb_version = rec["Version"]
+              # RPM version: the deb version up to '+' or '-'.
+              rpm_version = re.split(r"[+-]", deb_version)[0]
+              if published_deb.get(rpm_name) == deb_version and published_hash.get(rpm_name) == spec_hash(rpm_name):
+                  print(f"current: {deb} {deb_version}")
+                  continue
+              # Release: one above the highest same name+version
+              # release already published, else 1.
+              rel = 1
+              pat = re.compile(re.escape(rpm_name) + "-" + re.escape(rpm_version) + r"-(\d+)\.azl\." + arch + r"\.rpm$")
+              for f in manifest:
+                  mm = pat.match(f)
+                  if mm:
+                      rel = max(rel, int(mm.group(1)) + 1)
+              out.append({
+                  "deb": deb, "rpm_name": rpm_name, "arch": arch,
+                  "deb_version": deb_version, "rpm_version": rpm_version,
+                  "release": rel, "url": base + rec["Filename"],
+              })
+              print(f"repack: {deb} {deb_version} -> {rpm_name}-{rpm_version}-{rel}.azl.{arch}.rpm")
+          matrix = {"include": out}
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"matrix={json.dumps(matrix)}\n")
+              fh.write(f"any={'true' if out else 'false'}\n")
+          PY
+
+  build-repacks:
+    needs: [detect-repacks]
+    if: ${{ needs.detect-repacks.outputs.any == 'true' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect-repacks.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Repack ${{ matrix.deb }}
+        run: |
+          set -euo pipefail
+          mkdir -p work && cd work
+          curl -fsSL -o pkg.deb "${{ matrix.url }}"
+          mkdir payload && dpkg-deb -x pkg.deb payload
+          cp "../packaging/${{ matrix.rpm_name }}/${{ matrix.rpm_name }}.spec" pkg.spec
+          SPEC_HASH=$(sha256sum "../packaging/${{ matrix.rpm_name }}/${{ matrix.rpm_name }}.spec" | cut -c1-16)
+          sed -i -E "s/^Version:.*/Version:        ${{ matrix.rpm_version }}/; s/^Release:.*/Release:        ${{ matrix.release }}.azl/; s|^# Deb-Version:.*|Provides:       deb-version(${{ matrix.rpm_name }}) = ${{ matrix.deb_version }}|" pkg.spec
+          sed -i "/^Provides:.*deb-version/a Provides:       spec-hash(${{ matrix.rpm_name }}) = ${SPEC_HASH}" pkg.spec
+          grep -E '^(Version|Release|Provides)' pkg.spec
+          sudo podman run --rm -v "$PWD:/w" registry.fedoraproject.org/fedora:45 bash -euo pipefail -c '
+            dnf install -y -q rpm-build >/dev/null 2>&1
+            mkdir -p /tmp/rb/{SPECS,SOURCES,BUILD,BUILDROOT,RPMS,SRPMS}
+            cp /w/pkg.spec /tmp/rb/SPECS/
+            cp -a /w/payload /tmp/rb/SOURCES/payload
+            rpmbuild --define "_topdir /tmp/rb" -bb /tmp/rb/SPECS/pkg.spec
+            cp /tmp/rb/RPMS/*/*.rpm /w/
+          '
+          ls -la *.rpm
+
+      - name: Upload repacked RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: repack-rpm-${{ matrix.rpm_name }}
+          path: work/*.rpm
+          if-no-files-found: error
+
   publish:
-    needs: [detect, package]
-    if: ${{ needs.detect.outputs.build_required == 'true' && needs.package.result == 'success' }}
+    needs: [detect, package, detect-arm, package-arm, detect-repacks, build-repacks]
+    if: ${{ !cancelled() && (needs.package.result == 'success' || needs.package-arm.result == 'success') }}
     runs-on: ${{ vars.AZL_RUNNER_LIGHT || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
       - name: Download RPM set
+        if: ${{ needs.package.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
           name: kmod-rpms
           path: kmod-output
 
+      - name: Download ARM RPM set
+        if: ${{ needs.package-arm.result == 'success' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: kmod-rpms-arm
+          path: kmod-output
+
+      - name: Download repacked RPMs
+        if: ${{ needs.build-repacks.result == 'success' }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: repack-rpm-*
+          path: kmod-output
+          merge-multiple: true
+
       - name: Merge prior repo, createrepo, write indexes
         env:
           KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+          KERNEL_NEVRA_ARM: ${{ needs.detect-arm.outputs.kernel_nevra }}
+          PKG_OK: ${{ needs.package.result == 'success' }}
+          PKG_ARM_OK: ${{ needs.package-arm.result == 'success' }}
           PRUNE_OLD: ${{ inputs.prune_old || 'false' }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
@@ -484,44 +949,70 @@ jobs:
           set -euo pipefail
           mkdir -p site/repo
           krel="${KERNEL_NEVRA#"kernel-"}"
+          # One flat repo serves both arches; a krel differs only in its
+          # arch suffix, so each arch gets its own policy rebuild below
+          # while merge, signing, and createrepo stay shared.
+          KRELS=()
+          [[ "$PKG_OK" == "true" ]] && KRELS+=("$krel")
+          if [[ "$PKG_ARM_OK" == "true" ]]; then
+            KRELS+=("${KERNEL_NEVRA_ARM#"kernel-"}")
+          fi
+          test "${#KRELS[@]}" -ge 1
           if [[ "${PRUNE_OLD}" == "true" ]]; then
-            echo "prune_old=true: only keeping RPMs for kernel release ${krel}"
+            echo "prune_old=true: only keeping RPMs for kernel releases: ${KRELS[*]}"
           fi
           if curl --fail --location --retry 5 --retry-delay 3 \
               "$KMOD_REPO_URL/manifest.txt" -o prior-manifest.txt; then
             while IFS= read -r rpm; do
               [ -n "$rpm" ] || continue
               case "$rpm" in
-                azurelinux-desktop-*-kmod-*|azurelinux-desktop-policy-*) ;;
+                azurelinux-desktop-*-kmod-*|azurelinux-desktop-policy-*|qcom-fastrpc-*|qcom-libdmabufheap-*|qrtr-tools-*|alsa-conf-qcom-*) ;;
                 *) continue ;;
               esac
               # Optional: drop every RPM that is not for this kernel release.
               # Default keeps older kernel sets so stale installs still resolve.
               if [[ "${PRUNE_OLD}" == "true" ]]; then
-                case "$rpm" in
-                  *"-${krel}.rpm") ;;
-                  *)
-                    echo "prune: skip prior $rpm"
-                    continue
-                    ;;
-                esac
+                keep=0
+                for k in "${KRELS[@]}"; do
+                  case "$rpm" in
+                    *"-${k}.rpm") keep=1 ;;
+                  esac
+                done
+                if [[ "$keep" -ne 1 ]]; then
+                  echo "prune: skip prior $rpm"
+                  continue
+                fi
               fi
               # Prefer this run's RPM; keep prior siblings for the same kernel
               # when a family failed this time so the repo stays useful.
               if [[ -f "kmod-output/$rpm" ]]; then
                 continue
               fi
-              # Drop prior policy for this kernel; we ship a fresh policy that
-              # Requires exactly the kmod RPMs present after merge logic below.
-              if [[ "$rpm" == "azurelinux-desktop-policy-${krel}.rpm" ]]; then
-                continue
-              fi
+              # Drop prior policy for any kernel rebuilt this run; we ship
+              # a fresh policy that Requires exactly the kmod RPMs present
+              # after merge logic below.
+              for k in "${KRELS[@]}"; do
+                # Both policy filename shapes: archful (native
+                # build) and .noarch (cross build, arch in release).
+                if [[ "$rpm" == "azurelinux-desktop-policy-${k}.rpm" \
+                   || "$rpm" == "azurelinux-desktop-policy-${k}.noarch.rpm" ]]; then
+                  continue 2
+                fi
+              done
               # Drop legacy names when replacements ship this run.
               if [[ "$rpm" == "azurelinux-desktop-iwlwifi-kmod-${krel}.rpm" ]]; then
                 if [[ -f "kmod-output/azurelinux-desktop-intel-kmod-${krel}.rpm" ]]; then
                   continue
                 fi
               fi
+              # Repacks: when this run ships any build of a tracked
+              # name, the prior build of that name is superseded.
+              for rp in qcom-fastrpc qcom-libdmabufheap qrtr-tools alsa-conf-qcom; do
+                if [[ "$rpm" == "${rp}-"* ]] \
+                   && compgen -G "kmod-output/${rp}-*.rpm" > /dev/null; then
+                  continue 2
+                fi
+              done
               if [[ "$rpm" == "azurelinux-desktop-usb-storage-kmod-${krel}.rpm" ]]; then
                 if [[ -f "kmod-output/azurelinux-desktop-storage-kmod-${krel}.rpm" ]]; then
                   continue
@@ -536,44 +1027,73 @@ jobs:
           fi
           cp -v kmod-output/*.rpm site/repo/
 
-          # If prior same-kernel kmod RPMs were merged, rebuild policy so it
-          # Requires every sibling present for this kernel release.
-          mapfile -t KREL_KMODS < <(
-            find site/repo -maxdepth 1 -type f -name "azurelinux-desktop-*-kmod-${krel}.rpm" -printf '%f\n' | sort
-          )
-          if ((${#KREL_KMODS[@]} == 0)); then
-            echo "no kmod RPMs for $krel after merge" >&2
-            exit 1
-          fi
-          {
-            echo "Name: azurelinux-desktop-policy"
-            echo "Version: ${krel%%-*}"
-            # krel is VERSION-RELEASE.ARCH — split carefully below
-          } >/dev/null
-          # Parse EVR.ARCH from kernel nevra: kernel-VERSION-RELEASE.ARCH
-          k_ver="${KERNEL_NEVRA#kernel-}"
-          k_arch="${k_ver##*.}"
-          k_vr="${k_ver%.$k_arch}"
-          k_version="${k_vr%%-*}"
-          k_release="${k_vr#*-}"
-          # If release contains extra dashes (1.9.azl4), keep full remainder:
-          k_version="$(echo "$KERNEL_NEVRA" | sed -E 's/^kernel-([^-]+)-.*/\1/')"
-          k_release="$(echo "$KERNEL_NEVRA" | sed -E 's/^kernel-[^-]+-(.+)\.[^.]+$/\1/')"
-          k_arch="$(echo "$KERNEL_NEVRA" | sed -E 's/^.*\.([^.]+)$/\1/')"
-
-          reqs=""
-          for rpm in "${KREL_KMODS[@]}"; do
-            base="${rpm%-${krel}.rpm}"
-            reqs+="Requires: ${base} = ${k_version}-${k_release}\n"
-          done
-          mkdir -p /tmp/policy-rpm/{SPECS,RPMS,BUILD,BUILDROOT,SOURCES,SRPMS}
-          cat > /tmp/policy-rpm/SPECS/policy.spec <<SPEC
+          # If prior same-kernel kmod RPMs were merged, rebuild policy so
+          # it Requires every sibling present for this kernel release.
+          # One policy per arch: same package name, with BuildArch and
+          # the kernel Requires taken from that arch's own kernel NEVRA.
+          sudo apt-get update
+          sudo apt-get install -y rpm createrepo-c
+          build_policy_for() {
+            local nevra="$1"
+            local krel="${nevra#"kernel-"}"
+            local k_version k_release k_arch reqs base rpm
+            mapfile -t KREL_KMODS < <(
+              find site/repo -maxdepth 1 -type f -name "azurelinux-desktop-*-kmod-${krel}.rpm" -printf '%f\n' | sort
+            )
+            if ((${#KREL_KMODS[@]} == 0)); then
+              echo "no kmod RPMs for $krel after merge" >&2
+              return 1
+            fi
+            # Parse EVR.ARCH from kernel nevra: kernel-VERSION-RELEASE.ARCH
+            # If release contains extra dashes (1.9.azl4), keep the full remainder.
+            k_version="$(echo "$nevra" | sed -E 's/^kernel-([^-]+)-.*/\1/')"
+            k_release="$(echo "$nevra" | sed -E 's/^kernel-[^-]+-(.+)\.[^.]+$/\1/')"
+            k_arch="$(echo "$nevra" | sed -E 's/^.*\.([^.]+)$/\1/')"
+            reqs=""
+            for rpm in "${KREL_KMODS[@]}"; do
+              base="${rpm%-${krel}.rpm}"
+              reqs+="Requires: ${base} = ${k_version}-${k_release}\n"
+            done
+            rm -rf /tmp/policy-rpm
+            mkdir -p /tmp/policy-rpm/{SPECS,RPMS,BUILD,BUILDROOT,SOURCES,SRPMS}
+            # Cross-arch policy builds cannot use rpmbuild --target:
+            # Ubuntu's rpm has no aarch64 entry in its arch canon
+            # table, and the Azure Linux build-kmods image's rpm
+            # refuses it the same way ("No compatible architectures
+            # found for build", canaries 42716398276, 42717601133,
+            # 42718938903). The fallback for a foreign arch is a
+            # noarch build with the arch folded into the release
+            # string. That shape is a last resort, not the default:
+            # its release sorts above the native policy's, so in
+            # the flat repo it outranks the native build on BOTH
+            # arches, and on the other arch its kernel Requires are
+            # unsatisfiable (the x86_64 installer build failed on
+            # exactly this, Nov 9, 2026). When the package job for
+            # the arch already shipped a native policy for this
+            # kernel (the normal case: package and package-arm both
+            # build one), keep it and skip the rebuild; the sweep
+            # after the build calls removes any noarch shadowed by
+            # a native policy for the same kernel.
+            if [[ "$k_arch" != "$(uname -m)" \
+               && -f "site/repo/azurelinux-desktop-policy-${krel}.rpm" ]]; then
+              echo "keeping native policy for $krel from the package job; skipping cross build"
+              return 0
+            fi
+            local spec_arch spec_release
+            if [[ "$k_arch" == "$(uname -m)" ]]; then
+              spec_arch="$k_arch"
+              spec_release="$k_release"
+            else
+              spec_arch="noarch"
+              spec_release="${k_release}.${k_arch}"
+            fi
+            cat > /tmp/policy-rpm/SPECS/policy.spec <<SPEC
           Name:           azurelinux-desktop-policy
           Version:        ${k_version}
-          Release:        ${k_release}
+          Release:        ${spec_release}
           Summary:        Exact Azure Linux kernel and desktop kmod update policy
           License:        GPL-2.0-only
-          BuildArch:      ${k_arch}
+          BuildArch:      ${spec_arch}
           Requires:       kernel-core-uname-r = ${k_version}-${k_release}.${k_arch}
           $(printf '%b' "$reqs")
           %description
@@ -581,14 +1101,29 @@ jobs:
           kmod RPMs present in this repository snapshot.
           %files
           SPEC
-          # strip leading spaces from spec lines
-          sed -i 's/^          //' /tmp/policy-rpm/SPECS/policy.spec
-          sudo apt-get update
-          sudo apt-get install -y rpm createrepo-c
-          rpmbuild --define "_topdir /tmp/policy-rpm" -bb /tmp/policy-rpm/SPECS/policy.spec
-          cp -v /tmp/policy-rpm/RPMS/*/*.rpm site/repo/
-          # Remove any stale policy from kmod-output overwrite confusion
-          ls -la site/repo/azurelinux-desktop-policy-*.rpm
+            # strip leading spaces from spec lines
+            sed -i 's/^          //' /tmp/policy-rpm/SPECS/policy.spec
+            rpmbuild --define "_topdir /tmp/policy-rpm" -bb /tmp/policy-rpm/SPECS/policy.spec
+            cp -v /tmp/policy-rpm/RPMS/*/*.rpm site/repo/
+            ls -la site/repo/azurelinux-desktop-policy-"${krel}"*.rpm
+          }
+          if [[ "$PKG_OK" == "true" ]]; then
+            build_policy_for "$KERNEL_NEVRA"
+          fi
+          if [[ "$PKG_ARM_OK" == "true" ]]; then
+            build_policy_for "$KERNEL_NEVRA_ARM"
+          fi
+
+          # Sweep: a noarch cross policy must never shadow a native
+          # policy for the same kernel in the flat repo (see the
+          # build_policy_for comment). Drop the shadowed file.
+          for k in "${KRELS[@]}"; do
+            if [[ -f "site/repo/azurelinux-desktop-policy-${k}.rpm" \
+               && -f "site/repo/azurelinux-desktop-policy-${k}.noarch.rpm" ]]; then
+              echo "dropping shadowed cross policy azurelinux-desktop-policy-${k}.noarch.rpm"
+              rm -f "site/repo/azurelinux-desktop-policy-${k}.noarch.rpm"
+            fi
+          done
 
           # Sign every RPM (including merged priors + rebuilt policy) with the
           # shared project OpenPGP key before createrepo. Same key as Copilot
@@ -625,14 +1160,22 @@ jobs:
           find site/repo -maxdepth 1 -type f -name '*.rpm' -printf '%f\n' | sort \
             > site/repo/manifest.txt
 
-          test -f "site/repo/azurelinux-desktop-policy-${krel}.rpm"
-          grep -Fxq "azurelinux-desktop-policy-${krel}.rpm" site/repo/manifest.txt
-          for rpm in "${KREL_KMODS[@]}"; do
-            test -f "site/repo/$rpm"
-            grep -Fxq "$rpm" site/repo/manifest.txt
+          for k in "${KRELS[@]}"; do
+            # Policy filename ends .<arch>.rpm natively and
+            # .noarch.rpm for a cross-built arch; accept either.
+            test -f "site/repo/azurelinux-desktop-policy-${k}.rpm" \
+              || test -f "site/repo/azurelinux-desktop-policy-${k}.noarch.rpm"
+            grep -Fq "azurelinux-desktop-policy-${k}" site/repo/manifest.txt
+            mapfile -t KREL_KMODS < <(
+              find site/repo -maxdepth 1 -type f -name "azurelinux-desktop-*-kmod-${k}.rpm" -printf '%f\n' | sort
+            )
+            for rpm in "${KREL_KMODS[@]}"; do
+              test -f "site/repo/$rpm"
+              grep -Fxq "$rpm" site/repo/manifest.txt
+            done
+            echo "Published families for ${k}:"
+            printf '  %s\n' "${KREL_KMODS[@]}"
           done
-          echo "Published families for ${krel}:" 
-          printf '  %s\n' "${KREL_KMODS[@]}"
 
           bash scripts/generate-kmod-repo-index.sh site
           test -f site/index.html
@@ -703,6 +1246,8 @@ jobs:
       - name: Verify published repository metadata
         env:
           KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+          KERNEL_NEVRA_ARM: ${{ needs.detect-arm.outputs.kernel_nevra }}
+          PKG_ARM_OK: ${{ needs.package-arm.result == 'success' }}
         run: |
           set -euo pipefail
           for i in $(seq 1 18); do
@@ -724,7 +1269,12 @@ jobs:
             -o /tmp/RPM-GPG-KEY-azurelinux-desktop
           grep -q 'BEGIN PGP PUBLIC KEY BLOCK' /tmp/RPM-GPG-KEY-azurelinux-desktop
           krel="${KERNEL_NEVRA#"kernel-"}"
-          grep -Fxq "azurelinux-desktop-policy-${krel}.rpm" published-manifest.txt
+          grep -Fq "azurelinux-desktop-policy-${krel}" published-manifest.txt
+          if [[ "$PKG_ARM_OK" == "true" ]]; then
+            krel_arm="${KERNEL_NEVRA_ARM#"kernel-"}"
+            grep -Fq "azurelinux-desktop-policy-${krel_arm}" published-manifest.txt
+            grep -Fxq "azurelinux-desktop-sound-kmod-${krel_arm}.rpm" published-manifest.txt
+          fi
           # Every RPM we just built must appear; prior-only siblings are bonus.
           while IFS= read -r rpm; do
             [[ "$rpm" == *.rpm ]] || continue
@@ -740,3 +1290,57 @@ jobs:
             "$KMOD_REPO_URL" \
             -o /tmp/azl-pages-repo.html
           grep -Fq 'azurelinux-desktop-policy' /tmp/azl-pages-repo.html
+
+  # Post-publish validation for the aarch64 track, on a native ARM
+  # runner against the live Pages repo: the exact-kernel policy must
+  # resolve and install, the sound family must land in the kernel's
+  # extra modules directory, and every module's vermagic must match.
+  validate-arm:
+    needs: [publish, package-arm, detect-arm]
+    if: ${{ needs.publish.result == 'success' && needs.package-arm.result == 'success' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    env:
+      KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate exact-kernel dependency resolution (aarch64)
+        run: |
+          set -euo pipefail
+          docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}" >/dev/null 2>&1 || true
+          IMG="$KMOD_IMAGE"
+          if ! docker pull "$IMG" 2>/dev/null; then
+            IMG="$KMOD_IMAGE_FALLBACK"
+            docker pull "$IMG"
+          fi
+          docker run --rm \
+            "$IMG" \
+            bash -exc '
+              mkdir -p /etc/pki/rpm-gpg
+              curl -fsSL https://sirredbeard.github.io/azurelinux-desktop/RPM-GPG-KEY-azurelinux-desktop \
+                -o /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+              rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop
+              dnf5 install -y \
+                --setopt=reposdir=/dev/null \
+                --setopt=azl-base.gpgcheck=0 \
+                --setopt=azl-desktop-kmods.gpgcheck=1 \
+                --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64 \
+                --repofrompath=azl-desktop-kmods,https://sirredbeard.github.io/azurelinux-desktop/repo \
+                --repo=azl-base --repo=azl-desktop-kmods \
+                kernel azurelinux-desktop-policy
+              kver=$(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}" kernel-core)
+              moddir="/usr/lib/modules/$kver/extra/azurelinux-desktop"
+              test -d "$moddir"
+              count=$(find "$moddir" -name "*.ko" | wc -l)
+              test "$count" -ge 24
+              echo "installed $count modules:"
+              find "$moddir" -name "*.ko" -printf "%f\n" | sort
+              while IFS= read -r f; do
+                v=$(modinfo -F vermagic "$f")
+                case "$v" in "$kver"*) ;; *) echo "bad vermagic $f: $v"; exit 1 ;; esac
+              done < <(find "$moddir" -name "*.ko")
+              rpm -qa "azurelinux-desktop-*-kmod" | sort
+            ' 2>&1 | tee kmod-dnf-resolve-arm.log
+          grep -Fq "azurelinux-desktop-sound-kmod" kmod-dnf-resolve-arm.log

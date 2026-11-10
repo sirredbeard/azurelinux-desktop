@@ -31,7 +31,7 @@
 
 set -euo pipefail
 
-AZL_BASE_URL="${AZL_BASE_URL:-https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64}"
+AZL_BASE_URL="${AZL_BASE_URL:-https://packages.microsoft.com/azurelinux/4.0/beta/base/$(uname -m)}"
 OUTPUT_DIR="${1:?usage: $0 OUTPUT_DIR [kernel-nevra] [stage]}"
 REQUESTED_KERNEL="${2:-}"
 STAGE="${3:-${DESKTOP_KMOD_STAGE:-all}}"
@@ -221,10 +221,17 @@ else
 fi
 
 check_vermagic() {
-    local m
+    local m got
     for m in "$@"; do
-        test -f "$m"
-        test "$(modinfo -F vermagic "$m" | awk '{print $1}')" = "$KVERREL"
+        if [[ ! -f "$m" ]]; then
+            echo "vermagic check: $m missing" >&2
+            return 1
+        fi
+        got="$(modinfo -F vermagic "$m" | awk '{print $1}')"
+        if [[ "$got" != "$KVERREL" ]]; then
+            echo "vermagic check: $m has '$got', want '$KVERREL'" >&2
+            return 1
+        fi
     done
 }
 
@@ -548,6 +555,119 @@ echo "=== stage sound ==="
 SND_DIR="$WORKDIR/sound"
 rm -rf "$SND_DIR"
 cp -a "$SOURCE_DIR/sound" "$SND_DIR"
+if [[ "$KERNEL_ARCH" == "aarch64" ]]; then
+# --- sound on aarch64: ALSA core + ASoC + the Qualcomm QDSP6 stack ---
+# A different family from the x86_64 one below, sharing only the ALSA
+# core preamble. The machine driver for this board (snd_soc_sc8280xp,
+# which binds the monaco-gertrude card) depends on SOUNDWIRE in
+# Kconfig and its qcom-sdw helper calls the SoundWire bus. The bus,
+# its Qualcomm controller, and the ASoC stack build in ONE make
+# invocation: soundwire-qcom calls devm_snd_soc_register_component
+# from snd-soc-core, so a separate SoundWire pre-stage has nothing to
+# resolve that symbol against at modpost (canary run 42714373901,
+# 2026-11-09). The Step 0 audit against
+# the shipped config (findings/ventunoq-arm-hardware-enablement.md)
+# found everything below ALSA already stock: QCOM_APR, QRTR, RPMSG,
+# QCOM_PDR_HELPERS are =m, REGMAP/I2C/COMMON_CLK/GPIOLIB/OF are =y.
+# DMAENGINE is absent from the shipped config; the dmaengine PCM
+# helper inside snd-soc-core relies on the header stubs in that case,
+# and the module-load canary is the check that settles it.
+cat > "$WORKDIR/force-snd-arm.h" <<'EOF_ARM_SND'
+#define CONFIG_SOUND_MODULE 1
+#define CONFIG_SND_MODULE 1
+#define CONFIG_SND_TIMER_MODULE 1
+#define CONFIG_SND_PCM_MODULE 1
+#define CONFIG_SND_HWDEP_MODULE 1
+#define CONFIG_SND_RAWMIDI_MODULE 1
+#define CONFIG_SND_COMPRESS_OFFLOAD_MODULE 1
+#define CONFIG_SND_VMASTER 1
+#define CONFIG_SND_JACK 1
+#define CONFIG_SND_JACK_INPUT_DEV 1
+#define CONFIG_SND_PCM_TIMER 1
+#define CONFIG_SND_PCM_ELD 1
+#define CONFIG_SND_PCM_IEC958 1
+#define CONFIG_SND_DYNAMIC_MINORS 1
+/* Integer Kconfig values (not booleans), same as the x86 header. */
+#define CONFIG_SND_MAX_CARDS 32
+#define CONFIG_SND_MAJOR 116
+#define CONFIG_SND_SUPPORT_OLD_API 1
+#define CONFIG_SND_PROC_FS 1
+#define CONFIG_SND_VERBOSE_PROCFS 1
+#define CONFIG_SND_CTL_FAST_LOOKUP 1
+#define CONFIG_SND_SOC_MODULE 1
+#define CONFIG_SND_SOC_COMPRESS 1
+#define CONFIG_SND_SOC_TOPOLOGY 1
+#define CONFIG_SND_SOC_QCOM_MODULE 1
+#define CONFIG_SND_SOC_QCOM_COMMON_MODULE 1
+#define CONFIG_SND_SOC_QCOM_SDW_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_COMMON_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_CORE_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_AFE_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_AFE_DAI_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_AFE_CLOCKS_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_ADM_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_ROUTING_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_ASM_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_ASM_DAI_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_APM_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_APM_DAI_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_APM_LPASS_DAI_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_PRM_MODULE 1
+#define CONFIG_SND_SOC_QDSP6_PRM_LPASS_CLOCKS_MODULE 1
+#define CONFIG_SND_SOC_SC8280XP_MODULE 1
+#define CONFIG_SND_SOC_MAX98090_MODULE 1
+#define CONFIG_SND_SOC_HDMI_CODEC_MODULE 1
+#define CONFIG_SOUNDWIRE_MODULE 1
+#define CONFIG_SOUNDWIRE_QCOM_MODULE 1
+#define CONFIG_SOUNDWIRE_GENERIC_ALLOCATION_MODULE 1
+EOF_ARM_SND
+cp -a "$SOURCE_DIR/drivers/soundwire" "$SND_DIR/soundwire"
+{
+    echo "subdir-ccflags-y += -include $WORKDIR/force-snd-arm.h"
+    echo "ccflags-y += -include $WORKDIR/force-snd-arm.h"
+    cat <<'EOF_ARM_MK'
+obj-$(CONFIG_SOUND) += soundcore.o
+obj-$(CONFIG_SND) += core/ soc/
+obj-$(CONFIG_SOUNDWIRE) += soundwire/
+soundcore-y := sound_core.o
+EOF_ARM_MK
+} > "$SND_DIR/Makefile"
+make -C "$BUILD_DIR" M="$SND_DIR" \
+    CONFIG_SOUND=m CONFIG_SND=m CONFIG_SND_TIMER=m CONFIG_SND_PCM=m \
+    CONFIG_SND_HWDEP=m CONFIG_SND_RAWMIDI=m CONFIG_SND_COMPRESS_OFFLOAD=m \
+    CONFIG_SND_SEQUENCER=n CONFIG_SND_OSSEMUL=n CONFIG_SND_HRTIMER=n \
+    CONFIG_SND_DYNAMIC_MINORS=y CONFIG_SND_MAX_CARDS=32 CONFIG_SND_MAJOR=116 \
+    CONFIG_SND_SUPPORT_OLD_API=y CONFIG_SND_PROC_FS=y CONFIG_SND_VERBOSE_PROCFS=y \
+    CONFIG_SND_CTL_FAST_LOOKUP=y CONFIG_SND_DEBUG=n CONFIG_SND_JACK=y \
+    CONFIG_SND_JACK_INPUT_DEV=y CONFIG_SND_PCM_TIMER=y CONFIG_SND_PCM_ELD=y \
+    CONFIG_SND_PCM_IEC958=y CONFIG_SND_VMASTER=y \
+    CONFIG_SND_SOC=m CONFIG_SND_SOC_COMPRESS=y CONFIG_SND_SOC_TOPOLOGY=y \
+    CONFIG_SND_SOC_QCOM=m CONFIG_SND_SOC_QCOM_COMMON=m CONFIG_SND_SOC_QCOM_SDW=m \
+    CONFIG_SND_SOC_QDSP6=m CONFIG_SND_SOC_QDSP6_COMMON=m CONFIG_SND_SOC_QDSP6_CORE=m \
+    CONFIG_SND_SOC_QDSP6_AFE=m CONFIG_SND_SOC_QDSP6_AFE_DAI=m \
+    CONFIG_SND_SOC_QDSP6_AFE_CLOCKS=m CONFIG_SND_SOC_QDSP6_ADM=m \
+    CONFIG_SND_SOC_QDSP6_ROUTING=m CONFIG_SND_SOC_QDSP6_ASM=m \
+    CONFIG_SND_SOC_QDSP6_ASM_DAI=m CONFIG_SND_SOC_QDSP6_APM=m \
+    CONFIG_SND_SOC_QDSP6_APM_DAI=m CONFIG_SND_SOC_QDSP6_APM_LPASS_DAI=m \
+    CONFIG_SND_SOC_QDSP6_PRM=m CONFIG_SND_SOC_QDSP6_PRM_LPASS_CLOCKS=m \
+    CONFIG_SND_SOC_SC8280XP=m CONFIG_SND_SOC_MAX98090=m CONFIG_SND_SOC_HDMI_CODEC=m \
+    CONFIG_SOUNDWIRE=m CONFIG_SOUNDWIRE_QCOM=m CONFIG_SOUNDWIRE_GENERIC_ALLOCATION=m \
+    CONFIG_SOUNDWIRE_AMD=n CONFIG_SOUNDWIRE_INTEL=n CONFIG_SOUNDWIRE_CADENCE=n \
+    modules
+cp -f "$SND_DIR"/soundwire/*.ko "$SND_DIR"/
+mapfile -t SOUND_MODULES < <(find "$SND_DIR" -name '*.ko' | sort)
+# The audited set is 29 modules (7 ALSA core, snd-soc-core, 14 QDSP6,
+# 3 machine/common, 2 codecs, 2 SoundWire). The floor sits below it so
+# a build that silently lost part of the ASoC closure to a missing
+# force-header define fails here instead of shipping.
+test "${#SOUND_MODULES[@]}" -ge 24
+for want in snd-soc-core.ko snd-q6apm.ko q6apm-dai.ko snd-soc-sc8280xp.ko snd-soc-max98090.ko soundwire-bus.ko; do
+    printf '%s\n' "${SOUND_MODULES[@]}" | grep -q "/${want}$" || { echo "missing expected module: ${want}" >&2; exit 1; }
+done
+check_vermagic "${SOUND_MODULES[@]}"
+echo "=== stage sound done ==="
+else
 cat > "$WORKDIR/force-snd.h" <<'EOF'
 #define CONFIG_SOUND_MODULE 1
 #define CONFIG_SND_MODULE 1
@@ -673,6 +793,7 @@ mapfile -t SOUND_MODULES < <(find "$SND_DIR" -name '*.ko' | sort)
 test "${#SOUND_MODULES[@]}" -ge 12
 check_vermagic "${SOUND_MODULES[@]}"
 echo "=== stage sound done ==="
+fi
 fi
 
 # --- bluetooth ---
