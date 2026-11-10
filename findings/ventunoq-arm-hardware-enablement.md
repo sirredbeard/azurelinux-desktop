@@ -1,6 +1,6 @@
 # Ventuno Q hardware enablement for an ARM image: scope and gap analysis
 
-**Status:** scoping only. No kickstart, kiwi, kmod, or workflow changes in this PR. Written 2026-11-09 from a live inspection of the board and a line by line read of the Azure Linux 4 kernel configs.
+**Status:** merged to main as a preview. PR #42 landed on main on 2026-11-10 (squash commit 65d7f31), on top of the Fedora 45 rebase. The work this document scopes is in the image: the firmware family, the sound module pipeline, the compiled device tree, and the FastRPC, dma-buf heap, and QRTR repacks, plus the ALSA UCM configuration package. The ARM image passed a systemd-nspawn boot test, graphical session up, the image's own DSP services running against the board's real DSPs. The live-boot census on the board itself has not run yet, and the three decisions flagged in this document (the camera exception, device tree delivery, and the policy package shape) are still open. The analysis below is the original scoping document, written 2026-11-09 from a live inspection of the board and a line by line read of the Azure Linux 4 kernel configs, and it stays as written.
 
 The short version
 

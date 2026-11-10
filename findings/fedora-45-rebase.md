@@ -1,5 +1,9 @@
 Fedora 45 rebase: findings and plan
 
+Status: merged to main on 2026-11-10 (PR #41, squash commit 2792495). This document is the design record from before the merge and stays as written below.
+
+The fresh x86_64 build from the merged stack (Actions run 42756587848) passed an Azure VM vet before the merge: clean boot to GNOME 51.1, dnf check and a dnf upgrade dry run solve clean, and every application in the README launches. One finding from that vet stays open. The keyring prompt can still appear once in a live session: the image's secret service is oo7-daemon, and no keyring store exists until the first application creates one, so the unlock helper has nothing to act on at session start. Installed systems take the PAM unlock path and do not hit it.
+
 Branch rebase/fedora-45. Written 2026-11-08. All package tests ran on the Arduino board (ventunoq) in Podman, resolving the aarch64 builds of the Azure Linux 4.0, Fedora, and RPM Fusion repos. The repo targets x86_64. Resolution behavior, sonames, and version locks carry over. Arch-specific packages do not, and the notes below call out each place that matters.
 
 The short version

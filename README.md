@@ -17,7 +17,11 @@ This is a side project, explored for fun. **It is not affiliated with, sponsored
 
 Third-party scripts/RPM packages are very likely to get confused by the repo mixing here. I strongly encourage using [Flatpak](https://flatpak.org/) for desktop applications. Flatpak is configured on installs with Flathub added and tested in the minimal 'canary' container.
 
-**This project is x86_64-focused for now.** The live ISO, installer ISO, and disk images target Intel-class machines: chipset, GPU, and audio paths that show up on typical Intel laptops and desktops are what get exercised. aarch64 is on the wishlist (I want to get there), but it is not a supported image target yet. Out-of-tree desktop drivers this repo publishes cover some x86_64 gaps Azure's stock kernel leaves open: USB HID/storage, Intel Wi-Fi, ALSA HDA/USB audio, Bluetooth, UVC cameras, ThinkPad ACPI, USB Type-C/UCSI, and PS/2 mouse (`psmouse`) for hypervisors that still default to PS/2. If you need another driver for real hardware, [open an issue](https://github.com/sirredbeard/azurelinux-desktop/issues) and I'll do my best.
+**x86_64 is the primary target.** The live ISO, installer ISO, and disk images target Intel-class machines: chipset, GPU, and audio paths that show up on typical Intel laptops and desktops are what get exercised. Out-of-tree desktop drivers this repo publishes cover some x86_64 gaps Azure's stock kernel leaves open: USB HID/storage, Intel Wi-Fi, ALSA HDA/USB audio, Bluetooth, UVC cameras, ThinkPad ACPI, USB Type-C/UCSI, and PS/2 mouse (`psmouse`) for hypervisors that still default to PS/2.
+
+**aarch64 ships as a preview.** A live ISO for the Arduino Ventuno Q (Qualcomm QCS8275) builds from the same kickstart, with the board's hardware enablement included: the firmware family, the sound modules, a compiled device tree, and the FastRPC and QRTR userspace the DSPs need. There is no aarch64 installer ISO, and the ARM image has not had its live-boot census on the board yet. Treat it as a preview. See [`findings/ventunoq-arm-hardware-enablement.md`](findings/ventunoq-arm-hardware-enablement.md).
+
+If you need another driver for real hardware, [open an issue](https://github.com/sirredbeard/azurelinux-desktop/issues) and I'll do my best.
 
 ## What's included
 
@@ -27,7 +31,7 @@ Third-party scripts/RPM packages are very likely to get confused by the repo mix
 
 ### Desktop Environment
 
-* [GNOME](https://www.gnome.org/) from [Fedora](https://fedoraproject.org/)
+* [GNOME](https://www.gnome.org/) 51 from [Fedora](https://fedoraproject.org/) 45
 * [Copilot](https://github.com/sirredbeard/copilot-desktop-gtk) (unofficial Microsoft Copilot GTK Flatpak)
 
 ### Web and Email
@@ -64,7 +68,7 @@ The result: GNOME, Copilot, PowerShell, Visual Studio Code Insiders, Microsoft E
 
 ### Where the packages actually come from
 
-The base is Azure Linux. Kernel, systemd, NetworkManager, bluez, fwupd-efi, linux-firmware, coreutils, util-linux, cryptsetup, and the rest of the system layer all resolve to Azure Linux. `glibc` has to come from Fedora because `gtk4` needs newer symbol versioning than Azure Linux 4.0's glibc ships right now. A few other packages (`wpa_supplicant`, `fwupd`, `fuse3`) must come from Fedora. `fwupd-efi` stays on Azure Linux.
+The base is Azure Linux. Kernel, systemd, NetworkManager, bluez, fwupd-efi, linux-firmware, coreutils, util-linux, cryptsetup, and the rest of the system layer all resolve to Azure Linux. `glibc` has to come from Fedora 45 because `gtk4` needs newer symbol versioning than Azure Linux 4.0's glibc ships right now. A few other packages (`wpa_supplicant`, `fwupd`, `fuse3`) must come from Fedora. `fwupd-efi` stays on Azure Linux.
 
 Current package-by-package listings are in [`findings/live-package-list.txt`](findings/live-package-list.txt) and [`findings/installer-package-list.txt`](findings/installer-package-list.txt). Successful live and installer ISO builds on Actions refresh those files automatically.
 
@@ -74,11 +78,13 @@ Microsoft and GitHub products are not version-pinned. Each build pulls whatever 
 
 There are two separate ISOs/images here, built two different ways:
 
-**The live ISO/VM images** (`kickstart/azurelinux-desktop-live.ks`) is what you boot to try the desktop without touching a disk. It's fed to [`lorax`](https://github.com/weldr/lorax) and `livemedia-creator --no-virt`, which runs a real `anaconda --dirinstall` package install against Azure Linux's own repos plus a pinned Fedora repo for GNOME and everything GNOME needs, then squashes the result into a live-bootable ISO and VM image. Lorax is built specifically for producing live media. The build runs on GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)) from a clean runner every time.
+**The live ISO/VM images** (`kickstart/azurelinux-desktop-live.ks`) is what you boot to try the desktop without touching a disk. It's fed to [`lorax`](https://github.com/weldr/lorax) and `livemedia-creator --no-virt`, which runs a real `anaconda --dirinstall` package install against Azure Linux's own repos plus a pinned Fedora 45 repo for GNOME and everything GNOME needs, then squashes the result into a live-bootable ISO and VM image. Lorax is built specifically for producing live media. The build runs on GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)) from a clean runner every time.
 
 **The installer ISO** (`kiwi/`) is what you boot to actually install the desktop to a disk. This one is built with [KIWI-NG](https://github.com/OSInside/kiwi), because that's what Microsoft's own real Azure Linux 4.0 installer ISO is built with. I looked at `microsoft/azurelinux`'s own `base/images/vm-iso-installer/` directory and copied its approach: a `.kiwi` image description bootstraps a minimal live-boot environment (just enough to run a text-mode Anaconda, nothing desktop-related), `config.sh` downloads every real target package plus dependencies into an offline repo baked onto the ISO, and a kickstart template gets its package list filled in from that same list at build time. The kickstart installs entirely offline, no network needed at install time, same as the real thing. What's different from upstream is the package list itself (the full GNOME + Microsoft/GitHub stack instead of Azure Linux's minimal cloud base) and the extra network fetches for GitHub Copilot, edit, etc. Account setup is interactive, matching Azure Linux's installer templates. The build runs on GitHub Actions too ([`.github/workflows/release.yml`](.github/workflows/release.yml)), same clean-runner-every-time approach.
 
 **The live ISO and VM disk images** (qcow2/VHDX/VDI/VMDK) skip the install step entirely and boot straight to a desktop. They all come from the same `azurelinux-desktop-live.ks` kickstart as the live ISO, but run through `livemedia-creator --make-disk` instead of `--make-iso`, so the disk-image variant enables one extra thing the ISO doesn't need: `azl-growroot.service`, a small oneshot unit (`cloud-utils-growpart` + `xfs_growfs`) that grows the root partition/filesystem to fill whatever size the disk gets resized to after the anaconda install finishes, since Anaconda only sizes the partition to the small disk it's given at install time. `build-disk-image` (driven by [`release.yml`](.github/workflows/release.yml)) runs the anaconda install and produces the base qcow2; three independent jobs (`build-vhdx`, `build-vdi`, `build-vmdk`) each take that qcow2 and run a single `qemu-img convert` to produce the other three formats. I have not tested the VM images in all the various hypervisors, let me know how it goes.
+
+**The aarch64 live ISO** is the same live kickstart passed through [`scripts/make-arm-ks.py`](scripts/make-arm-ks.py), which swaps in the aarch64 repos and EFI packages, drops the x86_64-only packages, and neutralizes the x86_64 side-loads. It builds in [`.github/workflows/build-live-iso-arm-test.yml`](.github/workflows/build-live-iso-arm-test.yml), and the squashfs it produces is the rootfs the systemd-nspawn sanity boot runs. The Ventuno Q pieces ride along in the image, and the sound modules publish through the same GitHub Pages kmod repo as the x86_64 set.
 
 ## How it's tested
 
@@ -265,7 +271,7 @@ Secure Boot note: These are project-built modules, not signed by the Azure kerne
 
 ## How do I use this
 
-Every release is built straight from this repo's kickstart or kiwi files through the GitHub Actions workflows linked above, so it can always be reproduced from source. The nightly publication builds the live ISO, all live VM image formats, the installer ISO, and the canary container from the current default branch. It removes the preceding release, tags, and canary container versions first. There is intentionally only one current release, not an archive of old builds. Grab it from [Releases](https://github.com/sirredbeard/azurelinux-desktop/releases).
+Every release is built straight from this repo's kickstart or kiwi files through the GitHub Actions workflows linked above, so it can always be reproduced from source. The nightly publication builds the live ISO, all live VM image formats, the installer ISO, and the canary container from the current default branch. It removes the preceding release, tags, and canary container versions first. There is intentionally only one current release, not an archive of old builds. Grab it from [Releases](https://github.com/sirredbeard/azurelinux-desktop/releases). Preview builds, the aarch64 live ISO today, publish as a pre-release next to it.
 
 **PowerShell:**
 
