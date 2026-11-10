@@ -16,11 +16,12 @@
 #
 # Background: bare-metal follow-up to the WSL wslc/WinUI Reactor demo
 # (https://www.boxofcables.dev/azure-linux-desktop-a-build-2026-mashup-of-wslc-winui-reactor-and-azure-linux-4-0/).
-# Azure Linux 4.0 is close to Fedora 43 on core userland (same upstream
+# Azure Linux 4.0 is close to Fedora on core userland (same upstream
 # lines, different build tags). It ships no desktop. This kickstart
 # installs a real Azure Linux 4.0 base, then layers current GNOME and
-# desktop deps from Fedora 43. Stay on that Fedora baseline: newer
-# Fedora needs glibc symbols Azure Linux 4.0 does not have yet.
+# desktop deps from Fedora 45: Fedora takes the desktop stack and
+# glibc, Azure Linux keeps the core and python3 (findings/fedora-45-rebase.md,
+# path A).
 #
 # Repo policy at install time uses dnf `cost=` on the repo lines below
 # (lower cost wins). Azure base/microsoft = cost 1. Fedora / RPM Fusion =
@@ -92,8 +93,8 @@ repo --name=azl-desktop-kmods --baseurl=https://sirredbeard.github.io/azurelinux
 # across different NEVRAs. Same list and reasoning as kiwi/config.sh
 # FEDORA_EXCLUDES (glibc, wpa_supplicant, fwupd*, fuse3* deliberately
 # not here - real ABI floors or no safe Azure fallback).
-repo --name=fedora43 --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kernel-devel,kernel-headers,kernel-tools,kernel-tools-libs,kmod,less,less-color,libaio,libblkid,libblkid-devel,libcom_err,libfdisk,liblastlog2,libmount,libmount-devel,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,NetworkManager-wwan,perl,perl-libs,perl-interpreter,perl-Errno,perl-Socket,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,systemd-rpm-macros,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware
-repo --name=fedora43-updates --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/43/Everything/x86_64/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kernel-devel,kernel-headers,kernel-tools,kernel-tools-libs,kmod,less,less-color,libaio,libblkid,libblkid-devel,libcom_err,libfdisk,liblastlog2,libmount,libmount-devel,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,NetworkManager-wwan,perl,perl-libs,perl-interpreter,perl-Errno,perl-Socket,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,systemd-rpm-macros,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware
+repo --name=fedora45 --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kernel-devel,kernel-headers,kernel-tools,kernel-tools-libs,kmod,less,less-color,libaio,libblkid,libblkid-devel,libfdisk,liblastlog2,libmount,libmount-devel,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,NetworkManager-wwan,perl,perl-libs,perl-interpreter,perl-Errno,perl-Socket,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,systemd-rpm-macros,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware,ModemManager,abattis-cantarell-vf-fonts,adwaita-cursor-theme,adwaita-icon-theme,adwaita-icon-theme-legacy,alternatives,anaconda-core,anaconda-tui,aribb24,authselect,authselect-libs,azure-cli,azurelinux-gpg-keys,azurelinux-release,azurelinux-release-common,azurelinux-release-identity-basic,azurelinux-repos,bash-completion,blivet-data,bzip2-libs,capstone,cdparanoia-libs,checkpolicy,clevis,clevis-luks,clevis-pin-tpm2,cloud-utils-growpart,codec2,color-filesystem,colord,colord-libs,composefs-libs,cpio,cyrus-sasl-lib,dconf,default-fonts-core-emoji,default-fonts-core-sans,dejavu-sans-fonts,desktop-file-utils,device-mapper-multipath,device-mapper-multipath-libs,dmidecode,dnf-data,dns-root-data,double-conversion,dracut,dracut-config-generic,dracut-live,dracut-network,duktape,efi-filesystem,efivar-libs,emacs-filesystem,exempi,f2fs-tools,fftw-libs-double,fftw-libs-single,filesystem,flac-libs,flashrom,fontconfig,fonts-filesystem,fribidi,fuse,fuse-common,fwupd-efi,game-music-emu,gdbm,gdbm-libs,gettext,gettext-envsubst,gettext-libs,gettext-runtime,giflib,glib-networking,glibmm2.68,glx-utils,glycin-thumbnailer,gmp,gnulib-l10n,gnupg2,gnupg2-dirmngr,gnupg2-gpg-agent,gnupg2-gpgconf,gnupg2-keyboxd,gnupg2-verify,gobject-introspection,google-noto-fonts-common,google-noto-sans-vf-fonts,graphene,graphite2,groff-base,grubby,gsm,gupnp-igd,harfbuzz,harfbuzz-icu,hdparm,hicolor-icon-theme,hidapi,highway,hiredis,hunspell-en-GB,hunspell-en-US,hyperv-daemons,hyperv-daemons-license,hypervkvpd,hypervvssd,hyphen,ilbc,ima-evm-utils-libs,inih,inih-cpp,initscripts-service,ipset,ipset-libs,iptables-libs,iptables-nft,irqbalance,isns-utils-libs,iso-codes,iw,jansson,jbigkit-libs,jose,json-c,json-glib,kmod-libs,kpartx,lame-libs,lcms2,leptonica,libICE,libSM,libXau,libXcomposite,libXdamage,libXdmcp,libXft,libXmu,libarchive,libaribcaption,libassuan,libasyncns,libatasmart,libb2,libblockdev,libblockdev-btrfs,libblockdev-crypto,libblockdev-dm,libblockdev-fs,libblockdev-loop,libblockdev-lvm,libblockdev-mdraid,libblockdev-mpath,libblockdev-nvme,libblockdev-part,libblockdev-smart,libblockdev-swap,libblockdev-utils,libbytesize,libcacard,libcap,libcdio,libcloudproviders,libcomps,libdaemon,libdatrie,libdecor,libdnf,libdvdnav,libdvdread,libebur128,libeconf,libei,libeis,libepoxy,liberation-fonts-all,liberation-mono-fonts,liberation-sans-fonts,liberation-serif-fonts,libevdev,libffi,libfontenc,libfsverity,libftdi,libfyaml,libgcrypt,libgee,libglvnd,libglvnd-egl,libglvnd-gles,libglvnd-glx,libglvnd-opengl,libgpg-error,libgtop2,libgudev,libgusb,libgxps,libidn2,libiptcdata,libjaylink,libjose,libkcapi,libkcapi-hasher,libkcapi-hmaccalc,libksba,liblc3,libldac,liblerc,libluksmeta,libmanette,libmbim,libmbim-utils,libmnl,libmodplug,libmpc,libmpeg2,libmtp,libndp,libnetfilter_conntrack,libnfnetlink,libnftnl,libnice,libnl3,libnl3-cli,libnvme,liboeffis,libogg,libosinfo,libpciaccess,libpkgconf,libproxy,libpwquality,libqmi,libqmi-utils,libqrtr-glib,librepo,libreport,libreport-anaconda,libreport-cli,libreport-filesystem,libreport-plugin-bugzilla,libreport-plugin-reportuploader,libreport-web,libsamplerate,libsbc,libselinux,libselinux-utils,libsemanage,libsepol,libshout,libsigc++30,libsndfile,libsrtp,libstemmer,libtalloc,libtdb,libteam,libtevent,libtextstyle,libthai,libtheora,libtinysparql,libtirpc,libtool-ltdl,libtraceevent,libunistring,liburing,libva,libvdpau,libverto,libvisual,libvorbis,libwacom,libwacom-data,libwebp,libxcb,libxcrypt,libxcvt,libxkbfile,libxshmfence,libxslt,libyaml,libyuv,libzstd,lm_sensors-libs,lmdb-libs,logrotate,lpcnetfreedv,lsof,lttng-ust,luksmeta,lz4-libs,lzo,mailcap,mdadm,memstrack,minizip-ng-compat,mkpasswd,mokutil,mpdecimal,mpfr,mpg123-libs,nftables,nftables-services,noopenh264,npth,numactl-libs,opencore-amr,opencsd,openjpeg,openpgm,orc,os-prober,osinfo-db,osinfo-db-tools,pam,pam-libs,pcsc-lite-libs,perl-AutoLoader,perl-B,perl-Carp,perl-Class-Struct,perl-Digest,perl-Digest-MD5,perl-DynaLoader,perl-Encode,perl-Error,perl-Exporter,perl-Fcntl,perl-File-Basename,perl-File-Copy,perl-File-Path,perl-File-Temp,perl-File-stat,perl-FileHandle,perl-Getopt-Long,perl-Getopt-Std,perl-IO,perl-IO-Socket-IP,perl-IO-Socket-SSL,perl-IPC-Open3,perl-MIME-Base32,perl-MIME-Base64,perl-NDBM_File,perl-Net-SSLeay,perl-POSIX,perl-PathTools,perl-Pod-Escapes,perl-Pod-Perldoc,perl-Pod-Simple,perl-Pod-Usage,perl-Scalar-List-Utils,perl-SelectSaver,perl-Storable,perl-Symbol,perl-Term-ANSIColor,perl-Term-Cap,perl-TermReadKey,perl-Text-ParseWords,perl-Text-Tabs+Wrap,perl-Time-HiRes,perl-Time-Local,perl-Unicode-Normalize,perl-base,perl-constant,perl-if,perl-lib,perl-libnet,perl-locale,perl-mro,perl-overload,perl-overloading,perl-parent,perl-vars,pixman,pkcs11-provider,pkgconf,pkgconf-m4,pkgconf-pkg-config,policycoreutils,policycoreutils-python-utils,polkit-pkla-compat,poppler-data,popt,protobuf,protobuf-c,psmisc,publicsuffix-list-dafsa,python3,python3-argcomplete,python3-attrs,python3-blivet,python3-blockdev,python3-bytesize,python3-cairo,python3-cffi,python3-charset-normalizer,python3-crypt-r,python3-dasbus,python3-dbus,python3-distro,python3-dnf,python3-gobject,python3-gobject-base,python3-hawkey,python3-inotify,python3-iso639,python3-jsonschema,python3-jsonschema-specifications,python3-kickstart,python3-libcomps,python3-libdnf,python3-libreport,python3-libs,python3-libselinux,python3-libsemanage,python3-meh,python3-nftables,python3-pam,python3-perf,python3-pid,python3-policycoreutils,python3-productmd,python3-pwquality,python3-pycparser,python3-pyparted,python3-pysocks,python3-pyudev,python3-pyyaml,python3-referencing,python3-requests-file,python3-requests-ftp,python3-satyr,python3-setools,python3-simpleline,python3-systemd,python3-xkbregistry,qt6-filesystem,qt6-qtbase,qt6-qtbase-common,qt6-qtbase-gui,qt6-qtdeclarative,qt6-qtpositioning,qt6-qtserialport,qt6-qtsvg,qt6-qtwebchannel,re2,readline,satyr,sdbus-cpp,setxkbmap,shared-mime-info,simdutf,slang,snappy,sound-theme-freedesktop,soxr,speex,spirv-tools-libs,startup-notification,teamd,tinysparql,tslib,tuned,tuned-ppd,twolame-libs,uchardet,unzip,usbredir,userspace-rcu,virt-what,vo-amrwbenc,volume_key-libs,vulkan-loader,which,whois-nls,wsdd,xcb-util,xcb-util-cursor,xcb-util-image,xcb-util-keysyms,xcb-util-renderutil,xcb-util-wm,xdg-utils,xfsprogs,xkbcomp,xml-common,xmlrpc-c,xmlrpc-c-client,xmodmap,xprop,xrdb,xvidcore,zeromq,zram-generator,zstd,zvbi,hunspell-en-AU,hunspell-en-CA,hunspell-en-GB,hunspell-en-US,samba-common,at-spi2-atk,at-spi2-core,atk,crypto-policies,crypto-policies-scripts,google-noto-sans-mono-vf-fonts,google-noto-serif-vf-fonts,hunspell-en,hypervfcopyd,langpacks-core-en,langpacks-en,langpacks-fonts-en,libldb,libsmbclient,libwbclient,perl-Data-Dumper,python-unversioned-command,python3-linux-procfs,python3-pyinotify,python3-rpds-py,samba-client-libs,samba-common-libs,samba-libs,samba-ndr-libs,unbound,unbound-anchor,unbound-libs
+repo --name=fedora45-updates --baseurl=https://dl.fedoraproject.org/pub/fedora/linux/updates/45/Everything/x86_64/ --cost=50 --excludepkgs=audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kernel-devel,kernel-headers,kernel-tools,kernel-tools-libs,kmod,less,less-color,libaio,libblkid,libblkid-devel,libfdisk,liblastlog2,libmount,libmount-devel,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,NetworkManager-wwan,perl,perl-libs,perl-interpreter,perl-Errno,perl-Socket,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,systemd-rpm-macros,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware,ModemManager,abattis-cantarell-vf-fonts,adwaita-cursor-theme,adwaita-icon-theme,adwaita-icon-theme-legacy,alternatives,anaconda-core,anaconda-tui,aribb24,authselect,authselect-libs,azure-cli,azurelinux-gpg-keys,azurelinux-release,azurelinux-release-common,azurelinux-release-identity-basic,azurelinux-repos,bash-completion,blivet-data,bzip2-libs,capstone,cdparanoia-libs,checkpolicy,clevis,clevis-luks,clevis-pin-tpm2,cloud-utils-growpart,codec2,color-filesystem,colord,colord-libs,composefs-libs,cpio,cyrus-sasl-lib,dconf,default-fonts-core-emoji,default-fonts-core-sans,dejavu-sans-fonts,desktop-file-utils,device-mapper-multipath,device-mapper-multipath-libs,dmidecode,dnf-data,dns-root-data,double-conversion,dracut,dracut-config-generic,dracut-live,dracut-network,duktape,efi-filesystem,efivar-libs,emacs-filesystem,exempi,f2fs-tools,fftw-libs-double,fftw-libs-single,filesystem,flac-libs,flashrom,fontconfig,fonts-filesystem,fribidi,fuse,fuse-common,fwupd-efi,game-music-emu,gdbm,gdbm-libs,gettext,gettext-envsubst,gettext-libs,gettext-runtime,giflib,glib-networking,glibmm2.68,glx-utils,glycin-thumbnailer,gmp,gnulib-l10n,gnupg2,gnupg2-dirmngr,gnupg2-gpg-agent,gnupg2-gpgconf,gnupg2-keyboxd,gnupg2-verify,gobject-introspection,google-noto-fonts-common,google-noto-sans-vf-fonts,graphene,graphite2,groff-base,grubby,gsm,gupnp-igd,harfbuzz,harfbuzz-icu,hdparm,hicolor-icon-theme,hidapi,highway,hiredis,hunspell-en-GB,hunspell-en-US,hyperv-daemons,hyperv-daemons-license,hypervkvpd,hypervvssd,hyphen,ilbc,ima-evm-utils-libs,inih,inih-cpp,initscripts-service,ipset,ipset-libs,iptables-libs,iptables-nft,irqbalance,isns-utils-libs,iso-codes,iw,jansson,jbigkit-libs,jose,json-c,json-glib,kmod-libs,kpartx,lame-libs,lcms2,leptonica,libICE,libSM,libXau,libXcomposite,libXdamage,libXdmcp,libXft,libXmu,libarchive,libaribcaption,libassuan,libasyncns,libatasmart,libb2,libblockdev,libblockdev-btrfs,libblockdev-crypto,libblockdev-dm,libblockdev-fs,libblockdev-loop,libblockdev-lvm,libblockdev-mdraid,libblockdev-mpath,libblockdev-nvme,libblockdev-part,libblockdev-smart,libblockdev-swap,libblockdev-utils,libbytesize,libcacard,libcap,libcdio,libcloudproviders,libcomps,libdaemon,libdatrie,libdecor,libdnf,libdvdnav,libdvdread,libebur128,libeconf,libei,libeis,libepoxy,liberation-fonts-all,liberation-mono-fonts,liberation-sans-fonts,liberation-serif-fonts,libevdev,libffi,libfontenc,libfsverity,libftdi,libfyaml,libgcrypt,libgee,libglvnd,libglvnd-egl,libglvnd-gles,libglvnd-glx,libglvnd-opengl,libgpg-error,libgtop2,libgudev,libgusb,libgxps,libidn2,libiptcdata,libjaylink,libjose,libkcapi,libkcapi-hasher,libkcapi-hmaccalc,libksba,liblc3,libldac,liblerc,libluksmeta,libmanette,libmbim,libmbim-utils,libmnl,libmodplug,libmpc,libmpeg2,libmtp,libndp,libnetfilter_conntrack,libnfnetlink,libnftnl,libnice,libnl3,libnl3-cli,libnvme,liboeffis,libogg,libosinfo,libpciaccess,libpkgconf,libproxy,libpwquality,libqmi,libqmi-utils,libqrtr-glib,librepo,libreport,libreport-anaconda,libreport-cli,libreport-filesystem,libreport-plugin-bugzilla,libreport-plugin-reportuploader,libreport-web,libsamplerate,libsbc,libselinux,libselinux-utils,libsemanage,libsepol,libshout,libsigc++30,libsndfile,libsrtp,libstemmer,libtalloc,libtdb,libteam,libtevent,libtextstyle,libthai,libtheora,libtinysparql,libtirpc,libtool-ltdl,libtraceevent,libunistring,liburing,libva,libvdpau,libverto,libvisual,libvorbis,libwacom,libwacom-data,libwebp,libxcb,libxcrypt,libxcvt,libxkbfile,libxshmfence,libxslt,libyaml,libyuv,libzstd,lm_sensors-libs,lmdb-libs,logrotate,lpcnetfreedv,lsof,lttng-ust,luksmeta,lz4-libs,lzo,mailcap,mdadm,memstrack,minizip-ng-compat,mkpasswd,mokutil,mpdecimal,mpfr,mpg123-libs,nftables,nftables-services,noopenh264,npth,numactl-libs,opencore-amr,opencsd,openjpeg,openpgm,orc,os-prober,osinfo-db,osinfo-db-tools,pam,pam-libs,pcsc-lite-libs,perl-AutoLoader,perl-B,perl-Carp,perl-Class-Struct,perl-Digest,perl-Digest-MD5,perl-DynaLoader,perl-Encode,perl-Error,perl-Exporter,perl-Fcntl,perl-File-Basename,perl-File-Copy,perl-File-Path,perl-File-Temp,perl-File-stat,perl-FileHandle,perl-Getopt-Long,perl-Getopt-Std,perl-IO,perl-IO-Socket-IP,perl-IO-Socket-SSL,perl-IPC-Open3,perl-MIME-Base32,perl-MIME-Base64,perl-NDBM_File,perl-Net-SSLeay,perl-POSIX,perl-PathTools,perl-Pod-Escapes,perl-Pod-Perldoc,perl-Pod-Simple,perl-Pod-Usage,perl-Scalar-List-Utils,perl-SelectSaver,perl-Storable,perl-Symbol,perl-Term-ANSIColor,perl-Term-Cap,perl-TermReadKey,perl-Text-ParseWords,perl-Text-Tabs+Wrap,perl-Time-HiRes,perl-Time-Local,perl-Unicode-Normalize,perl-base,perl-constant,perl-if,perl-lib,perl-libnet,perl-locale,perl-mro,perl-overload,perl-overloading,perl-parent,perl-vars,pixman,pkcs11-provider,pkgconf,pkgconf-m4,pkgconf-pkg-config,policycoreutils,policycoreutils-python-utils,polkit-pkla-compat,poppler-data,popt,protobuf,protobuf-c,psmisc,publicsuffix-list-dafsa,python3,python3-argcomplete,python3-attrs,python3-blivet,python3-blockdev,python3-bytesize,python3-cairo,python3-cffi,python3-charset-normalizer,python3-crypt-r,python3-dasbus,python3-dbus,python3-distro,python3-dnf,python3-gobject,python3-gobject-base,python3-hawkey,python3-inotify,python3-iso639,python3-jsonschema,python3-jsonschema-specifications,python3-kickstart,python3-libcomps,python3-libdnf,python3-libreport,python3-libs,python3-libselinux,python3-libsemanage,python3-meh,python3-nftables,python3-pam,python3-perf,python3-pid,python3-policycoreutils,python3-productmd,python3-pwquality,python3-pycparser,python3-pyparted,python3-pysocks,python3-pyudev,python3-pyyaml,python3-referencing,python3-requests-file,python3-requests-ftp,python3-satyr,python3-setools,python3-simpleline,python3-systemd,python3-xkbregistry,qt6-filesystem,qt6-qtbase,qt6-qtbase-common,qt6-qtbase-gui,qt6-qtdeclarative,qt6-qtpositioning,qt6-qtserialport,qt6-qtsvg,qt6-qtwebchannel,re2,readline,satyr,sdbus-cpp,setxkbmap,shared-mime-info,simdutf,slang,snappy,sound-theme-freedesktop,soxr,speex,spirv-tools-libs,startup-notification,teamd,tinysparql,tslib,tuned,tuned-ppd,twolame-libs,uchardet,unzip,usbredir,userspace-rcu,virt-what,vo-amrwbenc,volume_key-libs,vulkan-loader,which,whois-nls,wsdd,xcb-util,xcb-util-cursor,xcb-util-image,xcb-util-keysyms,xcb-util-renderutil,xcb-util-wm,xdg-utils,xfsprogs,xkbcomp,xml-common,xmlrpc-c,xmlrpc-c-client,xmodmap,xprop,xrdb,xvidcore,zeromq,zram-generator,zstd,zvbi,hunspell-en-AU,hunspell-en-CA,hunspell-en-GB,hunspell-en-US,samba-common,at-spi2-atk,at-spi2-core,atk,crypto-policies,crypto-policies-scripts,google-noto-sans-mono-vf-fonts,google-noto-serif-vf-fonts,hunspell-en,hypervfcopyd,langpacks-core-en,langpacks-en,langpacks-fonts-en,libldb,libsmbclient,libwbclient,perl-Data-Dumper,python-unversioned-command,python3-linux-procfs,python3-pyinotify,python3-rpds-py,samba-client-libs,samba-common-libs,samba-libs,samba-ndr-libs,unbound,unbound-anchor,unbound-libs
 # aznfs (Azure Files NFS mount helper) rides along in ms-prod's dependency
 # graph even though nothing we actually want (powershell) needs it for real -
 # it's a pure Azure-cloud tool with a %pre scriptlet that hard-fails without
@@ -114,8 +115,8 @@ repo --name=github-desktop --baseurl=https://mirror.mwt.me/shiftkey-desktop/rpm 
 # RPMFusion, for real ffmpeg/h264/aac decoding - Fedora's own gstreamer
 # packages are the "-free" builds only (patent-clean, no mp3/h264/aac).
 # Cost 50 puts it in the same "fill the gaps" tier as Fedora proper.
-repo --name=rpmfusion-free --mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-43&arch=x86_64 --cost=50
-repo --name=rpmfusion-nonfree --mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=nonfree-fedora-43&arch=x86_64 --cost=50
+repo --name=rpmfusion-free --mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-45&arch=x86_64 --cost=50
+repo --name=rpmfusion-nonfree --mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=nonfree-fedora-45&arch=x86_64 --cost=50
 
 # --nocore: Azure Linux has no comps @core group that helps here.
 # GNOME and desktop packages come from Fedora 43.
@@ -183,7 +184,6 @@ NetworkManager
 # (livesys creates/configures "liveuser" at runtime, see the %post note
 # below on GDM autologin).
 livesys-scripts
-anaconda-live
 dracut-live
 dracut-config-generic
 glibc-all-langpacks
@@ -203,7 +203,7 @@ glibc-all-langpacks
 grub2-efi-x64-cdboot
 grub2-tools-extra
 
-# GNOME desktop from Fedora 43 - core session only, not the whole
+# GNOME desktop from Fedora 45 - core session only, not the whole
 # workstation-product-environment comps group. See
 # findings/fedora-azl-repo-mixing.md.
 gnome-shell
@@ -250,7 +250,6 @@ gnome-app-list
 # of eog/evince - use those, not the old names.
 loupe
 papers
-totem
 snapshot
 gnome-clocks
 gnome-characters
@@ -266,7 +265,6 @@ wl-clipboard
 # gtk-theme='Adwaita-dark' points at a missing theme and GTK3 apps
 # (gnome-screenshot) render mixed light/dark chrome. libadwaita/GTK4
 # apps only need color-scheme prefer-dark.
-gnome-themes-extra
 evolution
 evolution-ews
 
@@ -350,7 +348,6 @@ vulkan-loader
 libvdpau
 # VDPAU→VA-API bridge (Intel has no native VDPAU; mesa-vdpau-drivers not
 # shipped for current Mesa 25.3.x on this stack).
-libvdpau-va-gl
 
 # Deliberately NOT installed, on request: libreoffice, gnome-maps,
 # gnome-tour, gnome-user-docs/yelp (help), simple-scan (document scanner),
@@ -440,7 +437,7 @@ plymouth-plugin-label
 # github-0:1.0.24-1.x86_64", and %post has no `set -e` so the failure was
 # swallowed and the build carried on with no /usr/bin/github, no desktop
 # icon, no error surfaced anywhere except this post-install log). Listing
-# it here as a real package (Fedora 43 ships it) means the RPM install can
+# it here as a real package (Fedora 45 ships it) means the RPM install can
 # actually succeed instead of failing quietly.
 libayatana-appindicator-gtk3
 
@@ -587,11 +584,21 @@ test -f /mnt/sysimage/root/assets/dconf/db/local.d/00-azl-desktop-defaults
 %end
 
 %post --log=/var/log/azl-desktop-post.log
+# Fedora 45 grub2 ships the CD boot image (gcdx64.efi/gcdaa64.efi) only under
+# /usr/lib/efi; the /boot/efi copy is a ghost entry no dirinstall materializes.
+# Lorax skips the EFI boot image entirely when the file is absent from
+# /boot/efi, so copy it into place here.
+for gcd in /usr/lib/efi/grub2/*/EFI/*/gcd*.efi; do
+  [ -f "$gcd" ] || continue
+  destdir="/boot/efi/EFI/$(basename "$(dirname "$gcd")")"
+  mkdir -p "$destdir"
+  cp "$gcd" "$destdir/"
+done
 set -x
 
 # Persist the same repo priority policy post-install, so `dnf install
 # <whatever>` next year still prefers Azure Linux first and only falls back
-# to Fedora 43 when Azure Linux has no package. Known soname landmines get an
+# to Fedora 45 when Azure Linux has no package. Known soname landmines get an
 # exclude here as they're discovered - add to this list, don't fight it.
 # Stage vendor + project RPM OpenPGP keys before writing gpgcheck=1 repos.
 # Keys live in assets/pki/rpm-gpg (Fedora, Azure Linux, Microsoft, GitHub,
@@ -627,7 +634,7 @@ done
 for key in \
     RPM-GPG-KEY-azurelinux-4.0-primary \
     RPM-GPG-KEY-azurelinux-desktop \
-    RPM-GPG-KEY-fedora-43-primary \
+    RPM-GPG-KEY-fedora-45-primary \
     RPM-GPG-KEY-microsoft \
     RPM-GPG-KEY-githubcli \
     RPM-GPG-KEY-shiftkey-desktop \
@@ -888,7 +895,26 @@ dconf update || true
 test -s /root/thirdparty/github-copilot.rpm
 test -s /root/thirdparty/copilot-linux-x64.tar.gz
 test -s /root/thirdparty/edit.tar.gz
-rpm -i /root/thirdparty/github-copilot.rpm
+# --replacefiles: the Copilot RPM (package "github") and the
+# github-desktop package both ship /usr/bin/github. Without it the
+# install fails on the conflict and installs nothing, and a kickstart
+# %post failure does not fail the build, so the app went missing
+# silently (found on the x86 test box, Nov 9). Desktop is unaffected:
+# it launches through its own github-desktop binary, and its helper
+# stays at /usr/lib/github-desktop/resources/app/static/github.
+# --nosignature: --replacefiles alone was not enough. The Nov 9
+# verification build's own %post log (/var/log/azl-desktop-post.log
+# in that image) shows rpm refusing the package with "does not
+# verify: no signature": the image's rpm policy enforces signature
+# verification and GitHub ships this RPM unsigned. The fetch helper
+# pulls it from GitHub's release in the same build, so the missing
+# signature is expected.
+rpm -i --replacefiles --nosignature /root/thirdparty/github-copilot.rpm
+# Fail loudly if the app did not land this time. These checks failed
+# in that same verification build and the build still shipped,
+# because a bare test in %post only logs; exit explicitly.
+rpm -q github || { echo "error: GitHub Copilot GUI package did not install" >&2; exit 1; }
+test -f "/usr/share/applications/GitHub Copilot.desktop" || { echo "error: GitHub Copilot.desktop missing after install" >&2; exit 1; }
 # Prefer distro git over bundled dugite git (libcurl-gnutls). See
 # findings/github-copilot-bundled-git-libcurl.md.
 test -x /usr/bin/git

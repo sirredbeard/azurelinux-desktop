@@ -69,6 +69,33 @@ on:
         type: boolean
         default: false
 
+  # Manual dispatch is build-only: release_tag stays empty, so products
+  # land as Actions artifacts and nothing is published to a release.
+  # release.yml remains the only publication path.
+  workflow_dispatch:
+    inputs:
+      build_iso:
+        type: boolean
+        default: true
+      build_disk_image:
+        type: boolean
+        default: false
+      build_vhdx:
+        type: boolean
+        default: false
+      build_vdi:
+        type: boolean
+        default: false
+      build_vmdk:
+        type: boolean
+        default: false
+      prepare_kernel_modules:
+        type: boolean
+        default: false
+      upload_actions_artifacts:
+        type: boolean
+        default: true
+
 permissions:
   # write: commit findings/live-package-list.txt after a successful ISO build
   contents: write
@@ -77,7 +104,7 @@ permissions:
   packages: read
 
 env:
-  BUILD_LORAX_IMAGE: ghcr.io/${{ github.repository }}/build-lorax:f43
+  BUILD_LORAX_IMAGE: ghcr.io/${{ github.repository }}/build-lorax:f45
 
 jobs:
   prepare-kernel-modules:
@@ -215,7 +242,7 @@ jobs:
                 --iso-name azurelinux-desktop-live.iso \
                 --ks /workspace/kickstart/azurelinux-desktop-live.ks \
                 --project "Azure Linux Desktop" \
-                --releasever 43 \
+                --releasever 45 \
                 --volid AZLDESKTOP \
                 --rootfs-type squashfs-ext4 \
                 --logfile /workspace/livemedia-build.log
@@ -239,6 +266,32 @@ jobs:
         with:
           name: azurelinux-desktop-live-iso
           path: live-result/*.iso
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Extract LiveOS squashfs from ISO
+        if: >-
+          success() &&
+          (inputs.release_tag == '' || inputs.upload_actions_artifacts)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          isos=(live-result/*.iso)
+          test "${#isos[@]}" -ge 1
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" "$BUILD_LORAX_IMAGE" \
+            xorriso -osirrox on -indev "/w/${isos[0]}" \
+            -extract /LiveOS/squashfs.img /w/live-result/squashfs.img
+          ls -lah live-result/squashfs.img
+
+      - name: Upload squashfs artifact
+        if: >-
+          success() &&
+          (inputs.release_tag == '' || inputs.upload_actions_artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-live-squashfs
+          path: live-result/squashfs.img
           compression-level: 0
           retention-days: 3
           if-no-files-found: error
@@ -726,7 +779,7 @@ jobs:
                 --image-name azurelinux-desktop-live.img \
                 --ks /workspace/kickstart/azurelinux-desktop-live-disk.ks \
                 --project "Azure Linux Desktop" \
-                --releasever 43 \
+                --releasever 45 \
                 --logfile /workspace/livemedia-disk-build.log
 
               # Anaconda install/cleanup (package %post scripts,

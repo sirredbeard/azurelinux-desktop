@@ -224,13 +224,13 @@ jobs:
           tags: azurelinux-desktop-build-lorax:local
           cache-from: type=gha,scope=build-lorax
           cache-to: type=gha,mode=max,scope=build-lorax
-      - name: Tag and push (latest + date + f43)
+      - name: Tag and push (latest + date + f45)
         run: |
           set -euo pipefail
           chmod +x scripts/ghcr-tag-push.sh
           ./scripts/ghcr-tag-push.sh \
             azurelinux-desktop-build-lorax:local \
-            "ghcr.io/${{ github.repository }}/build-lorax" f43
+            "ghcr.io/${{ github.repository }}/build-lorax" f45
       - name: Prune old build-lorax versions
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -280,13 +280,13 @@ jobs:
           tags: azurelinux-desktop-build-kiwi:local
           cache-from: type=gha,scope=build-kiwi
           cache-to: type=gha,mode=max,scope=build-kiwi
-      - name: Tag and push (latest + date + f43)
+      - name: Tag and push (latest + date + f45)
         run: |
           set -euo pipefail
           chmod +x scripts/ghcr-tag-push.sh
           ./scripts/ghcr-tag-push.sh \
             azurelinux-desktop-build-kiwi:local \
-            "ghcr.io/${{ github.repository }}/build-kiwi" f43
+            "ghcr.io/${{ github.repository }}/build-kiwi" f45
       - name: Prune old build-kiwi versions
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

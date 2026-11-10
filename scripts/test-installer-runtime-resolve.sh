@@ -41,10 +41,10 @@ awk '
 podman run --rm \
     -v "$WORKDIR:/work:Z" \
     -v "$REPO_DIR/assets/pki/rpm-gpg:/work/keys:ro,Z" \
-    fedora:43 \
+    fedora:45 \
     bash -exo pipefail -c '
         mkdir -p /work/repos /work/installroot/etc/pki/rpm-gpg /etc/pki/rpm-gpg
-        for k in RPM-GPG-KEY-azurelinux-4.0-primary RPM-GPG-KEY-fedora-43-primary; do
+        for k in RPM-GPG-KEY-azurelinux-4.0-primary RPM-GPG-KEY-fedora-45-primary; do
             install -m 0644 "/work/keys/$k" "/etc/pki/rpm-gpg/$k"
             install -m 0644 "/work/keys/$k" "/work/installroot/etc/pki/rpm-gpg/$k"
             rpm --import "/etc/pki/rpm-gpg/$k" 2>/dev/null || true
@@ -67,13 +67,13 @@ gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-4.0-primary
 priority=10
 EOF
-        cat > /work/repos/fedora43.repo << EOF
-[fedora43]
+        cat > /work/repos/fedora45.repo << EOF
+[fedora45]
 name=Fedora desktop runtime
-baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/
+baseurl=https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/
 enabled=1
 gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-45-primary
 priority=50
 EOF
         mapfile -t packages < /work/packages.txt

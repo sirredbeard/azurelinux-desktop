@@ -2,7 +2,7 @@
 # Used by build-live-iso.yml via docker run --privileged.
 # Rebuild: .github/workflows/containers.yml (weekly / on demand).
 # Lint locally with hadolint before push; not run in CI.
-FROM fedora:43
+FROM fedora:45
 
 # Keep dnf metadata out of the final layers where we can; image is rebuilt
 # on a schedule so packages stay current enough for lorax/anaconda.

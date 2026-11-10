@@ -252,7 +252,7 @@ install -d -m 0755 /etc/pki/rpm-gpg
 for key in \
     RPM-GPG-KEY-azurelinux-4.0-primary \
     RPM-GPG-KEY-azurelinux-desktop \
-    RPM-GPG-KEY-fedora-43-primary \
+    RPM-GPG-KEY-fedora-45-primary \
     RPM-GPG-KEY-microsoft \
     RPM-GPG-KEY-githubcli \
     RPM-GPG-KEY-shiftkey-desktop \
@@ -275,7 +275,7 @@ install -m 0644 "$ASSETS"/yum.repos.d/azl-desktop-fedora.repo \
 # points at a directory that came from the boot media, not the installed
 # system) - kiwi/config.sh built it by merging every real upstream repo
 # (AZL, Fedora, ms-prod, vscode, edge-canary, gh-cli, github-desktop,
-# rpmfusion-free/nonfree) into one offline blob. Persisting fedora43 above
+# rpmfusion-free/nonfree) into one offline blob. Persisting fedora45 above
 # was already done; without also persisting the rest, PowerShell, .NET,
 # VS Code Insiders, Edge Canary, GitHub CLI, GitHub Desktop, and the
 # RPMFusion ffmpeg/gstreamer1-plugin-libav codec packages would be frozen at
@@ -445,7 +445,18 @@ glib-compile-schemas /usr/share/glib-2.0/schemas
 test -s /root/thirdparty/github-copilot.rpm
 test -s /root/thirdparty/copilot-linux-x64.tar.gz
 test -s /root/thirdparty/edit.tar.gz
-rpm -i /root/thirdparty/github-copilot.rpm
+# --replacefiles: the Copilot RPM (package "github") and the
+# github-desktop package both ship /usr/bin/github. Without it the
+# install fails on the conflict and installs nothing, silently (the
+# live image shipped without the app; found Nov 9). Desktop launches
+# through its own github-desktop binary and is unaffected.
+# --nosignature: the live verification build's %post log shows rpm
+# also refuses this RPM with "does not verify: no signature" under
+# the image's signature policy; GitHub ships it unsigned and the
+# fetch helper pulls it from GitHub's release in the same build.
+rpm -i --replacefiles --nosignature /root/thirdparty/github-copilot.rpm
+rpm -q github || { echo "error: GitHub Copilot GUI package did not install" >&2; exit 1; }
+test -f "/usr/share/applications/GitHub Copilot.desktop" || { echo "error: GitHub Copilot.desktop missing after install" >&2; exit 1; }
 # Prefer distro git over bundled dugite git (libcurl-gnutls). See
 # findings/github-copilot-bundled-git-libcurl.md.
 test -x /usr/bin/git

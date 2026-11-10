@@ -54,9 +54,11 @@ test -d "$DEST/app/com.github.sirredbeard.copilot-desktop-gtk"
 test -e "$DEST/exports/share/applications/com.github.sirredbeard.copilot-desktop-gtk.desktop" \
     || find "$DEST" -name 'com.github.sirredbeard.copilot-desktop-gtk.desktop' | grep -q .
 # Flathub AppStream (GNOME Software first-open catalog; issue #6).
-test -e "$DEST/appstream/flathub/x86_64/active/appstream.xml" \
-    || test -e "$DEST/appstream/flathub/x86_64/active/appstream.xml.gz"
-test -d "$DEST/appstream/flathub/x86_64/active/icons"
+# The metadata tree is per-arch: x86_64 on x86_64 builders, aarch64 on ARM.
+FP_ARCH="$(flatpak --default-arch 2>/dev/null || uname -m)"
+test -e "$DEST/appstream/flathub/$FP_ARCH/active/appstream.xml" \
+    || test -e "$DEST/appstream/flathub/$FP_ARCH/active/appstream.xml.gz"
+test -d "$DEST/appstream/flathub/$FP_ARCH/active/icons"
 
 du -sh "$DEST" || true
 du -sh "$DEST/appstream" 2>/dev/null || true

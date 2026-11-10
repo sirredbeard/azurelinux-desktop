@@ -1,0 +1,44 @@
+name: check-consistency
+
+# Guards the two hand-synced duplications this repo depends on:
+# the Fedora excludes claw-back list (four copies, checked by
+# scripts/check-fedora-excludes-consistency.sh) and the GitHub
+# Copilot GUI install in the two kickstarts (same rpm line and
+# assertion in the live kickstart and the kiwi install template).
+# Drift in either one reproduces a shipped defect: a split
+# version-locked family deadlocks dnf upgrade, and a lost
+# --nosignature or a softened assertion ships an image with no
+# Copilot GUI and a green build.
+
+on:
+  pull_request:
+    paths:
+      - 'kickstart/**'
+      - 'kiwi/**'
+      - 'assets/yum.repos.d/**'
+      - 'scripts/check-fedora-excludes-consistency.sh'
+      - '.github/workflows/check-consistency.yml'
+  push:
+    paths:
+      - 'kickstart/**'
+      - 'kiwi/**'
+      - 'assets/yum.repos.d/**'
+      - 'scripts/check-fedora-excludes-consistency.sh'
+      - '.github/workflows/check-consistency.yml'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fedora excludes lists stay in sync
+        run: ./scripts/check-fedora-excludes-consistency.sh
+      - name: Copilot GUI install stays in both kickstarts
+        run: |
+          for f in kickstart/azurelinux-desktop-live.ks kiwi/azl-install.ks.in; do
+            grep -q 'rpm -i --replacefiles --nosignature /root/thirdparty/github-copilot.rpm' "$f" \
+              || { echo "error: Copilot GUI install line missing or changed in $f" >&2; exit 1; }
+            grep -q 'rpm -q github || { echo "error: GitHub Copilot GUI package did not install" >&2; exit 1; }' "$f" \
+              || { echo "error: Copilot GUI assertion missing or changed in $f" >&2; exit 1; }
+          done

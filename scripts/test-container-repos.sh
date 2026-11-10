@@ -60,7 +60,7 @@ echo "Repo-origin assertions:  $(wc -l < "$ASSERT_FILE") packages with a determi
 podman run --rm \
     -v "$WORKDIR:/work:Z" \
     -v "$REPO_ROOT/scripts/test-repo-common.sh:/work/test-repo-common.sh:ro,Z" \
-    registry.fedoraproject.org/fedora:43 bash -eo pipefail -c '
+    registry.fedoraproject.org/fedora:45 bash -eo pipefail -c '
         source /work/test-repo-common.sh
 
         mkdir -p /work/repos /mnt/azl/etc/yum.repos.d
@@ -76,7 +76,7 @@ podman run --rm \
         dnf5 install -y \
             --setopt=reposdir=/work/repos \
             --installroot=/mnt/azl \
-            --releasever=43 \
+            --releasever=45 \
             --setopt=install_weak_deps=True \
             --best \
             "${PKGS[@]}" \
@@ -88,18 +88,18 @@ podman run --rm \
         # Size, one resolved package per line, six whitespace-separated
         # fields) - this is the actual repo dnf5 picked for each package,
         # not an inference from the installed rpm'"'"'s release string.
-        # Guessing origin from a ".fc43"/".azl4" dist-tag substring (the
+        # Guessing origin from a ".fc45"/".azl4" dist-tag substring (the
         # old approach) falsely flagged shim-x64 as wrong: signed UEFI
         # bootloader packages like it deliberately ship with a plain
         # numeric release and no dist tag at all, in real Fedora too, so
         # it can stay byte-identical (and validly signed) across distro
-        # releases - it still resolved from fedora43 correctly, the old
+        # releases - it still resolved from fedora45 correctly, the old
         # check just could not see that from the release string alone.
         awk "/^Installing/{f=1;next} /^Transaction Summary:/{f=0} f && NF==6 {print \$1, \$4}" \
             /work/dnf-install.log | sort -u > /work/installed-origins.txt
         total=$(wc -l < /work/installed-origins.txt)
         azl=$(awk "\$2 ~ /^azl-/" /work/installed-origins.txt | wc -l)
-        fedora=$(awk "\$2 == \"fedora43\" || \$2 == \"fedora43-updates\"" /work/installed-origins.txt | wc -l)
+        fedora=$(awk "\$2 == \"fedora45\" || \$2 == \"fedora45-updates\"" /work/installed-origins.txt | wc -l)
         echo "=== $total packages installed total (azl=$azl fedora=$fedora other=$((total - azl - fedora))) ==="
 
         fail=0

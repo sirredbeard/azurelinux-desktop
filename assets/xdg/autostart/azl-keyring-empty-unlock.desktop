@@ -5,4 +5,5 @@ Comment=Silently creates/unlocks the login keyring with an empty password so aut
 Exec=/usr/libexec/azl-keyring-empty-unlock
 OnlyShowIn=GNOME;
 NoDisplay=true
+X-GNOME-Autostart-Phase=Initialization
 X-GNOME-Autostart-Notify=false

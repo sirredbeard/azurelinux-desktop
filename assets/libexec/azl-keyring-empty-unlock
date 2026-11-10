@@ -5,15 +5,47 @@
 # NULL pointer and not "\n", which gnome-keyring's own login-unlock code
 # (gkd_login_unlock("")) accepts as a real blank password and uses to
 # create the login keyring if it doesn't exist yet, or unlock it if it
-# does. Runs once per session start; a no-op after the login keyring
-# already exists and is aliased "default".
-i=0
+# does.
+#
+# The unlock is verified, not assumed. The daemon's three component
+# autostart entries can replace the running instance after this helper
+# fires, and a replaced instance comes back with the keyring locked
+# again; the first version of this helper fired once and VS Code still
+# met a locked "Login" keyring (and goes unstable when the user cancels
+# that prompt). So: attempt the unlock, read the login collection's
+# Locked property over the session bus, and retry for up to ~150
+# seconds until it reports unlocked. Exit as soon as it does; a no-op
+# on sessions where the keyring was already unlocked some other way.
 control="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring/control"
-while [ ! -S "$control" ] && [ "$i" -lt 100 ]; do
+i=0
+while [ ! -S "$control" ] && [ "$i" -lt 300 ]; do
     sleep 0.1
     i=$((i + 1))
 done
 [ -S "$control" ] || exit 0
-printf '\0' | /usr/bin/gnome-keyring-daemon --unlock \
-    --control-directory="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring" \
-    >/dev/null 2>&1 || true
+
+collection_locked() {
+    # Prints "true"/"false" for the login collection's Locked property,
+    # or nothing when the probe itself is unavailable.
+    gdbus call --session \
+        --dest org.freedesktop.secrets \
+        --object-path /org/freedesktop/secrets/collection/login \
+        --method org.freedesktop.DBus.Properties.Get \
+        org.freedesktop.Secret.Collection Locked 2>/dev/null \
+        | grep -o 'true\|false' | head -n 1
+}
+
+attempt=0
+while [ "$attempt" -lt 75 ]; do
+    printf '\0' | /usr/bin/gnome-keyring-daemon --unlock \
+        --control-directory="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring" \
+        >/dev/null 2>&1 || true
+    locked="$(collection_locked)"
+    # No probe answer means no working Secret Service to verify
+    # against; the unlock call above is all that can be done.
+    [ -z "$locked" ] && exit 0
+    [ "$locked" = "false" ] && exit 0
+    attempt=$((attempt + 1))
+    sleep 2
+done
+exit 0
