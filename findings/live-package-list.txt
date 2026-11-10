@@ -100,7 +100,7 @@ cirrus-audio-firmware-20260221-2.azl4.noarch
 cjson-1.7.19-2.fc45.x86_64
 cloud-utils-growpart-0.33-12.azl4.noarch
 cmark-lib-0.31.1-4.fc45.x86_64
-code-insiders-1.146.0-1794202201.el8.x86_64
+code-insiders-1.146.0-1794291210.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -234,7 +234,7 @@ giflib-5.2.2-10.azl4.x86_64
 git-2.56.0-1.fc45.x86_64
 git-core-2.56.0-1.fc45.x86_64
 git-core-doc-2.56.0-1.fc45.noarch
-github-1.1.35-1.x86_64
+github-1.2.0-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.90.1-1.fc45.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
