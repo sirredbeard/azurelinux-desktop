@@ -8,7 +8,7 @@
 # Lifecycle: .github/workflows/containers.yml
 # Lint locally with hadolint before push; not run in CI.
 
-FROM fedora:43 AS build
+FROM fedora:45 AS build
 
 RUN rm -f /etc/yum.repos.d/*.repo
 COPY assets/yum.repos.d/azurelinux-desktop.repo /etc/yum.repos.d/azurelinux-desktop.repo
@@ -29,7 +29,7 @@ RUN set -eux; \
     for key in \
         RPM-GPG-KEY-azurelinux-4.0-primary \
         RPM-GPG-KEY-azurelinux-desktop \
-        RPM-GPG-KEY-fedora-43-primary \
+        RPM-GPG-KEY-fedora-45-primary \
         RPM-GPG-KEY-microsoft \
         RPM-GPG-KEY-githubcli \
         RPM-GPG-KEY-shiftkey-desktop \
@@ -57,13 +57,13 @@ RUN --mount=type=secret,id=github_token,required=false \
     done; \
     mapfile -t pkgs < <(grep -vE '^(#|$)' /tmp/canary-pkglist.txt); \
     dnf5 -y install --refresh \
-        --installroot="$ROOTFS" --releasever=43 \
+        --installroot="$ROOTFS" --releasever=45 \
         --setopt=install_weak_deps=False \
         --setopt=reposdir=/etc/yum.repos.d \
         "${pkgs[@]}"; \
     /opt/azl-scripts/fetch-latest-thirdparty.sh /tmp/thirdparty; \
     dnf5 -y install \
-        --installroot="$ROOTFS" --releasever=43 \
+        --installroot="$ROOTFS" --releasever=45 \
         --setopt=install_weak_deps=False \
         --setopt=reposdir=/etc/yum.repos.d \
         /tmp/thirdparty/github-copilot.rpm; \

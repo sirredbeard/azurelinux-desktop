@@ -73,8 +73,8 @@
     </repository>
     <!-- Plymouth's script renderer and theme support are Fedora desktop
          packages; Azure remains preferred for every package it publishes. -->
-    <repository type="rpm-md" alias="fedora43" priority="50">
-        <source path="https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/" />
+    <repository type="rpm-md" alias="fedora45" priority="50">
+        <source path="https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/" />
     </repository>
 
     <packages type="image">
@@ -142,11 +142,24 @@
              from there. -->
         <archive name="assets.tar.gz" />
 
-        <!-- UEFI boot -->
-        <package name="grub2" />
-        <package name="grub2-efi-x64" />
-        <package name="grub2-efi-x64-modules" />
-        <package name="grub2-efi-x64-cdboot" />
+        <!-- UEFI boot. The grub2 family is pinned to Fedora 45 GA
+             (1:2.12-81.fc45). Azure's grub2-tools-minimal links against
+             Azure's fuse3-libs for the libfuse3.so.3 FUSE_3.0 symbol,
+             which Fedora 45's fuse3 3.18 no longer ships, and the
+             installer environment needs Fedora's fuse3; the family
+             moves together or not at all. The grub2 metapackage is
+             Azure-only and exact-locks its members, so it is dropped
+             and every member is named. Kiwi resolves this set from
+             the description's repositories before the install
+             kickstart's excludes apply, so the pins have to live
+             here. shim stays Azure. -->
+        <package name="grub2-pc-1:2.12-81.fc45" />
+        <package name="grub2-common-1:2.12-81.fc45" />
+        <package name="grub2-tools-1:2.12-81.fc45" />
+        <package name="grub2-tools-minimal-1:2.12-81.fc45" />
+        <package name="grub2-efi-x64-1:2.12-81.fc45" />
+        <package name="grub2-efi-x64-modules-1:2.12-81.fc45" />
+        <package name="grub2-efi-x64-cdboot-1:2.12-81.fc45" />
         <package name="shim-x64" />
         <package name="efibootmgr" />
 

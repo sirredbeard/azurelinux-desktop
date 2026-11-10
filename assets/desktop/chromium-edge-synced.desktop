@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Chromium Edge Synced
+Comment=Chromium carrying the profile mirrored from Microsoft Edge by edge-arm-bridge
+Exec=chromium-browser %U
+TryExec=chromium-browser
+Icon=chromium-browser
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml_xml;
+StartupWMClass=Chromium-browser

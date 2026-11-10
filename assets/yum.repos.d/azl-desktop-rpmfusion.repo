@@ -2,7 +2,7 @@
 
 [rpmfusion-free]
 name=rpmfusion-free
-mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-43&arch=x86_64
+mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=free-fedora-45&arch=x86_64
 enabled=1
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-2020
@@ -10,7 +10,7 @@ cost=50
 
 [rpmfusion-nonfree]
 name=rpmfusion-nonfree
-mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=nonfree-fedora-43&arch=x86_64
+mirrorlist=https://mirrors.rpmfusion.org/mirrorlist?repo=nonfree-fedora-45&arch=x86_64
 enabled=1
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-2020

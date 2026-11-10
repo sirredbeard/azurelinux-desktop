@@ -53,8 +53,10 @@ mkdir -p "$FLATPAK_USER_DIR" "$FLATPAK_USER_CACHE_DIR"
 
 APP_ID="com.github.sirredbeard.copilot-desktop-gtk"
 REMOTE_NAME="copilot-desktop-gtk"
-FLATPAKREF_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${APP_ID}.flatpakref"
-REPO_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${REMOTE_NAME}.flatpakrepo"
+# COPILOT_REPO_SUFFIX selects the per-arch Pages files: unset for the
+# x86_64 repo, -aarch64 for the ARM64 repo (repo-aarch64/ on Pages).
+FLATPAKREF_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${APP_ID}${COPILOT_REPO_SUFFIX:-}.flatpakref"
+REPO_URL="https://sirredbeard.github.io/copilot-desktop-gtk/${REMOTE_NAME}${COPILOT_REPO_SUFFIX:-}.flatpakrepo"
 RUNTIME_REF="org.gnome.Platform//50"
 
 echo "=== Installing Copilot Flatpak into ${FLATPAK_USER_DIR} ==="
@@ -161,10 +163,12 @@ fi
 # is missing or stripped.
 echo "=== Baking Flathub AppStream into ${FLATPAK_USER_DIR} ==="
 flatpak update --user --appstream flathub
-AS_ACTIVE="${FLATPAK_USER_DIR}/appstream/flathub/x86_64/active"
+# The AppStream tree is per-arch: x86_64 on x86_64 builders, aarch64 on ARM.
+FP_ARCH="$(flatpak --default-arch 2>/dev/null || uname -m)"
+AS_ACTIVE="${FLATPAK_USER_DIR}/appstream/flathub/${FP_ARCH}/active"
 if [[ ! -e "${AS_ACTIVE}/appstream.xml" && ! -e "${AS_ACTIVE}/appstream.xml.gz" ]]; then
     echo "error: Flathub AppStream missing after update --appstream (${AS_ACTIVE})" >&2
-    ls -la "${FLATPAK_USER_DIR}/appstream/flathub/x86_64/" 2>/dev/null || true
+    ls -la "${FLATPAK_USER_DIR}/appstream/flathub/${FP_ARCH}/" 2>/dev/null || true
     exit 1
 fi
 if [[ ! -d "${AS_ACTIVE}/icons" ]]; then

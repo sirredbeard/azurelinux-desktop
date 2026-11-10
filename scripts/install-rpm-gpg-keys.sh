@@ -58,7 +58,7 @@ import_one() {
 for key in \
     RPM-GPG-KEY-azurelinux-4.0-primary \
     RPM-GPG-KEY-azurelinux-desktop \
-    RPM-GPG-KEY-fedora-43-primary \
+    RPM-GPG-KEY-fedora-45-primary \
     RPM-GPG-KEY-microsoft \
     RPM-GPG-KEY-githubcli \
     RPM-GPG-KEY-shiftkey-desktop \

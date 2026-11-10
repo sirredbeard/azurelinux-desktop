@@ -37,7 +37,7 @@ with open(sys.argv[1]) as workflow:
 PY
 
 sudo mkdir -p "$OUTPUT_DIR" "$LOG_DIR"
-sudo podman pull fedora:43
+sudo podman pull fedora:45
 sudo podman run --rm \
     --privileged \
     --cgroups=disabled \
@@ -47,7 +47,7 @@ sudo podman run --rm \
     -v "$OUTPUT_DIR:/output" \
     -v "$LOG_DIR:/logs" \
     --tmpfs /tmp:exec,size=8g \
-    fedora:43 \
+    fedora:45 \
     bash -exo pipefail -c '
         mount --make-rprivate /
         dnf5 install -y \
@@ -72,7 +72,7 @@ sudo podman run --rm \
             --image-name azurelinux-desktop-live.img \
             --ks /workspace/kickstart/azurelinux-desktop-live-disk.ks \
             --project "Azure Linux Desktop" \
-            --releasever 43 \
+            --releasever 45 \
             --logfile /logs/livemedia-disk-build.log
         LIBGUESTFS_BACKEND=direct virt-sparsify --in-place \
             /output/azurelinux-desktop-live.img

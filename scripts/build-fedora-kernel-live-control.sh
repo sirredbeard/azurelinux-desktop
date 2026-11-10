@@ -45,13 +45,13 @@ xorriso -osirrox on -indev "$INPUT_ISO" \
 unsquashfs -d "$ROOTFS" "$SQUASHFS"
 
 KERNEL_EVR="$(
-    dnf5 repoquery --refresh --releasever=43 --repo=fedora \
+    dnf5 repoquery --refresh --releasever=45 --repo=fedora \
         --available --latest-limit=1 --qf '%{evr}' kernel | head -1
 )"
 test -n "$KERNEL_EVR"
 KERNEL_VERSION="$KERNEL_EVR.x86_64"
 
-FEDORA_RELEASE_BASE="https://download.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/Packages/k"
+FEDORA_RELEASE_BASE="https://download.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/Packages/k"
 RPM_URLS=(
     "$FEDORA_RELEASE_BASE/kernel-$KERNEL_EVR.x86_64.rpm"
     "$FEDORA_RELEASE_BASE/kernel-core-$KERNEL_EVR.x86_64.rpm"

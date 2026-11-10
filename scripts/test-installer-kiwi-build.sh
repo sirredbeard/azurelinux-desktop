@@ -38,7 +38,7 @@ podman run --rm --privileged \
     --security-opt label=disable \
     -v "$TARGET/source:/workspace" \
     --tmpfs /tmp:exec,size=8g \
-    fedora:43 \
+    fedora:45 \
     bash -exo pipefail -c '
         dnf5 install -y \
             python3-kiwi dracut-live squashfs-tools xorriso dosfstools mtools \

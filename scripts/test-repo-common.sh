@@ -73,7 +73,7 @@ azl_repo_matches_family() {
             [[ "$repoid" == azl-* ]]
             ;;
         fedora)
-            [[ "$repoid" == fedora43 || "$repoid" == fedora43-updates ]]
+            [[ "$repoid" == fedora45 || "$repoid" == fedora45-updates ]]
             ;;
         *)
             return 1
@@ -90,7 +90,7 @@ azl_release_matches_family() {
             [[ "$release" == *azl4* ]]
             ;;
         fedora)
-            [[ "$release" == *fc43* ]]
+            [[ "$release" == *fc45* ]]
             ;;
         *)
             return 1
@@ -102,8 +102,8 @@ azl_required_repo_names() {
     cat <<'EOF2'
 azl-base
 azl-microsoft
-fedora43
-fedora43-updates
+fedora45
+fedora45-updates
 EOF2
 }
 
@@ -117,7 +117,7 @@ EOF2
 azl_live_kickstart_packages() {
     local ks="$1"
     # Same %packages...%end extraction as the older podman-test-azl4-
-    # fedora43.sh: strip comments/blank lines, "@group" lines (--nocore
+    # fedora45.sh: strip comments/blank lines, "@group" lines (--nocore
     # means no comps groups exist to expand here anyway), and leading-
     # "-" exclusion lines (those remove a package, they are not one to
     # install).
@@ -169,7 +169,7 @@ azl_combined_install_packages() {
 # repo" here that can silently drift out of sync. A package excluded
 # from an azl-* repo is expected to resolve from fedora (that is the
 # whole point of excluding it there); a package excluded from a
-# fedora43* repo is expected to resolve from azl. Repos outside the
+# fedora45* repo is expected to resolve from azl. Repos outside the
 # Azure Linux / Fedora repo split (ms-prod, vscode, edge-canary, rpmfusion-*,
 # etc.) are skipped - their excludepkgs entries (e.g. ms-prod's
 # aznfs/mdatp) are outright removals, not a family assertion. Emits
@@ -202,7 +202,7 @@ azl_derive_repo_assertions() {
                 if [[ -n "$excl" ]]; then
                     if [[ "$name" == azl-* ]]; then
                         family=fedora
-                    elif [[ "$name" == fedora43* ]]; then
+                    elif [[ "$name" == fedora45* ]]; then
                         family=azl
                     else
                         continue

@@ -66,7 +66,7 @@ mapfile -t PKGS < <(awk '/^%packages/{f=1;next}/^%end/{if(f){exit}}f' "$KS" \
 echo "=== ${#PKGS[@]} packages parsed from $KS ==="
 echo "=== ${#REPO_NAMES[@]} repos parsed: ${REPO_NAMES[*]} ==="
 
-WORKDIR="${AZL_PODMAN_WORKDIR:-$HOME/azl-work/podman-test-azl4-fedora43}"
+WORKDIR="${AZL_PODMAN_WORKDIR:-$HOME/azl-work/podman-test-azl4-fedora45}"
 mkdir -p "$WORKDIR"
 printf '%s\n' "${PKGS[@]}" > "$WORKDIR/pkglist.txt"
 
@@ -88,9 +88,9 @@ for i in "${!REPO_NAMES[@]}"; do
                 echo "gpgcheck=1"
                 echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-desktop"
                 ;;
-            fedora43|fedora43-updates)
+            fedora45|fedora45-updates)
                 echo "gpgcheck=1"
-                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary"
+                echo "gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-45-primary"
                 ;;
             rpmfusion-free)
                 echo "gpgcheck=1"
@@ -144,7 +144,7 @@ sudo podman run --rm \
     --security-opt label=disable \
     -v "$WORKDIR:/work:Z" \
     -v "$WORKDIR/keyroot/etc/pki/rpm-gpg:/work/keys:ro,Z" \
-    registry.fedoraproject.org/fedora:43 bash -exo pipefail -c '
+    registry.fedoraproject.org/fedora:45 bash -exo pipefail -c '
         mkdir -p /mnt/azl/etc/yum.repos.d /etc/pki/rpm-gpg
         cp /work/azl-test.repo /mnt/azl/etc/yum.repos.d/azl-test.repo
         shopt -s nullglob
@@ -161,7 +161,7 @@ sudo podman run --rm \
         shopt -u nullglob
         dnf5 install -y \
             --setopt=reposdir=/mnt/azl/etc/yum.repos.d \
-            --installroot=/mnt/azl --releasever=43 \
+            --installroot=/mnt/azl --releasever=45 \
             --setopt=install_weak_deps=True \
             $(cat /work/pkglist.txt) 2>&1 | tail -80
         echo "=== RESULT ==="
@@ -170,8 +170,8 @@ sudo podman run --rm \
         chroot /mnt/azl rpm -qa --qf "%{name}-%{version}-%{release}.%{arch}\n" 2>/dev/null | sort > /work/pkglist_result.txt
         TOTAL=$(wc -l < /work/pkglist_result.txt)
         AZL=$(grep -c "\.azl4" /work/pkglist_result.txt || true)
-        FC=$(grep -c "\.fc43" /work/pkglist_result.txt || true)
-        echo "azl4=$AZL fc43=$FC total=$TOTAL"
+        FC=$(grep -c "\.fc45" /work/pkglist_result.txt || true)
+        echo "azl4=$AZL fc45=$FC total=$TOTAL"
     '
 
 sudo chown -R "$(id -u):$(id -g)" "$WORKDIR"

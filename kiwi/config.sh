@@ -129,7 +129,13 @@ INSTALL_PKGS=(
 
     loupe
     papers
-    totem
+    # No video player in this set. Totem's libpeas python loader
+    # hard-links libpython3.15, and Showtime (the GNOME 51 player) is
+    # itself a Python application requiring python(abi) = 3.15; this
+    # image keeps Azure's python3 (3.14) under the claw-back, so
+    # neither resolves here. Both were tried in CI (2026-11-09); the
+    # installed system ships without a dedicated video player under
+    # path A, the same position as the live image.
     snapshot
     gnome-clocks
     gnome-characters
@@ -140,8 +146,10 @@ INSTALL_PKGS=(
     gnome-screenshot
     # Wayland-native command-line clipboard support for tools such as gh.
     wl-clipboard
-    # GTK3 Adwaita-dark theme files for gtk-theme='Adwaita-dark' dconf.
-    gnome-themes-extra
+    # GTK3 Adwaita-dark theme files (gnome-themes-extra) are gone:
+    # the package was deleted upstream before Fedora 45 and the CI
+    # offline download fails on the name. The live kickstart dropped
+    # it for the same reason.
     evolution
     evolution-ews
 
@@ -179,8 +187,9 @@ INSTALL_PKGS=(
     mesa-va-drivers
     vulkan-loader
     libvdpau
-    # VDPAU→VA-API bridge for Intel (no native VDPAU / no mesa-vdpau on 25.3).
-    libvdpau-va-gl
+    # The VDPAU to VA-API bridge (libvdpau-va-gl) was deleted upstream
+    # before Fedora 45, like gnome-themes-extra above; the CI offline
+    # download fails on the name, so it is out.
 
     microsoft-edge-canary
     powershell
@@ -317,18 +326,18 @@ MS_PROD_EXCLUDES="aznfs,mdatp"
 # to Azure Linux's own build instead of Fedora's, on top of the cost=
 # tie-break above. cost= only decides between mirrors offering the exact
 # same NEVRA - it has no opinion on which repo "owns" a package name when
-# the two repos offer genuinely different versions, and Fedora 43 is
+# the two repos offer genuinely different versions, and Fedora 45 is
 # currently ahead of Azure Linux 4.0's frozen beta base for almost every package
 # they both ship, so left alone, cost= let Fedora win nearly everything,
 # not just the GNOME/GUI stack it's actually needed for. This list is
-# scoped to fedora43/fedora43-updates only (excludepkgs on THOSE repos,
+# scoped to fedora45/fedora45-updates only (excludepkgs on THOSE repos,
 # not a blanket dnf5 --exclude=), the same mechanism as the AZL-side
 # excludes above, just pointed the other direction: it makes AZL's copy
 # the only candidate for these names while leaving Fedora free to win
 # everything else, GNOME/GTK/glibc included.
 #
 # Every package on this list was verified with a real `dnf5 download
-# --resolve --alldeps` reproduction (scripts/podman-test-azl4-fedora43.sh)
+# --resolve --alldeps` reproduction (scripts/podman-test-azl4-fedora45.sh)
 # before landing here - some real, non-negotiable ABI/version floors
 # forced exclusions from this list even though they looked like obvious
 # candidates at first:
@@ -355,7 +364,7 @@ MS_PROD_EXCLUDES="aznfs,mdatp"
 #     all and resolves to Azure Linux 4.0 either way.
 # Sibling library packages that share an exact version-locked NEVRA with
 # an already-clawed-back package (util-linux's libblkid/libmount/libuuid/
-# libfdisk/libsmartcols, e2fsprogs's libcom_err, xz's xz-libs) are
+# libfdisk/libsmartcols, e2fsprogs's  xz's xz-libs) are
 # included here too - leaving them off this list while clawing back their
 # parent package produces the same class of failure fwupd/libcbor did:
 # the parent hard-requires its own exact sibling version, but cost= would
@@ -365,7 +374,7 @@ MS_PROD_EXCLUDES="aznfs,mdatp"
 # vs-.so.4 case, which is a genuine soname fork and is deliberately left
 # off this list so both builds can coexist for their respective
 # consumers.
-FEDORA_EXCLUDES="audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,e2fsprogs,e2fsprogs-libs,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kernel-devel,kernel-headers,kernel-tools,kernel-tools-libs,kmod,less,less-color,libaio,libblkid,libblkid-devel,libcom_err,libfdisk,liblastlog2,libmount,libmount-devel,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,NetworkManager-wwan,perl,perl-libs,perl-interpreter,perl-Errno,perl-Socket,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,systemd-rpm-macros,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware"
+FEDORA_EXCLUDES="audit,audit-libs,audit-rules,bash,bluez,bluez-libs,bluez-obexd,bzip2,ca-certificates,chrony,coreutils,coreutils-common,cryptsetup,cryptsetup-libs,dbus,dbus-broker,dbus-common,dbus-daemon,dbus-libs,dbus-tools,device-mapper,device-mapper-event,device-mapper-event-libs,device-mapper-libs,device-mapper-persistent-data,diffutils,dosfstools,efibootmgr,findutils,firewalld,firewalld-filesystem,gawk,gawk-all-langpacks,grep,gzip,hwdata,iproute,iputils,kbd,kbd-legacy,kbd-misc,kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kernel-devel,kernel-headers,kernel-tools,kernel-tools-libs,kmod,less,less-color,libaio,libblkid,libblkid-devel,libfdisk,liblastlog2,libmount,libmount-devel,libnm,libsmartcols,libuuid,linux-firmware,linux-firmware-whence,lvm2,lvm2-libs,microcode_ctl,ModemManager-glib,mtools,ncurses,ncurses-base,ncurses-libs,NetworkManager,NetworkManager-libnm,NetworkManager-team,NetworkManager-tui,NetworkManager-wifi,NetworkManager-bluetooth,NetworkManager-wwan,perl,perl-libs,perl-interpreter,perl-Errno,perl-Socket,alsa-ucm,alsa-lib,openssh,openssh-clients,openssh-server,patch,polkit,polkit-libs,procps-ng,python3-audit,python3-firewall,python3-libmount,sed,setup,shadow-utils,sudo,sudo-python-plugin,systemd,systemd-boot-unsigned,systemd-container,systemd-libs,systemd-networkd,systemd-pam,systemd-resolved,systemd-shared,systemd-sysusers,systemd-udev,systemd-rpm-macros,tar,util-linux,util-linux-core,vim-data,vim-minimal,xz,xz-libs,amd-gpu-firmware,amd-ucode-firmware,atheros-firmware,brcmfmac-firmware,cirrus-audio-firmware,intel-audio-firmware,intel-gpu-firmware,mt7xxx-firmware,nvidia-gpu-firmware,nxpwireless-firmware,qcom-wwan-firmware,realtek-firmware,tiwilink-firmware,iwlegacy-firmware,iwlwifi-dvm-firmware,iwlwifi-mld-firmware,iwlwifi-mvm-firmware,ModemManager,abattis-cantarell-vf-fonts,adwaita-cursor-theme,adwaita-icon-theme,adwaita-icon-theme-legacy,alternatives,anaconda-core,anaconda-tui,aribb24,authselect,authselect-libs,azure-cli,azurelinux-gpg-keys,azurelinux-release,azurelinux-release-common,azurelinux-release-identity-basic,azurelinux-repos,bash-completion,blivet-data,bzip2-libs,capstone,cdparanoia-libs,checkpolicy,clevis,clevis-luks,clevis-pin-tpm2,cloud-utils-growpart,codec2,color-filesystem,colord,colord-libs,composefs-libs,cpio,cyrus-sasl-lib,dconf,default-fonts-core-emoji,default-fonts-core-sans,dejavu-sans-fonts,desktop-file-utils,device-mapper-multipath,device-mapper-multipath-libs,dmidecode,dnf-data,dns-root-data,double-conversion,dracut,dracut-config-generic,dracut-live,dracut-network,duktape,efi-filesystem,efivar-libs,emacs-filesystem,exempi,f2fs-tools,fftw-libs-double,fftw-libs-single,filesystem,flac-libs,flashrom,fontconfig,fonts-filesystem,fribidi,fuse,fuse-common,fwupd-efi,game-music-emu,gdbm,gdbm-libs,gettext,gettext-envsubst,gettext-libs,gettext-runtime,giflib,glib-networking,glibmm2.68,glx-utils,glycin-thumbnailer,gmp,gnulib-l10n,gnupg2,gnupg2-dirmngr,gnupg2-gpg-agent,gnupg2-gpgconf,gnupg2-keyboxd,gnupg2-verify,gobject-introspection,google-noto-fonts-common,google-noto-sans-vf-fonts,graphene,graphite2,groff-base,grubby,gsm,gupnp-igd,harfbuzz,harfbuzz-icu,hdparm,hicolor-icon-theme,hidapi,highway,hiredis,hunspell-en-GB,hunspell-en-US,hyperv-daemons,hyperv-daemons-license,hypervkvpd,hypervvssd,hyphen,ilbc,ima-evm-utils-libs,inih,inih-cpp,initscripts-service,ipset,ipset-libs,iptables-libs,iptables-nft,irqbalance,isns-utils-libs,iso-codes,iw,jansson,jbigkit-libs,jose,json-c,json-glib,kmod-libs,kpartx,lame-libs,lcms2,leptonica,libICE,libSM,libXau,libXcomposite,libXdamage,libXdmcp,libXft,libXmu,libarchive,libaribcaption,libassuan,libasyncns,libatasmart,libb2,libblockdev,libblockdev-btrfs,libblockdev-crypto,libblockdev-dm,libblockdev-fs,libblockdev-loop,libblockdev-lvm,libblockdev-mdraid,libblockdev-mpath,libblockdev-nvme,libblockdev-part,libblockdev-smart,libblockdev-swap,libblockdev-utils,libbytesize,libcacard,libcap,libcdio,libcloudproviders,libcomps,libdaemon,libdatrie,libdecor,libdnf,libdvdnav,libdvdread,libebur128,libeconf,libei,libeis,libepoxy,liberation-fonts-all,liberation-mono-fonts,liberation-sans-fonts,liberation-serif-fonts,libevdev,libffi,libfontenc,libfsverity,libftdi,libfyaml,libgcrypt,libgee,libglvnd,libglvnd-egl,libglvnd-gles,libglvnd-glx,libglvnd-opengl,libgpg-error,libgtop2,libgudev,libgusb,libgxps,libidn2,libiptcdata,libjaylink,libjose,libkcapi,libkcapi-hasher,libkcapi-hmaccalc,libksba,liblc3,libldac,liblerc,libluksmeta,libmanette,libmbim,libmbim-utils,libmnl,libmodplug,libmpc,libmpeg2,libmtp,libndp,libnetfilter_conntrack,libnfnetlink,libnftnl,libnice,libnl3,libnl3-cli,libnvme,liboeffis,libogg,libosinfo,libpciaccess,libpkgconf,libproxy,libpwquality,libqmi,libqmi-utils,libqrtr-glib,librepo,libreport,libreport-anaconda,libreport-cli,libreport-filesystem,libreport-plugin-bugzilla,libreport-plugin-reportuploader,libreport-web,libsamplerate,libsbc,libselinux,libselinux-utils,libsemanage,libsepol,libshout,libsigc++30,libsndfile,libsrtp,libstemmer,libtalloc,libtdb,libteam,libtevent,libtextstyle,libthai,libtheora,libtinysparql,libtirpc,libtool-ltdl,libtraceevent,libunistring,liburing,libva,libvdpau,libverto,libvisual,libvorbis,libwacom,libwacom-data,libwebp,libxcb,libxcrypt,libxcvt,libxkbfile,libxshmfence,libxslt,libyaml,libyuv,libzstd,lm_sensors-libs,lmdb-libs,logrotate,lpcnetfreedv,lsof,lttng-ust,luksmeta,lz4-libs,lzo,mailcap,mdadm,memstrack,minizip-ng-compat,mkpasswd,mokutil,mpdecimal,mpfr,mpg123-libs,nftables,nftables-services,noopenh264,npth,numactl-libs,opencore-amr,opencsd,openjpeg,openpgm,orc,os-prober,osinfo-db,osinfo-db-tools,pam,pam-libs,pcsc-lite-libs,perl-AutoLoader,perl-B,perl-Carp,perl-Class-Struct,perl-Digest,perl-Digest-MD5,perl-DynaLoader,perl-Encode,perl-Error,perl-Exporter,perl-Fcntl,perl-File-Basename,perl-File-Copy,perl-File-Path,perl-File-Temp,perl-File-stat,perl-FileHandle,perl-Getopt-Long,perl-Getopt-Std,perl-IO,perl-IO-Socket-IP,perl-IO-Socket-SSL,perl-IPC-Open3,perl-MIME-Base32,perl-MIME-Base64,perl-NDBM_File,perl-Net-SSLeay,perl-POSIX,perl-PathTools,perl-Pod-Escapes,perl-Pod-Perldoc,perl-Pod-Simple,perl-Pod-Usage,perl-Scalar-List-Utils,perl-SelectSaver,perl-Storable,perl-Symbol,perl-Term-ANSIColor,perl-Term-Cap,perl-TermReadKey,perl-Text-ParseWords,perl-Text-Tabs+Wrap,perl-Time-HiRes,perl-Time-Local,perl-Unicode-Normalize,perl-base,perl-constant,perl-if,perl-lib,perl-libnet,perl-locale,perl-mro,perl-overload,perl-overloading,perl-parent,perl-vars,pixman,pkcs11-provider,pkgconf,pkgconf-m4,pkgconf-pkg-config,policycoreutils,policycoreutils-python-utils,polkit-pkla-compat,poppler-data,popt,protobuf,protobuf-c,psmisc,publicsuffix-list-dafsa,python3,python3-argcomplete,python3-attrs,python3-blivet,python3-blockdev,python3-bytesize,python3-cairo,python3-cffi,python3-charset-normalizer,python3-crypt-r,python3-dasbus,python3-dbus,python3-distro,python3-dnf,python3-gobject,python3-gobject-base,python3-hawkey,python3-inotify,python3-iso639,python3-jsonschema,python3-jsonschema-specifications,python3-kickstart,python3-libcomps,python3-libdnf,python3-libreport,python3-libs,python3-libselinux,python3-libsemanage,python3-meh,python3-nftables,python3-pam,python3-perf,python3-pid,python3-policycoreutils,python3-productmd,python3-pwquality,python3-pycparser,python3-pyparted,python3-pysocks,python3-pyudev,python3-pyyaml,python3-referencing,python3-requests-file,python3-requests-ftp,python3-satyr,python3-setools,python3-simpleline,python3-systemd,python3-xkbregistry,qt6-filesystem,qt6-qtbase,qt6-qtbase-common,qt6-qtbase-gui,qt6-qtdeclarative,qt6-qtpositioning,qt6-qtserialport,qt6-qtsvg,qt6-qtwebchannel,re2,readline,satyr,sdbus-cpp,setxkbmap,shared-mime-info,simdutf,slang,snappy,sound-theme-freedesktop,soxr,speex,spirv-tools-libs,startup-notification,teamd,tinysparql,tslib,tuned,tuned-ppd,twolame-libs,uchardet,unzip,usbredir,userspace-rcu,virt-what,vo-amrwbenc,volume_key-libs,vulkan-loader,which,whois-nls,wsdd,xcb-util,xcb-util-cursor,xcb-util-image,xcb-util-keysyms,xcb-util-renderutil,xcb-util-wm,xdg-utils,xfsprogs,xkbcomp,xml-common,xmlrpc-c,xmlrpc-c-client,xmodmap,xprop,xrdb,xvidcore,zeromq,zram-generator,zstd,zvbi,hunspell-en-AU,hunspell-en-CA,hunspell-en-GB,hunspell-en-US,samba-common,at-spi2-atk,at-spi2-core,atk,crypto-policies,crypto-policies-scripts,google-noto-sans-mono-vf-fonts,google-noto-serif-vf-fonts,hunspell-en,hypervfcopyd,langpacks-core-en,langpacks-en,langpacks-fonts-en,libldb,libsmbclient,libwbclient,perl-Data-Dumper,python-unversioned-command,python3-linux-procfs,python3-pyinotify,python3-rpds-py,samba-client-libs,samba-common-libs,samba-libs,samba-ndr-libs,unbound,unbound-anchor,unbound-libs"
 
 # RPMFusion is where the real (patent-encumbered) ffmpeg/h264/aac
 # gstreamer plugins come from - Fedora's own gstreamer1-plugins-* builds
@@ -433,15 +442,15 @@ dnf5 download \
     --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64 \
     --repofrompath=azl-microsoft,https://packages.microsoft.com/azurelinux/4.0/beta/microsoft/x86_64 \
     --repofrompath=azl-desktop-kmods,https://sirredbeard.github.io/azurelinux-desktop/repo \
-    --repofrompath=fedora43,https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/ \
-    --repofrompath=fedora43-updates,https://dl.fedoraproject.org/pub/fedora/linux/updates/43/Everything/x86_64/ \
+    --repofrompath=fedora45,https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/ \
+    --repofrompath=fedora45-updates,https://dl.fedoraproject.org/pub/fedora/linux/updates/45/Everything/x86_64/ \
     --repofrompath=ms-prod,https://packages.microsoft.com/rhel/9/prod/ \
     --repofrompath=vscode,https://packages.microsoft.com/yumrepos/vscode \
     --repofrompath=edge-canary,https://packages.microsoft.com/yumrepos/edge-canary \
     --repofrompath=gh-cli,https://cli.github.com/packages/rpm \
     --repofrompath=github-desktop,https://mirror.mwt.me/shiftkey-desktop/rpm \
-    --repofrompath=rpmfusion-free,https://download1.rpmfusion.org/free/fedora/releases/43/Everything/x86_64/os/ \
-    --repofrompath=rpmfusion-nonfree,https://download1.rpmfusion.org/nonfree/fedora/releases/43/Everything/x86_64/os/ \
+    --repofrompath=rpmfusion-free,https://download1.rpmfusion.org/free/fedora/releases/45/Everything/x86_64/os/ \
+    --repofrompath=rpmfusion-nonfree,https://download1.rpmfusion.org/nonfree/fedora/releases/45/Everything/x86_64/os/ \
     --setopt=azl-base.cost=1 \
     --setopt=azl-microsoft.cost=1 \
     --setopt=azl-desktop-kmods.cost=1 \
@@ -450,16 +459,16 @@ dnf5 download \
     --setopt=edge-canary.cost=1 \
     --setopt=gh-cli.cost=1 \
     --setopt=github-desktop.cost=1 \
-    --setopt=fedora43.cost=50 \
-    --setopt=fedora43-updates.cost=50 \
+    --setopt=fedora45.cost=50 \
+    --setopt=fedora45-updates.cost=50 \
     --setopt=rpmfusion-free.cost=50 \
     --setopt=rpmfusion-nonfree.cost=50 \
     --setopt=azl-base.excludepkgs="$AZL_BASE_EXCLUDES" \
     --setopt=azl-microsoft.excludepkgs="$AZL_MICROSOFT_EXCLUDES" \
     --setopt=ms-prod.excludepkgs="$MS_PROD_EXCLUDES" \
-    --setopt=fedora43.excludepkgs="$FEDORA_EXCLUDES" \
-    --setopt=fedora43-updates.excludepkgs="$FEDORA_EXCLUDES" \
-    --repo=azl-base --repo=azl-microsoft --repo=azl-desktop-kmods --repo=fedora43 --repo=fedora43-updates \
+    --setopt=fedora45.excludepkgs="$FEDORA_EXCLUDES" \
+    --setopt=fedora45-updates.excludepkgs="$FEDORA_EXCLUDES" \
+    --repo=azl-base --repo=azl-microsoft --repo=azl-desktop-kmods --repo=fedora45 --repo=fedora45-updates \
     --repo=ms-prod --repo=vscode --repo=edge-canary --repo=gh-cli --repo=github-desktop \
     --repo=rpmfusion-free --repo=rpmfusion-nonfree \
     --resolve \
@@ -850,6 +859,21 @@ ls "$EXTRAS/flatpak-system/app" | grep -F 'com.github.sirredbeard.copilot-deskto
 test -e "$EXTRAS/flatpak-system/appstream/flathub/x86_64/active/appstream.xml" \
     || test -e "$EXTRAS/flatpak-system/appstream/flathub/x86_64/active/appstream.xml.gz"
 test -d "$EXTRAS/flatpak-system/appstream/flathub/x86_64/active/icons"
+
+#----------------------------------------------------------------------
+# Stage the signed EFI loaders into /boot/efi. Fedora 45's grub2 and
+# shim ship the signed loaders (grubx64.efi, gcdx64.efi, shimx64.efi)
+# only under /usr/lib/efi; the /boot/efi copies are ghost entries no
+# dirinstall materializes, and kiwi's secure-boot setup aborts with
+# "Signed grub2 efi loader not found" when /boot/efi/EFI/<vendor> is
+# empty. Same staging the live kickstart does for lorax.
+#----------------------------------------------------------------------
+for efisrc in /usr/lib/efi/*/*/EFI/*/*.efi; do
+    [ -f "$efisrc" ] || continue
+    destdir="/boot/efi/EFI/$(basename "$(dirname "$efisrc")")"
+    mkdir -p "$destdir"
+    cp -a "$efisrc" "$destdir/"
+done
 
 #----------------------------------------------------------------------
 # Anaconda launcher symlink (script deployed via kiwi <file>) - same

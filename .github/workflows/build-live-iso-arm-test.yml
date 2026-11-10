@@ -5,12 +5,15 @@ name: Build live ISO (ARM64 test)
 # built on the runner from containers/build-lorax/Dockerfile.aarch64,
 # and the kickstart is the product live kickstart passed through
 # scripts/make-arm-ks.py (aarch64 repos and EFI packages, x86_64-only
-# packages dropped, x86_64 side-loads neutralized). The vendor prestage
-# step is skipped: its binaries are x86_64. Products land as Actions
-# artifacts. When the release_tag input names an existing release, the
-# ISO and the squashfs are also hashed, split, and attached to that
-# release in this job (scripts/ci-upload-release-asset.sh), the same
-# path the product builds use. The squashfs artifact is the rootfs the
+# packages dropped, the x86_64 thirdparty side-load neutralized). The
+# Copilot Flatpak prestage runs with COPILOT_REPO_SUFFIX=-aarch64, so
+# the image carries the aarch64 Copilot desktop app from the project's
+# repo-aarch64 Pages remote. The vendor prestage step is skipped: its
+# binaries are x86_64. Products land as Actions artifacts. When the
+# release_tag input names an existing release, the ISO and the
+# squashfs are also hashed, split, and attached to that release in
+# this job (scripts/ci-upload-release-asset.sh), the same path the
+# product builds use. The squashfs artifact is the rootfs the
 # systemd-nspawn sanity boot runs.
 
 on:
@@ -46,6 +49,18 @@ jobs:
         run: >
           python3 scripts/make-arm-ks.py
           kickstart/azurelinux-desktop-live.ks azurelinux-desktop-live-arm.ks
+
+      - name: Prestage Copilot Flatpak (aarch64)
+        run: |
+          docker run --rm --privileged \
+            --security-opt label=disable \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -e COPILOT_REPO_SUFFIX=-aarch64 \
+            build-lorax:f45-arm bash -c '
+              mkdir -p /workspace/prestage
+              /workspace/scripts/prestage-copilot-flatpak-system.sh \
+                /workspace/prestage/flatpak-system
+            '
 
       - name: Build live ISO (lorax + livemedia-creator --no-virt)
         run: |

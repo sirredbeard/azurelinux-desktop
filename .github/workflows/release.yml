@@ -1,8 +1,13 @@
 name: Release
 
-# One publication path. Schedule does the full set. Manual dispatch is
-# the same workflow with per-artifact flags, so a focused rebuild does
-# not mean a second workflow file or a second mental model.
+# One publication path. The daily schedule refreshes the live ISO, the
+# installer ISO, and the qcow2 on the current release. The Monday
+# schedule does the full set: it also rebuilds the VM convert formats
+# (VHDX, VDI, VMDK) and replaces the release, so the third-party VM
+# images update weekly while the ISO and qcow2 stay daily. Manual
+# dispatch is the same workflow with per-artifact flags, so a focused
+# rebuild does not mean a second workflow file or a second mental
+# model.
 #
 # Graph:
 #   plan
@@ -43,8 +48,11 @@ name: Release
 # Release rules:
 # - One GitHub Release is the product. Get-AzureLinuxDesktop.ps1 reads
 #   /releases/latest.
-# - Schedule, or manual replace_release: delete every prior release and
-#   tag, mint a UTC-date tag, apply .github/release-notes-template.md.
+# - The Monday schedule, or manual replace_release: delete every prior
+#   release and tag, mint a UTC-date tag, apply
+#   .github/release-notes-template.md. Other scheduled days keep the
+#   current release and clobber only the assets they built, which is
+#   what lets the weekly VM images survive the daily ISO refresh.
 # - Focused manual (replace_release off): scripts/resolve-release-tag.sh
 #   attaches to the current release and clobbers only the assets this run
 #   built. Do not mint a second tag just because UTC rolled over.
@@ -89,7 +97,7 @@ on:
         type: boolean
         default: false
       replace_release:
-        description: "Delete every prior GitHub release/tag and mint a fresh dated release with the notes template. Schedule always does this. Leave off to clobber assets on the current release only."
+        description: "Delete every prior GitHub release/tag and mint a fresh dated release with the notes template. The Monday schedule does this. Leave off to clobber assets on the current release only."
         type: boolean
         default: false
       upload_actions_artifacts:
@@ -159,8 +167,18 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "schedule" ]; then
-            live=true; installer=true; qcow2=true; vhdx=true
-            vdi=true; vmdk=true; canary=true; kmods=true; replace=true
+            live=true; installer=true; qcow2=true
+            canary=true; kmods=true
+            # VM convert formats (VHDX, VDI, VMDK) rebuild weekly, not
+            # daily. The Monday run (UTC) does the full set and
+            # replaces the release; every other day refreshes the ISO
+            # and qcow2 assets on the current release in place, so the
+            # weekly VM images are not deleted by the daily cycle.
+            if [ "$(date -u +%u)" = "1" ]; then
+              vhdx=true; vdi=true; vmdk=true; replace=true
+            else
+              vhdx=false; vdi=false; vmdk=false; replace=false
+            fi
             # Nightly always rebuilds canary. Focused manual ISO/qcow runs
             # leave canary off (default false) and never force a rebuild.
             force_canary=true

@@ -185,11 +185,11 @@ run_dnf dnf-install-samples install -y \
 : > "$LOG_DIR/package-origins.log"
 assert_rpm_source ovfenv '.azl4'
 assert_rpm_source telegraf '.azl4'
-assert_rpm_source dconf-editor '.fc43'
-assert_rpm_source gnome-sudoku '.fc43'
-assert_rpm_source python3-idle '.fc43'
-assert_rpm_source gnome-backgrounds '.fc43'
-assert_rpm_source gnome-terminal '.fc43'
+assert_rpm_source dconf-editor '.fc45'
+assert_rpm_source gnome-sudoku '.fc45'
+assert_rpm_source python3-idle '.fc45'
+assert_rpm_source gnome-backgrounds '.fc45'
+assert_rpm_source gnome-terminal '.fc45'
 test -s /etc/dconf/db/local
 DCONF_PROFILE=user dconf read /org/gnome/desktop/background/picture-uri-dark \
     | grep -Fq "file:///usr/share/backgrounds/azurelinux/adwaita-d.jpg"
@@ -236,7 +236,7 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
     echo
     echo '=== RPM GPG keys for gpgcheck=1 repos ==='
     for key in \
-        RPM-GPG-KEY-fedora-43-primary \
+        RPM-GPG-KEY-fedora-45-primary \
         RPM-GPG-KEY-microsoft \
         RPM-GPG-KEY-githubcli \
         RPM-GPG-KEY-shiftkey-desktop \

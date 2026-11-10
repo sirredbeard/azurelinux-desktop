@@ -35,6 +35,17 @@ on:
         type: boolean
         default: false
 
+  # Manual dispatch is build-only: release_tag stays empty, so the ISO
+  # lands as an Actions artifact and nothing is published to a release.
+  workflow_dispatch:
+    inputs:
+      prepare_kernel_modules:
+        type: boolean
+        default: false
+      upload_actions_artifacts:
+        type: boolean
+        default: true
+
 permissions:
   # write: commit findings/installer-package-list.txt after a successful ISO build
   # packages:read — pull BUILD_KIWI_IMAGE from GHCR; nested prepare_kernel_modules
@@ -45,7 +56,7 @@ permissions:
   packages: read
 
 env:
-  BUILD_KIWI_IMAGE: ghcr.io/${{ github.repository }}/build-kiwi:f43
+  BUILD_KIWI_IMAGE: ghcr.io/${{ github.repository }}/build-kiwi:f45
 
 jobs:
   prepare-kernel-modules:
