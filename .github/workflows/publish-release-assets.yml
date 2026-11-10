@@ -1,0 +1,146 @@
+name: Publish release assets from build runs
+
+# Attach already-built images to an existing GitHub Release without
+# pulling them out of Actions first. The build workflows publish at
+# build time when they are given a release tag; this workflow is the
+# after-the-fact path for runs that were built build-only, and the
+# recovery path when a build-time upload did not finish. Payloads move
+# runner-side only: gh run download, a hash check, then the same
+# scripts/ci-upload-release-asset.sh the build jobs use.
+#
+# A blank run id skips that product. Payload map:
+#   installer run  azurelinux-desktop-install-iso
+#                    -> azurelinux-desktop-install.iso
+#   live run       azurelinux-desktop-live-iso
+#                    -> azurelinux-desktop-live.iso
+#                  azurelinux-desktop-live-squashfs
+#                    -> azurelinux-desktop-live-squashfs.img
+#   arm run        azurelinux-desktop-live-iso-arm
+#                    -> azurelinux-desktop-live-f45-arm.iso
+#                  azurelinux-desktop-live-squashfs-arm
+#                    -> azurelinux-desktop-live-squashfs-arm.img
+#
+# When the target release already carries SHA256SUMS, every payload
+# hash must match it before that payload uploads. When it does not,
+# this run writes SHA256SUMS from the payloads it published.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to attach assets to"
+        required: true
+        type: string
+      live_run_id:
+        description: "build-live-iso run id (blank to skip)"
+        required: false
+        type: string
+        default: ""
+      installer_run_id:
+        description: "build-installer-iso run id (blank to skip)"
+        required: false
+        type: string
+        default: ""
+      arm_run_id:
+        description: "Build live ISO (ARM64 test) run id (blank to skip)"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-release-assets-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.release_tag }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Publish payloads to the release
+        env:
+          LIVE_RUN: ${{ inputs.live_run_id }}
+          INSTALLER_RUN: ${{ inputs.installer_run_id }}
+          ARM_RUN: ${{ inputs.arm_run_id }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/publish-release-assets"
+          mkdir -p "$work"
+          cd "$work"
+
+          have_sums=false
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets \
+              --jq '.assets[].name' | grep -qx SHA256SUMS; then
+            gh release download "$TAG" -R "$GITHUB_REPOSITORY" \
+              -p SHA256SUMS -D ref
+            have_sums=true
+          fi
+          : > generated-sums.txt
+
+          publish() {
+            local run_id="$1" artifact="$2" rel_name="$3"
+            local dl="$work/dl-$rel_name"
+            mkdir -p "$dl"
+            gh run download "$run_id" -R "$GITHUB_REPOSITORY" \
+              -n "$artifact" -D "$dl"
+            local files=()
+            mapfile -t files < <(find "$dl" -type f)
+            if [ "${#files[@]}" -ne 1 ]; then
+              echo "artifact $artifact from run $run_id holds ${#files[@]} files, expected 1" >&2
+              exit 1
+            fi
+            mv "${files[0]}" "$work/$rel_name"
+            local hash
+            hash=$(sha256sum "$work/$rel_name" | awk '{print $1}')
+            if [ "$have_sums" = true ]; then
+              local want
+              want=$(awk -v n="$rel_name" '$2 == n {print $1}' ref/SHA256SUMS)
+              if [ -z "$want" ]; then
+                echo "SHA256SUMS on $TAG has no entry for $rel_name" >&2
+                exit 1
+              fi
+              if [ "$want" != "$hash" ]; then
+                echo "hash mismatch for $rel_name: run $run_id gives $hash, release expects $want" >&2
+                exit 1
+              fi
+              echo "$rel_name: hash matches the release SHA256SUMS"
+            fi
+            printf '%s  %s\n' "$hash" "$rel_name" >> generated-sums.txt
+            "$GITHUB_WORKSPACE/scripts/ci-upload-release-asset.sh" \
+              "$TAG" "$work/$rel_name"
+            rm -f "$work/$rel_name"
+            rm -rf "$dl"
+          }
+
+          if [ -n "$INSTALLER_RUN" ]; then
+            publish "$INSTALLER_RUN" azurelinux-desktop-install-iso \
+              azurelinux-desktop-install.iso
+          fi
+          if [ -n "$LIVE_RUN" ]; then
+            publish "$LIVE_RUN" azurelinux-desktop-live-iso \
+              azurelinux-desktop-live.iso
+            publish "$LIVE_RUN" azurelinux-desktop-live-squashfs \
+              azurelinux-desktop-live-squashfs.img
+          fi
+          if [ -n "$ARM_RUN" ]; then
+            publish "$ARM_RUN" azurelinux-desktop-live-iso-arm \
+              azurelinux-desktop-live-f45-arm.iso
+            publish "$ARM_RUN" azurelinux-desktop-live-squashfs-arm \
+              azurelinux-desktop-live-squashfs-arm.img
+          fi
+
+          if [ "$have_sums" = false ]; then
+            sort -k 2 generated-sums.txt > SHA256SUMS
+            gh release upload "$TAG" SHA256SUMS --clobber \
+              -R "$GITHUB_REPOSITORY"
+          fi
+          echo "published to $TAG"
