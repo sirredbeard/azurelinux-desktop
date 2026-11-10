@@ -244,9 +244,9 @@ glibc-all-langpacks-2.44-2.fc45.x86_64
 glibc-common-2.44-2.fc45.x86_64
 glibc-gconv-extra-2.44-2.fc45.x86_64
 glibmm2.68-2.84.0-3.azl4.x86_64
-glycin-gtk4-libs-2.2.2-1.fc45.x86_64
-glycin-libs-2.2.2-1.fc45.x86_64
-glycin-loaders-2.2.2-1.fc45.x86_64
+glycin-gtk4-libs-2.2.6-1.fc45.x86_64
+glycin-libs-2.2.6-1.fc45.x86_64
+glycin-loaders-2.2.6-1.fc45.x86_64
 gmp-6.3.0-5.azl4.x86_64
 gnome-app-list-2026.08-2.fc45.noarch
 gnome-autoar-0.4.5-11.fc45.x86_64
@@ -597,7 +597,7 @@ libmbim-utils-1.32.0-3.azl4.x86_64
 libmediainfo-26.05-2.fc45.x86_64
 libmnl-1.0.5-9.azl4.x86_64
 libmodplug-0.8.9.0-29.azl4.x86_64
-libmodulemd-2.15.3-3.fc45.x86_64
+libmodulemd-2.15.4-1.fc45.x86_64
 libmount-2.41.3-11.azl4.x86_64
 libmpc-1.3.1-9.azl4.x86_64
 libmpeg2-0.5.1-33.azl4.x86_64
@@ -736,7 +736,7 @@ lm_sensors-libs-3.6.0-24.azl4.x86_64
 lmdb-libs-0.9.34-3.azl4.x86_64
 localsearch-3.12.0-2.fc45.x86_64
 logrotate-3.22.0-5.azl4.x86_64
-loupe-51.0-2.fc45.x86_64
+loupe-51.1-1.fc45.x86_64
 lpcnetfreedv-0.5-10.azl4.x86_64
 lttng-ust-2.14.0-5.azl4.x86_64
 lua-libs-5.5.1-2.fc45.x86_64
@@ -1080,7 +1080,7 @@ vid.stab-1.1.1-9.fc45.x86_64
 vim-data-9.1.2146-4.azl4.noarch
 vim-minimal-9.1.2146-4.azl4.x86_64
 virt-what-1.27-5.azl4.x86_64
-virtualbox-guest-additions-7.2.20-1.fc45.x86_64
+virtualbox-guest-additions-7.2.22-1.fc45.x86_64
 vmaf-models-3.2.1-1.fc45.noarch
 vo-amrwbenc-0.1.3-24.azl4.x86_64
 volume_key-libs-0.3.12-29.azl4.x86_64
