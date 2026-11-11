@@ -91,6 +91,36 @@ if [[ ${#parts[@]} -eq 0 ]]; then
 fi
 
 gh release upload "$tag" "${parts[@]}" "$sha_out" --clobber -R "$repo"
+
+# Delete this payload's stale parts from the release. A rebuild can
+# split into fewer parts than the build it replaces, and --clobber
+# only replaces the names it is handed: a tail part from the older,
+# larger build survives the upload, and any reassembly that globs
+# the parts appends it and fails the checksum. (Bit the 2026.11.10
+# live ISO on Nov 11: the new build had 2 parts, the old part .02
+# stayed, and the reassembled file failed its own .sha256.) This
+# runs after the upload on purpose: if the upload fails, the old
+# set is still whole on the release rather than half deleted.
+if ! current_parts=$(
+  gh release view "$tag" -R "$repo" --json assets \
+    --jq ".assets[].name | select(startswith(\"${base}.split.\"))"
+); then
+  echo "ci-upload-release-asset: cannot list assets on $tag to prune stale parts" >&2
+  exit 1
+fi
+for current in $current_parts; do
+  keep=false
+  for part in "${parts[@]}"; do
+    if [[ "$current" == "$(basename "$part")" ]]; then
+      keep=true
+      break
+    fi
+  done
+  if [[ "$keep" == false ]]; then
+    echo "ci-upload-release-asset: deleting stale part $current from $tag"
+    gh release delete-asset "$tag" "$current" -R "$repo" --yes
+  fi
+done
 rm -f "${parts[@]}"
 # Leave .sha256 next to the source when we could write there; else copy if possible.
 if [[ "$work" != "$dir" ]]; then
