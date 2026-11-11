@@ -92,6 +92,16 @@
     script decompresses it for you and requires a 7-Zip of some kind to
     do so (see .DESCRIPTION).
 
+.PARAMETER Flashable
+    Download the Ventuno Q flashable set instead of an ISO or disk
+    image: azurelinux-desktop-flash-system-boot-arm.img,
+    azurelinux-desktop-flash-writable-arm.img, and
+    azurelinux-desktop-flash-rawprogram-arm.xml. The set is what gets
+    flashed to the Arduino Ventuno Q over Qualcomm EDL (see the README
+    section on the flashable set); there is no aarch64 installer ISO.
+    Each file is downloaded, reassembled, and verified the same way
+    the ISOs are. Not valid with any other image switch.
+
 .PARAMETER OutputDirectory
     Where to download parts and write the reassembled file. Defaults to
     the current directory.
@@ -110,6 +120,7 @@
     .\Get-AzureLinuxDesktop.ps1 -Hyperv -KeepParts
     .\Get-AzureLinuxDesktop.ps1 -VirtualBox -OutputDirectory C:\vms
     .\Get-AzureLinuxDesktop.ps1 -VMWare -OutputDirectory C:\vms
+    .\Get-AzureLinuxDesktop.ps1 -Flashable -OutputDirectory C:\ventunoq
 #>
 param(
     [switch]$Live,
@@ -120,6 +131,7 @@ param(
     [switch]$Hyperv,
     [switch]$VirtualBox,
     [switch]$VMWare,
+    [switch]$Flashable,
     [Alias("OutDir")]
     [string]$OutputDirectory = ".",
     [switch]$KeepParts
@@ -140,6 +152,9 @@ if ($diskFormatCount -gt 1) {
 }
 if ($Live -and $Install) {
     throw "-Live and -Install/-Installer are mutually exclusive - pick one ISO."
+}
+if ($Flashable -and ($Live -or $Install -or $Kvm -or $Hyperv -or $VirtualBox -or $VMWare)) {
+    throw "-Flashable can't be combined with -Live, -Install/-Installer, -Kvm, -Hyperv, -VirtualBox, or -VMWare - the flashable set is its own download."
 }
 
 $useAria2 = [bool](Get-Command aria2c -ErrorAction SilentlyContinue)
@@ -196,20 +211,71 @@ $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/l
     -Headers @{ "User-Agent" = "azurelinux-desktop-fetch" }
 Write-Host "Latest release: $($release.tag_name)"
 
-$escaped = [regex]::Escape($baseName)
-$parts = $release.assets | Where-Object { $_.name -match "^$escaped\.split\.\d+\.part$" } | Sort-Object name
-$manifest = $release.assets | Where-Object { $_.name -eq "$baseName.sha256" } | Select-Object -First 1
+# One release payload: find its parts and sha256 manifest on the
+# release fetched above, download them, reassemble, and verify.
+# Returns the reassembled file's path. Defined here but only called
+# at the bottom of the script, after Get-File and friends exist.
+function Get-ReleasePayload {
+    param([string]$PayloadName, [string]$PayloadDescription)
 
-if (-not $parts) {
-    throw "No $description (.split.*.part) assets found on release $($release.tag_name). Expected files named $baseName.split.NN.part."
-}
-if (-not $manifest) {
-    throw "No $baseName.sha256 manifest asset found on release $($release.tag_name)."
-}
+    $escaped = [regex]::Escape($PayloadName)
+    $parts = $release.assets | Where-Object { $_.name -match "^$escaped\.split\.\d+\.part$" } | Sort-Object name
+    $manifest = $release.assets | Where-Object { $_.name -eq "$PayloadName.sha256" } | Select-Object -First 1
 
-$isoPath = Join-Path $OutputDirectory $baseName
-$finalPath = Join-Path $OutputDirectory $finalName
-$manifestPath = Join-Path $OutputDirectory $manifest.name
+    if (-not $parts) {
+        throw "No $PayloadDescription (.split.*.part) assets found on release $($release.tag_name). Expected files named $PayloadName.split.NN.part."
+    }
+    if (-not $manifest) {
+        throw "No $PayloadName.sha256 manifest asset found on release $($release.tag_name)."
+    }
+
+    $payloadPath = Join-Path $OutputDirectory $PayloadName
+    $manifestPath = Join-Path $OutputDirectory $manifest.name
+
+    Write-Host "Downloading manifest: $($manifest.name)"
+    Get-File -Url $manifest.browser_download_url -Dir $OutputDirectory -OutFile $manifest.name
+
+    $partPaths = @()
+    foreach ($part in $parts) {
+        Write-Host "Downloading part: $($part.name) ($([math]::Round($part.size / 1MB, 1)) MiB)"
+        Get-File -Url $part.browser_download_url -Dir $OutputDirectory -OutFile $part.name
+        $partPaths += (Join-Path $OutputDirectory $part.name)
+    }
+
+    Write-Host "Reassembling $($partPaths.Count) parts into $PayloadName..."
+    $outStream = [System.IO.File]::Create($payloadPath)
+    try {
+        foreach ($partPath in $partPaths) {
+            $inStream = [System.IO.File]::OpenRead($partPath)
+            try {
+                $inStream.CopyTo($outStream)
+            }
+            finally {
+                $inStream.Dispose()
+            }
+        }
+    }
+    finally {
+        $outStream.Dispose()
+    }
+
+    Write-Host "Verifying sha256 against the published manifest..."
+    $expected = (Get-Content $manifestPath -Raw).Split(" ")[0].Trim()
+    $actual = (Get-FileHash -Path $payloadPath -Algorithm SHA256).Hash.ToLower()
+
+    if ($expected -ne $actual) {
+        throw "Checksum mismatch. Expected $expected, got $actual. The reassembled file is not trustworthy, delete it and try again."
+    }
+
+    Write-Host "Checksum OK: $actual"
+
+    if (-not $KeepParts) {
+        Write-Host "Cleaning up downloaded .part files..."
+        $partPaths | Remove-Item -Force
+    }
+
+    return $payloadPath
+}
 
 function Get-WithAria2 {
     param([string]$Url, [string]$Dir, [string]$OutFile)
@@ -334,42 +400,25 @@ function Expand-SevenZipArchive {
 }
 
 
-Write-Host "Downloading manifest: $($manifest.name)"
-Get-File -Url $manifest.browser_download_url -Dir $OutputDirectory -OutFile $manifest.name
-
-$partPaths = @()
-foreach ($part in $parts) {
-    Write-Host "Downloading part: $($part.name) ($([math]::Round($part.size / 1MB, 1)) MiB)"
-    Get-File -Url $part.browser_download_url -Dir $OutputDirectory -OutFile $part.name
-    $partPaths += (Join-Path $OutputDirectory $part.name)
-}
-
-Write-Host "Reassembling $($partPaths.Count) parts into $baseName..."
-$outStream = [System.IO.File]::Create($isoPath)
-try {
-    foreach ($partPath in $partPaths) {
-        $inStream = [System.IO.File]::OpenRead($partPath)
-        try {
-            $inStream.CopyTo($outStream)
-        }
-        finally {
-            $inStream.Dispose()
-        }
+# The flashable set is three payloads, not one: fetch each through the
+# same pipeline, then stop. The single-payload path below (including
+# the 7z decompression for the VM disk formats) does not apply to it.
+if ($Flashable) {
+    $flashPayloads = @(
+        @{ PayloadName = "azurelinux-desktop-flash-system-boot-arm.img"; PayloadDescription = "Ventuno Q system-boot image" },
+        @{ PayloadName = "azurelinux-desktop-flash-writable-arm.img"; PayloadDescription = "Ventuno Q writable image" },
+        @{ PayloadName = "azurelinux-desktop-flash-rawprogram-arm.xml"; PayloadDescription = "Ventuno Q rawprogram file" }
+    )
+    foreach ($payload in $flashPayloads) {
+        $path = Get-ReleasePayload -PayloadName $payload.PayloadName -PayloadDescription $payload.PayloadDescription
+        Write-Host "$($payload.PayloadDescription) ready at $path"
     }
-}
-finally {
-    $outStream.Dispose()
-}
-
-Write-Host "Verifying sha256 against the published manifest..."
-$expected = (Get-Content $manifestPath -Raw).Split(" ")[0].Trim()
-$actual = (Get-FileHash -Path $isoPath -Algorithm SHA256).Hash.ToLower()
-
-if ($expected -ne $actual) {
-    throw "Checksum mismatch. Expected $expected, got $actual. The reassembled file is not trustworthy, delete it and try again."
+    Write-Host "Ventuno Q flashable set ready in $OutputDirectory"
+    return
 }
 
-Write-Host "Checksum OK: $actual"
+$isoPath = Get-ReleasePayload -PayloadName $baseName -PayloadDescription $description
+$finalPath = Join-Path $OutputDirectory $finalName
 
 if ($needsDecompress) {
     Write-Host "Decompressing $baseName into $finalName..."
@@ -382,8 +431,3 @@ if ($needsDecompress) {
 }
 
 Write-Host "$description ready at $finalPath"
-
-if (-not $KeepParts) {
-    Write-Host "Cleaning up downloaded .part files..."
-    $partPaths | Remove-Item -Force
-}

@@ -1,0 +1,140 @@
+name: Build flashable image (ARM64)
+
+# Assemble the Ventuno Q flashable set from an ARM64 live build:
+# a system-boot image, a writable image, and the rawprogram XML that
+# programs those two partitions and nothing else. The assembly itself
+# is scripts/build-flash-image-arm.sh; this workflow is the plumbing
+# around it (fetch the live build's ISO and squashfs artifacts, run
+# the script, land the set as artifacts). There is no installer ISO
+# for this board: its eMMC layout belongs to the Qualcomm boot chain,
+# and flashing writes the two OS partitions in place. See issue #43.
+#
+# When the release_tag input names an existing release, the three
+# payloads are also hashed, split, and attached to that release in
+# this job (scripts/ci-upload-release-asset.sh), the same path the
+# ARM live build uses. publish-release-assets.yml can attach the set
+# after the fact from a run of this workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      arm_run_id:
+        description: "Build live ISO (ARM64 test) run id to assemble from (blank = latest successful run)"
+        required: false
+        type: string
+        default: ""
+      release_tag:
+        description: "Existing release tag to also publish to (blank = build only)"
+        required: false
+        type: string
+        default: ""
+  workflow_call:
+    inputs:
+      arm_run_id:
+        required: false
+        type: string
+        default: ""
+      release_tag:
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  # read: gh run download of the ARM build's artifacts
+  actions: read
+  # write: gh release upload when release_tag is set
+  contents: write
+
+jobs:
+  build-flash-arm:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Show disk space
+        run: df -h / "$GITHUB_WORKSPACE"
+
+      - name: Resolve ARM source run
+        id: src
+        env:
+          ARM_RUN: ${{ inputs.arm_run_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ARM_RUN" ]; then
+            ARM_RUN=$(gh run list -R "$GITHUB_REPOSITORY" \
+              --workflow build-live-iso-arm-test.yml \
+              --status success --limit 1 --json databaseId \
+              --jq '.[0].databaseId')
+          fi
+          if [ -z "$ARM_RUN" ] || [ "$ARM_RUN" = "null" ]; then
+            echo "no successful ARM live build run found" >&2
+            exit 1
+          fi
+          echo "arm_run=$ARM_RUN" >> "$GITHUB_OUTPUT"
+          echo "assembling from ARM live build run $ARM_RUN"
+
+      - name: Download ARM live artifacts
+        env:
+          ARM_RUN: ${{ steps.src.outputs.arm_run }}
+        run: |
+          set -euo pipefail
+          mkdir -p src
+          gh run download "$ARM_RUN" -R "$GITHUB_REPOSITORY" \
+            -n azurelinux-desktop-live-iso-arm \
+            -n azurelinux-desktop-live-squashfs-arm -D src
+          find src -type f -exec ls -la {} +
+
+      - name: Install assembly tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorriso squashfs-tools dosfstools mtools
+
+      - name: Assemble flashable set
+        run: |
+          set -euo pipefail
+          iso=$(echo src/*/azurelinux-desktop-live-f45-arm.iso)
+          sq=$(echo src/*/squashfs.img)
+          scripts/build-flash-image-arm.sh "$iso" "$sq" out
+          ls -lah out
+
+      - name: Upload system-boot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-flash-system-boot-arm
+          path: out/azurelinux-desktop-flash-system-boot-arm.img
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Upload writable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-flash-writable-arm
+          path: out/azurelinux-desktop-flash-writable-arm.img
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Upload rawprogram artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: azurelinux-desktop-flash-rawprogram-arm
+          path: out/azurelinux-desktop-flash-rawprogram-arm.xml
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Publish flashable set to release
+        if: ${{ inputs.release_tag != '' }}
+        run: |
+          set -euo pipefail
+          for f in out/azurelinux-desktop-flash-system-boot-arm.img \
+                   out/azurelinux-desktop-flash-writable-arm.img \
+                   out/azurelinux-desktop-flash-rawprogram-arm.xml; do
+            ./scripts/ci-upload-release-asset.sh \
+              "${{ inputs.release_tag }}" "$f"
+          done
