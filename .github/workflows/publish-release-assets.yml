@@ -19,6 +19,12 @@ name: Publish release assets from build runs
 #                    -> azurelinux-desktop-live-f45-arm.iso
 #                  azurelinux-desktop-live-squashfs-arm
 #                    -> azurelinux-desktop-live-squashfs-arm.img
+#   flash run      azurelinux-desktop-flash-system-boot-arm
+#                    -> azurelinux-desktop-flash-system-boot-arm.img
+#                  azurelinux-desktop-flash-writable-arm
+#                    -> azurelinux-desktop-flash-writable-arm.img
+#                  azurelinux-desktop-flash-rawprogram-arm
+#                    -> azurelinux-desktop-flash-rawprogram-arm.xml
 #
 # When the target release already carries SHA256SUMS, every payload
 # hash must match it before that payload uploads. When it does not,
@@ -43,6 +49,11 @@ on:
         default: ""
       arm_run_id:
         description: "Build live ISO (ARM64 test) run id (blank to skip)"
+        required: false
+        type: string
+        default: ""
+      flash_run_id:
+        description: "Build flashable image (ARM64) workflow run id (blank to skip)"
         required: false
         type: string
         default: ""
@@ -71,6 +82,7 @@ jobs:
           LIVE_RUN: ${{ inputs.live_run_id }}
           INSTALLER_RUN: ${{ inputs.installer_run_id }}
           ARM_RUN: ${{ inputs.arm_run_id }}
+          FLASH_RUN: ${{ inputs.flash_run_id }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/publish-release-assets"
@@ -136,6 +148,14 @@ jobs:
               azurelinux-desktop-live-f45-arm.iso
             publish "$ARM_RUN" azurelinux-desktop-live-squashfs-arm \
               azurelinux-desktop-live-squashfs-arm.img
+          fi
+          if [ -n "$FLASH_RUN" ]; then
+            publish "$FLASH_RUN" azurelinux-desktop-flash-system-boot-arm \
+              azurelinux-desktop-flash-system-boot-arm.img
+            publish "$FLASH_RUN" azurelinux-desktop-flash-writable-arm \
+              azurelinux-desktop-flash-writable-arm.img
+            publish "$FLASH_RUN" azurelinux-desktop-flash-rawprogram-arm \
+              azurelinux-desktop-flash-rawprogram-arm.xml
           fi
 
           if [ "$have_sums" = false ]; then
