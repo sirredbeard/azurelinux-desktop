@@ -100,7 +100,7 @@ cirrus-audio-firmware-20260221-2.azl4.noarch
 cjson-1.7.19-2.fc45.x86_64
 cloud-utils-growpart-0.33-12.azl4.noarch
 cmark-lib-0.31.1-4.fc45.x86_64
-code-insiders-1.146.0-1794291210.el8.x86_64
+code-insiders-1.147.0-1794385087.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -757,7 +757,7 @@ mesa-libGLU-9.0.3-9.fc45.x86_64
 mesa-libgbm-26.2.6-1.fc45.x86_64
 mesa-vulkan-drivers-26.2.6-1.fc45.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-159.0.4395.0-1.x86_64
+microsoft-edge-canary-159.0.4396.0-1.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-7.fc45.noarch
 mokutil-0.7.2-3.azl4.x86_64
