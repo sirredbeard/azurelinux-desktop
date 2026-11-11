@@ -609,7 +609,7 @@ libnetfilter_conntrack-1.1.1-2.azl4.x86_64
 libnfnetlink-1.0.1-32.azl4.x86_64
 libnftnl-1.2.9-3.azl4.x86_64
 libnghttp2-1.69.0-6.fc45.x86_64
-libnghttp3-1.18.0-1.fc45.x86_64
+libnghttp3-1.19.0-1.fc45.x86_64
 libnice-0.1.22-9.azl4.x86_64
 libnl3-3.12.0-3.azl4.x86_64
 libnma-common-1.10.6-12.fc45.noarch
@@ -757,7 +757,7 @@ mesa-libGLU-9.0.3-9.fc45.x86_64
 mesa-libgbm-26.2.6-1.fc45.x86_64
 mesa-vulkan-drivers-26.2.6-1.fc45.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-159.0.4392.0-1.x86_64
+microsoft-edge-canary-159.0.4395.0-1.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-7.fc45.noarch
 mokutil-0.7.2-3.azl4.x86_64
@@ -788,12 +788,12 @@ ngtcp2-crypto-ossl-1.22.1-3.fc45.x86_64
 nilfs-utils-2.2.11-9.fc45.x86_64
 noopenh264-2.6.0-3.azl4.x86_64
 npth-1.8-4.azl4.x86_64
-nspr-4.39.0-9.fc45.x86_64
-nss-3.131.0-1.fc45.x86_64
-nss-softokn-3.131.0-1.fc45.x86_64
-nss-softokn-freebl-3.131.0-1.fc45.x86_64
-nss-sysinit-3.131.0-1.fc45.x86_64
-nss-util-3.131.0-1.fc45.x86_64
+nspr-4.39.0-10.fc45.x86_64
+nss-3.133.0-1.fc45.x86_64
+nss-softokn-3.133.0-1.fc45.x86_64
+nss-softokn-freebl-3.133.0-1.fc45.x86_64
+nss-sysinit-3.133.0-1.fc45.x86_64
+nss-util-3.133.0-1.fc45.x86_64
 ntfs-3g-2026.2.25-3.fc45.x86_64
 ntfs-3g-libs-2026.2.25-3.fc45.x86_64
 ntfs-3g-system-compression-1.1-3.fc45.x86_64
@@ -939,7 +939,7 @@ poppler-26.08.0-1.fc45.x86_64
 poppler-data-0.4.11-11.azl4.noarch
 poppler-glib-26.08.0-1.fc45.x86_64
 popt-1.19-10.azl4.x86_64
-powershell-7.6.9-1.rh.x86_64
+powershell-7.7.0-1.rh.x86_64
 procps-ng-4.0.4-7.azl4.1.x86_64
 protobuf-cpp-6.33.5-7.fc45.x86_64
 protobuf3-c-1.5.2-52.fc45.x86_64
