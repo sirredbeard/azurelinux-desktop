@@ -100,7 +100,7 @@ cirrus-audio-firmware-20260221-2.azl4.noarch
 cjson-1.7.19-2.fc45.x86_64
 cloud-utils-growpart-0.33-12.azl4.noarch
 cmark-lib-0.31.1-4.fc45.x86_64
-code-insiders-1.147.0-1794385087.el8.x86_64
+code-insiders-1.147.0-1794433103.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -161,7 +161,7 @@ elfutils-libelf-0.197-1.fc45.x86_64
 elfutils-libs-0.197-1.fc45.x86_64
 emacs-filesystem-30.0-6.azl4.noarch
 enchant2-2.8.21-1.fc45.x86_64
-epiphany-runtime-51.1-2.fc45.x86_64
+epiphany-runtime-51.2-1.fc45.x86_64
 ethtool-7.2-1.fc45.x86_64
 evolution-3.62.1-1.fc45.x86_64
 evolution-data-server-3.62.1-1.fc45.x86_64
@@ -200,7 +200,7 @@ fmt-12.1.0-3.fc45.x86_64
 fontconfig-2.17.0-4.azl4.x86_64
 fonts-filesystem-2.0.5-24.azl4.noarch
 freeglut-3.8.0-3.fc45.x86_64
-freerdp-libs-3.33.0-1.fc45.x86_64
+freerdp-libs-3.33.1-1.fc45.x86_64
 freetype-2.14.3-3.fc45.x86_64
 fribidi-1.0.16-4.azl4.x86_64
 fuse-2.9.9-25.azl4.x86_64
@@ -231,10 +231,10 @@ gettext-libs-0.25.1-3.azl4.x86_64
 gettext-runtime-0.25.1-3.azl4.x86_64
 gh-2.103.3-1.x86_64
 giflib-5.2.2-10.azl4.x86_64
-git-2.56.0-1.fc45.x86_64
-git-core-2.56.0-1.fc45.x86_64
-git-core-doc-2.56.0-1.fc45.noarch
-github-1.2.0-1.x86_64
+git-2.56.1-1.fc45.x86_64
+git-core-2.56.1-1.fc45.x86_64
+git-core-doc-2.56.1-1.fc45.noarch
+github-1.3.0-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.90.1-1.fc45.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
@@ -707,7 +707,7 @@ libwayland-egl-1.26.0-3.fc45.x86_64
 libwayland-server-1.26.0-3.fc45.x86_64
 libwbclient-4.23.7-2.azl4.x86_64
 libwebp-1.6.0-4.azl4.x86_64
-libwinpr-3.33.0-1.fc45.x86_64
+libwinpr-3.33.1-1.fc45.x86_64
 libxcb-1.17.0-7.azl4.x86_64
 libxcrypt-4.5.2-3.azl4.x86_64
 libxcvt-0.1.2-11.azl4.x86_64
@@ -757,7 +757,7 @@ mesa-libGLU-9.0.3-9.fc45.x86_64
 mesa-libgbm-26.2.6-1.fc45.x86_64
 mesa-vulkan-drivers-26.2.6-1.fc45.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-159.0.4396.0-1.x86_64
+microsoft-edge-canary-159.0.4397.0-1.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-7.fc45.noarch
 mokutil-0.7.2-3.azl4.x86_64
@@ -865,7 +865,7 @@ perl-File-stat-1.14-525.azl4.noarch
 perl-FileHandle-2.05-525.azl4.noarch
 perl-Getopt-Long-2.58-521.azl4.noarch
 perl-Getopt-Std-1.14-525.azl4.noarch
-perl-Git-2.56.0-1.fc45.noarch
+perl-Git-2.56.1-1.fc45.noarch
 perl-HTTP-Tiny-0.096-528.fc45.noarch
 perl-IO-1.55-525.azl4.x86_64
 perl-IO-Socket-IP-0.43-522.azl4.noarch
@@ -999,8 +999,8 @@ samba-common-libs-4.23.7-2.azl4.x86_64
 sdbus-cpp-2.1.0-4.azl4.x86_64
 sdl2-compat-2.32.74-1.fc45.x86_64
 sed-4.9-6.azl4.x86_64
-selinux-policy-45.23-1.fc45.noarch
-selinux-policy-targeted-45.23-1.fc45.noarch
+selinux-policy-45.24-1.fc45.noarch
+selinux-policy-targeted-45.24-1.fc45.noarch
 serd-0.32.10-2.fc45.x86_64
 setup-2.15.0-27.azl4.noarch
 setxkbmap-1.3.4-7.azl4.x86_64
@@ -1124,7 +1124,7 @@ xml-common-0.6.3-68.azl4.noarch
 xmlsec1-1.3.11-7.fc45.x86_64
 xmlsec1-openssl-1.3.11-7.fc45.x86_64
 xmodmap-1.0.11-10.azl4.x86_64
-xorg-x11-server-Xwayland-24.1.14-2.fc45.x86_64
+xorg-x11-server-Xwayland-24.1.15-1.fc45.x86_64
 xorg-x11-xauth-1.1.5-6.fc45.x86_64
 xorg-x11-xinit-1.4.3-6.fc45.x86_64
 xprop-1.2.8-5.azl4.x86_64
