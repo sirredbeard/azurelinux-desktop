@@ -100,7 +100,7 @@ cirrus-audio-firmware-20260221-2.azl4.noarch
 cjson-1.7.19-2.fc45.x86_64
 cloud-utils-growpart-0.33-12.azl4.noarch
 cmark-lib-0.31.1-4.fc45.x86_64
-code-insiders-1.147.0-1794433103.el8.x86_64
+code-insiders-1.147.0-1794504613.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -171,7 +171,7 @@ evolution-ews-core-3.62.1-1.fc45.x86_64
 evolution-ews-langpacks-3.62.1-1.fc45.noarch
 evolution-langpacks-3.62.1-1.fc45.noarch
 exempi-2.6.4-9.azl4.x86_64
-exfatprogs-1.4.3-1.fc45.x86_64
+exfatprogs-1.4.4-1.fc45.x86_64
 exiv2-0.28.9-1.fc45.x86_64
 exiv2-libs-0.28.9-1.fc45.x86_64
 expat-2.9.0-1.fc45.x86_64
@@ -229,12 +229,12 @@ gettext-0.25.1-3.azl4.x86_64
 gettext-envsubst-0.25.1-3.azl4.x86_64
 gettext-libs-0.25.1-3.azl4.x86_64
 gettext-runtime-0.25.1-3.azl4.x86_64
-gh-2.103.3-1.x86_64
+gh-2.104.0-1.x86_64
 giflib-5.2.2-10.azl4.x86_64
 git-2.56.1-1.fc45.x86_64
 git-core-2.56.1-1.fc45.x86_64
 git-core-doc-2.56.1-1.fc45.noarch
-github-1.3.0-1.x86_64
+github-1.4.0-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.90.1-1.fc45.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
@@ -715,7 +715,7 @@ libxkbcommon-1.13.1-4.fc45.x86_64
 libxkbfile-1.1.3-5.azl4.x86_64
 libxml2-2.15.4-1.fc45.x86_64
 libxml2_2.13-2.13.9-4.fc45.x86_64
-libxmlb-0.3.29-1.fc45.x86_64
+libxmlb-0.3.30-1.fc45.x86_64
 libxshmfence-1.3.2-8.azl4.x86_64
 libxslt-1.1.43-6.azl4.x86_64
 libyaml-0.2.5-20.azl4.x86_64
@@ -757,7 +757,7 @@ mesa-libGLU-9.0.3-9.fc45.x86_64
 mesa-libgbm-26.2.6-1.fc45.x86_64
 mesa-vulkan-drivers-26.2.6-1.fc45.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-159.0.4397.0-1.x86_64
+microsoft-edge-canary-159.0.4399.0-1.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-7.fc45.noarch
 mokutil-0.7.2-3.azl4.x86_64
@@ -837,8 +837,8 @@ papers-nautilus-51.1-1.fc45.x86_64
 papers-previewer-51.1-1.fc45.x86_64
 papers-thumbnailer-51.1-1.fc45.x86_64
 parted-3.7.13-1.fc45.x86_64
-passim-0.1.12-1.fc45.x86_64
-passim-libs-0.1.12-1.fc45.x86_64
+passim-0.1.13-1.fc45.x86_64
+passim-libs-0.1.13-1.fc45.x86_64
 pciutils-3.15.0-2.fc45.x86_64
 pciutils-libs-3.15.0-2.fc45.x86_64
 pcre2-10.49-1.fc45.x86_64
@@ -935,9 +935,9 @@ policycoreutils-python-utils-3.9-8.azl4.noarch
 polkit-126-7.azl4.x86_64
 polkit-libs-126-7.azl4.x86_64
 polkit-pkla-compat-0.1-32.azl4.x86_64
-poppler-26.08.0-1.fc45.x86_64
+poppler-26.08.0-2.fc45.x86_64
 poppler-data-0.4.11-11.azl4.noarch
-poppler-glib-26.08.0-1.fc45.x86_64
+poppler-glib-26.08.0-2.fc45.x86_64
 popt-1.19-10.azl4.x86_64
 powershell-7.7.0-1.rh.x86_64
 procps-ng-4.0.4-7.azl4.1.x86_64
