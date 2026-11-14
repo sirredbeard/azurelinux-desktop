@@ -100,7 +100,7 @@ cirrus-audio-firmware-20260221-2.azl4.noarch
 cjson-1.7.19-2.fc45.x86_64
 cloud-utils-growpart-0.33-12.azl4.noarch
 cmark-lib-0.31.1-4.fc45.x86_64
-code-insiders-1.147.0-1794504613.el8.x86_64
+code-insiders-1.147.0-1794591292.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -140,9 +140,9 @@ device-mapper-persistent-data-1.1.0-4.azl4.x86_64
 diffutils-3.12-4.azl4.x86_64
 djvulibre-libs-3.5.30-2.fc45.x86_64
 dmidecode-3.6-8.azl4.x86_64
-dnf5-5.4.7.0-1.fc45.x86_64
-dnf5daemon-server-5.4.7.0-1.fc45.x86_64
-dnf5daemon-server-polkit-5.4.7.0-1.fc45.noarch
+dnf5-5.4.8.0-2.fc45.x86_64
+dnf5daemon-server-5.4.8.0-2.fc45.x86_64
+dnf5daemon-server-polkit-5.4.8.0-2.fc45.noarch
 dns-root-data-2026260100-3.azl4.noarch
 dosfstools-4.2-17.azl4.x86_64
 dracut-107-9.azl4.x86_64
@@ -234,7 +234,7 @@ giflib-5.2.2-10.azl4.x86_64
 git-2.56.1-1.fc45.x86_64
 git-core-2.56.1-1.fc45.x86_64
 git-core-doc-2.56.1-1.fc45.noarch
-github-1.4.0-1.x86_64
+github-1.4.1-1.x86_64
 github-desktop-3.4.12.linux1-1.x86_64
 gjs-1.90.1-1.fc45.x86_64
 glib-networking-2.80.1-4.azl4.x86_64
@@ -524,11 +524,11 @@ libdc1394-2.2.7-10.fc45.x86_64
 libde265-1.1.2-1.fc45.x86_64
 libdecor-0.2.5-2.azl4.x86_64
 libdisplay-info-0.3.0-2.fc45.x86_64
-libdnf5-5.4.7.0-1.fc45.x86_64
-libdnf5-cli-5.4.7.0-1.fc45.x86_64
-libdnf5-plugin-appstream-5.4.7.0-1.fc45.x86_64
-libdnf5-plugin-expired-pgp-keys-5.4.7.0-1.fc45.x86_64
-libdnf5-plugin-systemd-inhibit-5.4.7.0-1.fc45.x86_64
+libdnf5-5.4.8.0-2.fc45.x86_64
+libdnf5-cli-5.4.8.0-2.fc45.x86_64
+libdnf5-plugin-appstream-5.4.8.0-2.fc45.x86_64
+libdnf5-plugin-expired-pgp-keys-5.4.8.0-2.fc45.x86_64
+libdnf5-plugin-systemd-inhibit-5.4.8.0-2.fc45.x86_64
 libdovi-3.3.2-4.fc45.x86_64
 libdrm-2.4.134-2.fc45.x86_64
 libdvdnav-6.1.1-12.azl4.x86_64
@@ -757,7 +757,7 @@ mesa-libGLU-9.0.3-9.fc45.x86_64
 mesa-libgbm-26.2.6-1.fc45.x86_64
 mesa-vulkan-drivers-26.2.6-1.fc45.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-159.0.4399.0-1.x86_64
+microsoft-edge-canary-159.0.4401.0-1.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-7.fc45.noarch
 mokutil-0.7.2-3.azl4.x86_64
