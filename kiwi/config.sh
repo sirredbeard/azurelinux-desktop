@@ -876,6 +876,45 @@ for efisrc in /usr/lib/efi/*/*/EFI/*/*.efi; do
 done
 
 #----------------------------------------------------------------------
+# Put grub next to the shim. The staging above keeps each package's
+# own vendor directory: Fedora's grub lands in EFI/fedora and Azure's
+# shim in EFI/azurelinux. The shim loads its second stage from its
+# own vendor directory (\EFI\azurelinux\grubx64.efi), so an image
+# staged this way cannot boot: the shim reports the file Not Found
+# and StartImage fails. Mirror the grub loaders into the shim's
+# directory. The live image gets this from lorax's templates, which
+# keep shim and grub in one vendor directory.
+#----------------------------------------------------------------------
+shimdir=""
+grubdir=""
+for vendordir in /boot/efi/EFI/*/; do
+    if [ -f "$vendordir/shimx64.efi" ]; then
+        shimdir="$vendordir"
+    fi
+    if [ -f "$vendordir/grubx64.efi" ]; then
+        grubdir="$vendordir"
+    fi
+done
+if [ -n "$shimdir" ] && [ -n "$grubdir" ] && [ "$shimdir" != "$grubdir" ]; then
+    for loader in grubx64.efi gcdx64.efi; do
+        if [ -f "$grubdir/$loader" ]; then
+            cp -a "$grubdir/$loader" "$shimdir/"
+        fi
+    done
+fi
+# Fail the build here if the staging or the mirror left the shim
+# without a grub next to it. The alternative is an image that
+# builds clean and cannot boot.
+if [ -z "$shimdir" ] || [ -z "$grubdir" ]; then
+    echo "config.sh: no staged shim or grub loader under /boot/efi/EFI" >&2
+    exit 1
+fi
+if [ ! -f "$shimdir/grubx64.efi" ]; then
+    echo "config.sh: grubx64.efi missing next to the shim after mirroring" >&2
+    exit 1
+fi
+
+#----------------------------------------------------------------------
 # Anaconda launcher symlink (script deployed via kiwi <file>) - same
 # convention as upstream.
 #----------------------------------------------------------------------

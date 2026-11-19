@@ -281,6 +281,19 @@ jobs:
         if: ${{ steps.kiwi-build.outcome == 'failure' }}
         run: exit 1
 
+      # Gate upload and publish on the boot chain, not the file list:
+      # the ESP must carry grubx64.efi in the shim's own vendor
+      # directory or the ISO cannot boot. Release 2026.11.11 shipped
+      # an installer without it and failed on hardware.
+      - name: Check installer ESP boot chain
+        if: success()
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            "$BUILD_KIWI_IMAGE" \
+            /workspace/scripts/check-iso-esp.sh \
+            /workspace/installer-result/azurelinux-desktop-install.iso
+
       # Deliverable first; verify/package-list bookkeeping after publish.
       - name: Upload ISO artifact
         if: >-
