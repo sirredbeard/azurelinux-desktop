@@ -42,12 +42,19 @@
         <keytable>us</keytable>
         <timezone>UTC</timezone>
         <release-version>4.0</release-version>
+        <!-- efifatimagesize: kiwi's default ESP is 20 MiB. The staged
+             loaders use about 17 MiB of that, and config.sh mirrors
+             the grub loaders into the shim's vendor directory (about
+             8 MiB more), which overflows 20 MiB. 31 MiB is the
+             largest whole MiB under the El Torito load size limit
+             (65535 x 512 bytes); kiwi rejects 32 MiB outright. -->
         <type
             image="iso"
             flags="dmsquash"
             filesystem="ext4"
             kernelcmdline="console=tty0 rhgb quiet enforcing=0 audit=0 inst.lang=en_US.UTF-8 inst.nokill"
             firmware="uefi"
+            efifatimagesize="31"
             hybridpersistent="false"
             mediacheck="true">
             <bootloader name="grub2" timeout="5" grub_template="grub_template.cfg" />
