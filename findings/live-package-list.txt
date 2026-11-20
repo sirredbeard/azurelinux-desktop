@@ -100,7 +100,7 @@ cirrus-audio-firmware-20260221-2.azl4.noarch
 cjson-1.7.19-2.fc45.x86_64
 cloud-utils-growpart-0.33-12.azl4.noarch
 cmark-lib-0.31.1-4.fc45.x86_64
-code-insiders-1.148.0-1794937073.el8.x86_64
+code-insiders-1.148.0-1795125032.el8.x86_64
 codec2-1.2.0-8.azl4.x86_64
 color-filesystem-1-37.azl4.noarch
 colord-1.4.8-3.azl4.x86_64
@@ -448,7 +448,7 @@ libXdamage-1.1.6-7.azl4.x86_64
 libXdmcp-1.1.5-5.azl4.x86_64
 libXext-1.3.6-6.fc45.x86_64
 libXfixes-6.0.1-8.fc45.x86_64
-libXfont2-2.0.9-1.fc45.x86_64
+libXfont2-2.0.10-1.fc45.x86_64
 libXft-2.3.8-10.azl4.x86_64
 libXi-1.8.4-1.fc45.x86_64
 libXinerama-1.1.5-11.fc45.x86_64
@@ -498,8 +498,8 @@ libbs2b-3.1.0-38.fc45.x86_64
 libbytesize-2.12-2.azl4.x86_64
 libcaca-0.99-0.86.beta20.fc45.x86_64
 libcacard-2.8.1-13.azl4.x86_64
-libcamera-0.7.2-5.fc45.x86_64
-libcamera-ipa-0.7.2-5.fc45.x86_64
+libcamera-0.7.2-6.fc45.x86_64
+libcamera-ipa-0.7.2-6.fc45.x86_64
 libcanberra-0.30-52.fc45.x86_64
 libcanberra-backend-alsa-0.30-52.fc45.x86_64
 libcanberra-backend-gstreamer-0.30-52.fc45.x86_64
@@ -513,7 +513,7 @@ libcdio-paranoia-10.2+2.0.2-8.fc45.x86_64
 libchromaprint-1.6.1-2.fc45.x86_64
 libcloudproviders-0.3.6-3.azl4.x86_64
 libcom_err-1.47.4-2.fc45.x86_64
-libcue-2.3.0-15.fc45.x86_64
+libcue-2.4.2-2.fc45.x86_64
 libcurl-8.21.0-9.fc45.x86_64
 libdaemon-0.14-33.azl4.x86_64
 libdatrie-0.2.13-13.azl4.x86_64
@@ -757,7 +757,7 @@ mesa-libGLU-9.0.3-9.fc45.x86_64
 mesa-libgbm-26.2.7-1.fc45.x86_64
 mesa-vulkan-drivers-26.2.7-1.fc45.x86_64
 microcode_ctl-2.1-71.1.azl4.x86_64
-microsoft-edge-canary-160.0.4411.0-1.x86_64
+microsoft-edge-canary-160.0.4414.0-1.x86_64
 mkpasswd-5.6.6-2.azl4.x86_64
 mobile-broadband-provider-info-20240407-7.fc45.noarch
 mokutil-0.7.2-3.azl4.x86_64
@@ -1040,7 +1040,7 @@ systemd-resolved-258.4-5.azl4.x86_64
 systemd-shared-258.4-5.azl4.x86_64
 systemd-sysusers-258.4-5.azl4.x86_64
 systemd-udev-258.4-5.azl4.x86_64
-taglib-2.3-4.fc45.x86_64
+taglib-2.3.2-3.fc45.x86_64
 tar-1.35-7.azl4.x86_64
 tecla-51.0-1.fc45.x86_64
 tesseract-common-5.5.4-1.fc45.noarch
