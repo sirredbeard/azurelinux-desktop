@@ -576,6 +576,14 @@ for _hook in \
     fi
 done
 
+# azurelinux-release-common ships /etc/issue with a one-line legal
+# banner: "Authorized use only. All activity may be monitored and
+# reported." agetty prints it at every console login prompt, and
+# the installer environment's automatic root login cycles the
+# prompt, so it prints twice before the installer starts. A
+# desktop installer has no use for it. Empty the file.
+: > /etc/issue
+
 # Install Azure Linux Desktop wallpapers (Adwaita light/dark, CC-BY-SA-3.0,
 # Jakub Steiner). Stored as JPEG because AZL's glycin build disables JXL.
 if [ -f /opt/azl-desktop-assets/wallpapers/adwaita-l.jpg ]; then
