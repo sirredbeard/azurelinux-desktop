@@ -86,6 +86,12 @@ if [ -f /etc/crypttab ] && [ -s /etc/crypttab ]; then
     dracut --regenerate-all --force --add crypt
 fi
 
+# --- Login banner ---
+# azurelinux-release-common ships /etc/issue with the same one-line
+# legal banner the installer environment shows. agetty prints it at
+# every console login. A desktop has no use for it. Empty the file.
+: > /etc/issue
+
 # --- Security hardening ---
 # Remove SSH host keys — sshd-keygen regenerates on first boot
 rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
