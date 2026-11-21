@@ -130,7 +130,7 @@ RUN --mount=type=secret,id=github_token,required=false \
         exit 1; \
     fi; \
     rpm --root="$ROOTFS" -q intel-media-driver ffmpeg libva \
-        gstreamer1-vaapi gstreamer1-plugins-ugly mesa-vulkan-drivers; \
+        gstreamer1-plugins-bad-free gstreamer1-plugins-ugly mesa-vulkan-drivers; \
     install -d -m 0755 "$ROOTFS/usr/share/azurelinux-desktop/environment.d"; \
     if [ -f /opt/azl-desktop-assets/environment.d/50-azurelinux-desktop-libva.conf ]; then \
         install -m 0644 /opt/azl-desktop-assets/environment.d/50-azurelinux-desktop-libva.conf \

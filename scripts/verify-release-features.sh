@@ -448,8 +448,6 @@ verify_root() {
   check "$label" "$root" /usr/share/backgrounds/azurelinux/adwaita-d.jpg '.' || true
   check "$label" "$root" /usr/share/backgrounds/azurelinux/adwaita-l.jpg '.' || true
 
-  # GTK3 Adwaita-dark (gnome-themes-extra) for prefer-dark
-  check_rpm "$label" "$root" gnome-themes-extra || true
   # Intel mediasdk alongside media-driver (full H264 stack)
   check_rpm "$label" "$root" intel-mediasdk || true
 

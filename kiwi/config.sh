@@ -180,11 +180,14 @@ INSTALL_PKGS=(
     gstreamer1-plugins-bad-freeworld
     gstreamer1-plugin-openh264
     gstreamer1-plugin-libav
-    gstreamer1-vaapi
+    # gstreamer1-vaapi is out as well: Fedora 45 did not rebuild
+    # it, and gstreamer1-plugins-bad-free (above) obsoletes it and
+    # ships the replacement VA plugin, libgstva.so.
     ffmpeg
     mesa-dri-drivers
     mesa-vulkan-drivers
-    mesa-va-drivers
+    # Mesa 26 folded the VA drivers into mesa-dri-drivers, which
+    # obsoletes the mesa-va-drivers name; not a package anymore.
     vulkan-loader
     libvdpau
     # The VDPAU to VA-API bridge (libvdpau-va-gl) was deleted upstream

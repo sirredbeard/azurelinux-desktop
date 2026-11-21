@@ -178,16 +178,23 @@ test -f /etc/modprobe.d/azurelinux-desktop-alsa.conf
 grep -q 'ignore-install snd-pcm' /etc/modprobe.d/azurelinux-desktop-alsa.conf
 run_dnf dnf-update update --refresh -y
 run_dnf dnf-upgrade upgrade -y
+# ovfenv is not a sample anymore: it cannot install on the Fedora
+# 45 stack. It requires python3-libxml2. The AZL build of that pins
+# AZL libxml2 2.12, which cannot sit next to the Fedora libxml2
+# 2.15 ffmpeg-libs needs (libxml2.so.16), and the Fedora build
+# needs python(abi) 3.15, which the claw-back excludes on purpose:
+# the image ships AZL python3 3.14. telegraf is the AZL sample.
 run_dnf dnf-install-samples install -y \
-    ovfenv telegraf \
+    telegraf \
     dconf-editor gnome-sudoku idle3
 
 : > "$LOG_DIR/package-origins.log"
-assert_rpm_source ovfenv '.azl4'
 assert_rpm_source telegraf '.azl4'
 assert_rpm_source dconf-editor '.fc45'
 assert_rpm_source gnome-sudoku '.fc45'
-assert_rpm_source python3-idle '.fc45'
+# python3-idle follows the image python, which is AZL 3.14 by
+# design, so idle is the AZL build, not Fedora's python 3.15 one.
+assert_rpm_source python3-idle '.azl4'
 assert_rpm_source gnome-backgrounds '.fc45'
 assert_rpm_source gnome-terminal '.fc45'
 test -s /etc/dconf/db/local
@@ -212,8 +219,8 @@ grep -Fxq 'StartupWMClass=org.azurelinux.PowerShell' /usr/share/applications/org
         libva intel-media-driver intel-mediasdk ffmpeg \
         gstreamer1-plugin-libav gstreamer1-plugin-openh264 \
         gstreamer1-plugins-ugly gstreamer1-plugins-bad-freeworld \
-        gstreamer1-vaapi mesa-dri-drivers mesa-vulkan-drivers \
-        mesa-va-drivers vulkan-loader libvdpau libvdpau-va-gl
+        gstreamer1-plugins-bad-free mesa-dri-drivers mesa-vulkan-drivers \
+        vulkan-loader libvdpau
     echo
     echo '=== Intel media / H.264 stack (must be nonfree iHD, not free-only) ==='
     if rpm -q libva-intel-media-driver >/dev/null 2>&1; then
