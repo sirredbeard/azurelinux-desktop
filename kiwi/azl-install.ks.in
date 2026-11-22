@@ -62,7 +62,7 @@ chroot /mnt/sysroot bash /tmp/post-install.sh
 rm -f /mnt/sysroot/tmp/post-install.sh
 %end
 
-%post --nochroot --log=/mnt/sysroot/var/log/anaconda-bootloader.log
+%post --nochroot --erroronfail --log=/mnt/sysroot/var/log/anaconda-bootloader.log
 /root/post-bootloader.sh
 %end
 

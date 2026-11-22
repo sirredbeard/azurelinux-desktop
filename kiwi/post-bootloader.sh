@@ -44,13 +44,13 @@ if [ -z "$BOOT_UUID" ] || [ -z "$ROOT_UUID" ]; then
     blkid 2>/dev/null
     echo "=== mount output ==="
     mount 2>/dev/null
-    exit 0
+    exit 1
 fi
 
 if [ -z "$KERNEL_NAME" ] || [ -z "$INITRD_NAME" ]; then
     echo "!!! FATAL: No kernel ($KERNEL_NAME) or initramfs ($INITRD_NAME) found in $SYSROOT/boot/"
     ls -la "$SYSROOT/boot/" 2>/dev/null
-    exit 0
+    exit 1
 fi
 
 # --- Detect LUKS encryption ---
@@ -73,17 +73,44 @@ EFI_VENDOR_NAME=$(basename "$EFI_VENDOR")
 echo "EFI vendor dir: $EFI_VENDOR"
 ls -la "$EFI_VENDOR/" 2>/dev/null
 
-# When Fedora's shim/grub RPMs install to EFI/fedora/ but our NVRAM entry
-# will point to EFI/azurelinux/, copy the binaries across so the boot
-# entry resolves. This covers the Fedora-on-Azure-Linux package mix.
-if [ "$EFI_VENDOR_NAME" = "azurelinux" ]; then
-    FEDORA_EFI="$SYSROOT/boot/efi/EFI/fedora"
-    for f in shimx64.efi shimaa64.efi shim.efi grubx64.efi grubaa64.efi mmx64.efi; do
-        if [ ! -f "$EFI_VENDOR/$f" ] && [ -f "$FEDORA_EFI/$f" ]; then
-            cp -v "$FEDORA_EFI/$f" "$EFI_VENDOR/$f"
+# Populate the ESP vendor directories from the RPMs' /usr/lib/efi
+# staging trees, then mirror between vendor directories in both
+# directions.
+#
+# The /boot/efi files in grub2-efi-x64 and shim-x64 are ghost files.
+# The packages copy them onto the ESP from %posttrans scriptlets with
+# the failure swallowed (|| :), so an installed ESP can be missing
+# files the RPM database claims are there. The staging copies under
+# /usr/lib/efi are real payload and are always present.
+#
+# A signed shim loads its grub from the vendor path compiled into the
+# binary (Fedora's shim reads \EFI\fedora\grubx64.efi), no matter which
+# directory the shim file itself was copied to. Every directory that
+# holds a shim therefore has to hold a grub too, fedora included.
+EFI_LOADER_FILES="shimx64.efi shimaa64.efi shim.efi grubx64.efi grubaa64.efi gcdx64.efi gcdaa64.efi mmx64.efi mmaa64.efi fbx64.efi fbaa64.efi BOOTX64.CSV"
+
+fill_efi_dir() {
+    local dest="$1"
+    mkdir -p "$dest"
+    local f src d
+    for f in $EFI_LOADER_FILES; do
+        [ -f "$dest/$f" ] && continue
+        src=""
+        for d in "$SYSROOT"/usr/lib/efi/shim/*/EFI/*/ \
+                 "$SYSROOT"/usr/lib/efi/grub2/*/EFI/*/; do
+            [ -f "$d$f" ] && { src="$d$f"; break; }
+        done
+        if [ -z "$src" ]; then
+            for d in "$SYSROOT/boot/efi/EFI"/*/; do
+                [ -f "$d$f" ] && { src="$d$f"; break; }
+            done
         fi
+        [ -n "$src" ] && cp -v "$src" "$dest/$f"
     done
-fi
+}
+
+fill_efi_dir "$SYSROOT/boot/efi/EFI/fedora"
+fill_efi_dir "$EFI_VENDOR"
 
 # --- Install GRUB EFI modules next to grub.cfg ---
 # Fedora's grubx64.efi sets prefix to ($boot)/grub2. insmod then looks
@@ -219,8 +246,19 @@ ls -laR "$SYSROOT/boot/efi/" 2>/dev/null
 # --- Fix UEFI NVRAM boot entry ---
 ESP_DEV=$(findmnt -n -o SOURCE "$SYSROOT/boot/efi" 2>/dev/null)
 if [ -n "$ESP_DEV" ]; then
-    ESP_DISK=$(echo "$ESP_DEV" | sed 's/[0-9]*$//')
-    ESP_PART=$(echo "$ESP_DEV" | grep -o '[0-9]*$')
+    # Ask lsblk for the parent disk. Stripping trailing digits off the
+    # device name turns /dev/nvme0n1p1 into the invalid /dev/nvme0n1p.
+    ESP_DISK=""
+    ESP_PART=""
+    if command -v lsblk >/dev/null 2>&1; then
+        ESP_PKNAME=$(lsblk -n -o PKNAME "$ESP_DEV" 2>/dev/null | head -1 | tr -d ' ')
+        [ -n "$ESP_PKNAME" ] && ESP_DISK="/dev/$ESP_PKNAME"
+        ESP_PART=$(lsblk -n -o PARTN "$ESP_DEV" 2>/dev/null | head -1 | tr -d ' ')
+    fi
+    if [ -z "$ESP_DISK" ] || [ -z "$ESP_PART" ]; then
+        ESP_DISK=$(echo "$ESP_DEV" | sed 's/[0-9]*$//')
+        ESP_PART=$(echo "$ESP_DEV" | grep -o '[0-9]*$')
+    fi
     echo "ESP: dev=$ESP_DEV disk=$ESP_DISK part=$ESP_PART"
 
     echo "=== Current UEFI boot entries ==="
@@ -241,3 +279,36 @@ if [ -n "$ESP_DEV" ]; then
 else
     echo "WARNING: Could not find ESP mount — skipping NVRAM fix"
 fi
+
+# --- Fail closed: every shim on the ESP needs its grub beside it ---
+# A signed shim loads grub from the vendor path compiled into the
+# binary, not from the directory the shim file sits in. Check the ESP
+# the way the firmware will use it, and fail the install step rather
+# than hand over a system that cannot boot.
+BOOT_BROKEN=0
+SHIM_SEEN=0
+check_shim_has_grub() {
+    local dir="$1" shim="$2" grub="$3"
+    if [ -f "$dir$shim" ]; then
+        SHIM_SEEN=1
+        if [ ! -f "$dir$grub" ]; then
+            echo "!!! FATAL: $dir holds $shim but no $grub"
+            BOOT_BROKEN=1
+        fi
+    fi
+}
+for d in "$SYSROOT/boot/efi/EFI"/*/; do
+    check_shim_has_grub "$d" shimx64.efi grubx64.efi
+    check_shim_has_grub "$d" shimaa64.efi grubaa64.efi
+    check_shim_has_grub "$d" BOOTX64.EFI grubx64.efi
+    check_shim_has_grub "$d" BOOTAA64.EFI grubaa64.efi
+done
+if [ "$SHIM_SEEN" -eq 0 ]; then
+    echo "!!! FATAL: no shim found anywhere on the ESP"
+    BOOT_BROKEN=1
+fi
+if [ "$BOOT_BROKEN" -ne 0 ]; then
+    echo "!!! Bootloader setup FAILED; this system will not boot"
+    exit 1
+fi
+echo "Boot chain check: every shim on the ESP has its grub"
