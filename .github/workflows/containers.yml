@@ -359,7 +359,7 @@ jobs:
           load: true
           tags: azurelinux-desktop-build-kmods-arm64:local
           build-args: |
-            AZL_BASE_URL=https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+            AZL_BASE_URL=https://packages.microsoft.com/azurelinux/4/prod/base/aarch64
           cache-from: type=gha,scope=build-kmods-arm64
           cache-to: type=gha,mode=max,scope=build-kmods-arm64
       - name: Tag and push (azl4-arm64)

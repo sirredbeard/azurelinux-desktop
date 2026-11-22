@@ -31,7 +31,7 @@
 
 set -euo pipefail
 
-AZL_BASE_URL="${AZL_BASE_URL:-https://packages.microsoft.com/azurelinux/4.0/beta/base/$(uname -m)}"
+AZL_BASE_URL="${AZL_BASE_URL:-https://packages.microsoft.com/azurelinux/4/prod/base/$(uname -m)}"
 OUTPUT_DIR="${1:?usage: $0 OUTPUT_DIR [kernel-nevra] [stage]}"
 REQUESTED_KERNEL="${2:-}"
 STAGE="${3:-${DESKTOP_KMOD_STAGE:-all}}"
@@ -109,9 +109,15 @@ PY
 
 # microsoft/azurelinux's 4.0 branch HEAD only reflects whichever kernel
 # source is current right now; it has no version history of its own.
+# (The 4.0 branch name did not change at GA; only the package repo
+# URLs moved, from 4.0/beta to 4/prod.)
 # Walk kernel.comp.toml's real git history via the GitHub API (newest
 # first) until a past revision lists our exact filename. Set
 # GITHUB_TOKEN/GH_TOKEN to raise the unauthenticated rate limit in CI.
+# Returns 0 with "URL HASH" on stdout when a revision lists the file,
+# 1 when the history was walked and no revision lists it, and 2 when
+# the GitHub API itself failed (rate limit, network), so a caller does
+# not misreport an API failure as "not defined".
 resolve_from_history() {
     local expected_filename="$1"
     local auth=()
@@ -119,11 +125,22 @@ resolve_from_history() {
         auth=(-H "Authorization: Bearer ${GITHUB_TOKEN:-$GH_TOKEN}")
     fi
     local page
-    for page in 1 2 3 4 5; do
-        local shas
-        shas="$(curl --fail --silent --location --retry 3 "${auth[@]}" \
+    for page in 1 2 3 4 5 6 7 8 9 10; do
+        local list_json shas
+        list_json="$(mktemp)"
+        if ! curl --fail --silent --location --retry 3 "${auth[@]}" \
             "https://api.github.com/repos/microsoft/azurelinux/commits?path=base/comps/kernel/kernel.comp.toml&sha=4.0&per_page=100&page=${page}" \
-            | python3 -c 'import json,sys; [print(c["sha"]) for c in json.load(sys.stdin)]' 2>/dev/null)" || break
+            -o "$list_json"; then
+            rm -f "$list_json"
+            echo "GitHub API failed listing kernel.comp.toml history (page ${page})" >&2
+            return 2
+        fi
+        if ! shas="$(python3 -c 'import json,sys; [print(c["sha"]) for c in json.load(open(sys.argv[1]))]' "$list_json" 2>/dev/null)"; then
+            rm -f "$list_json"
+            echo "GitHub API returned an unparseable commit list (page ${page})" >&2
+            return 2
+        fi
+        rm -f "$list_json"
         [[ -z "$shas" ]] && break
         local sha candidate out
         while IFS= read -r sha; do
@@ -143,6 +160,31 @@ resolve_from_history() {
         done <<<"$shas"
     done
     return 1
+}
+
+# Last resort: the source for every Azure Linux kernel version is kept
+# as a tag in microsoft/CBL-Mariner-Linux-Kernel, named
+# rolling-lts/azl4/<source ref> (rolling-lts/azl4/6.18.31.1 for
+# kernel-6.18.31-1.*). The URI kernel.comp.toml records is the archive
+# URL of that tag, so resolving from the tag reaches the same tarball
+# when the toml and its history are out of reach. Prints the archive
+# URL on stdout. No toml sha512 pin is available on this path; the
+# caller verifies the tarball by content instead. The archive extracts
+# to CBL-Mariner-Linux-Kernel-rolling-lts-azl4-<ref> (GitHub turns the
+# ref's slashes into dashes), the tree name prepare_source searches for.
+resolve_from_tag() {
+    local source_ref="$1"
+    local tag="rolling-lts/azl4/${source_ref}"
+    local auth=()
+    if [[ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]]; then
+        auth=(-H "Authorization: Bearer ${GITHUB_TOKEN:-$GH_TOKEN}")
+    fi
+    if ! curl --fail --silent --location --retry 3 "${auth[@]}" \
+        "https://api.github.com/repos/microsoft/CBL-Mariner-Linux-Kernel/git/ref/tags/${tag}" >/dev/null; then
+        return 1
+    fi
+    echo "Resolved kernel-${source_ref}.tar.gz via CBL-Mariner-Linux-Kernel tag ${tag}" >&2
+    printf '%s\n' "https://github.com/microsoft/CBL-Mariner-Linux-Kernel/archive/${tag}.tar.gz"
 }
 
 prepare_source() {
@@ -165,8 +207,10 @@ prepare_source() {
         -o "$COMPONENT_TOML"
 
     RESOLVED=""
+    SOURCE_URL=""
+    SOURCE_SHA512=""
     if RESOLVED="$(resolve_from_toml "$COMPONENT_TOML" "$EXPECTED_FILENAME")"; then
-        :
+        read -r SOURCE_URL SOURCE_SHA512 <<<"$RESOLVED"
     else
         # microsoft/azurelinux's 4.0 branch HEAD only ever lists whatever
         # kernel source is current right now (rolling, not a versioned
@@ -174,21 +218,47 @@ prepare_source() {
         # lag it. Walk the file's own git history on GitHub for the commit
         # where our exact NEVRA's source was still current.
         echo "kernel.comp.toml at 4.0 HEAD does not list ${EXPECTED_FILENAME}; walking microsoft/azurelinux history" >&2
-        if ! RESOLVED="$(resolve_from_history "$EXPECTED_FILENAME")"; then
-            echo "Azure Linux 4.0 does not define ${EXPECTED_FILENAME} at branch HEAD or in recent kernel.comp.toml history" >&2
-            exit 1
+        walk_rc=0
+        RESOLVED="$(resolve_from_history "$EXPECTED_FILENAME")" || walk_rc=$?
+        if [[ "$walk_rc" -eq 0 ]]; then
+            read -r SOURCE_URL SOURCE_SHA512 <<<"$RESOLVED"
+        else
+            if [[ "$walk_rc" -eq 2 ]]; then
+                echo "kernel.comp.toml history lookup failed (GitHub API); falling back to the CBL-Mariner-Linux-Kernel version tag" >&2
+            else
+                echo "${EXPECTED_FILENAME} not defined in kernel.comp.toml history; falling back to the CBL-Mariner-Linux-Kernel version tag" >&2
+            fi
+            if ! SOURCE_URL="$(resolve_from_tag "$SOURCE_REF")"; then
+                echo "Azure Linux 4.0 does not define ${EXPECTED_FILENAME} at branch HEAD or in kernel.comp.toml history, and CBL-Mariner-Linux-Kernel has no rolling-lts/azl4/${SOURCE_REF} tag" >&2
+                exit 1
+            fi
         fi
     fi
-    read -r SOURCE_URL SOURCE_SHA512 <<<"$RESOLVED"
     test -n "$SOURCE_URL"
-    test -n "$SOURCE_SHA512"
     # Optional host/cache path for local rebuilds (CI leaves unset).
     if [[ -n "${KERNEL_SRC_TARBALL:-}" && -f "$KERNEL_SRC_TARBALL" ]]; then
         cp -f "$KERNEL_SRC_TARBALL" "$WORKDIR/kernel.tar.gz"
     else
         curl --fail --location --retry 3 "$SOURCE_URL" -o "$WORKDIR/kernel.tar.gz"
     fi
-    printf '%s  %s\n' "$SOURCE_SHA512" "$WORKDIR/kernel.tar.gz" | sha512sum --check
+    if [[ -n "$SOURCE_SHA512" ]]; then
+        printf '%s  %s\n' "$SOURCE_SHA512" "$WORKDIR/kernel.tar.gz" | sha512sum --check
+    else
+        # Tag fallback: no toml sha512 pin was reachable. Verify the
+        # tarball is the exact kernel version from its own Makefile and
+        # record the tarball hash in the log.
+        echo "WARNING: ${EXPECTED_FILENAME} resolved without a toml sha512 pin; verifying by content" >&2
+        sha512sum "$WORKDIR/kernel.tar.gz" >&2
+        tagcheck_dir="$(mktemp -d)"
+        tar -xzf "$WORKDIR/kernel.tar.gz" -C "$tagcheck_dir" --wildcards '*/Makefile'
+        kv="$(awk -F' = ' '/^VERSION =/{v=$2} /^PATCHLEVEL =/{p=$2} /^SUBLEVEL =/{s=$2} END{print v"."p"."s}' "$tagcheck_dir"/*/Makefile)"
+        rm -rf "$tagcheck_dir"
+        if [[ "$kv" != "$KERNEL_VERSION" ]]; then
+            echo "Tag tarball Makefile reports kernel ${kv}, expected ${KERNEL_VERSION}" >&2
+            exit 1
+        fi
+        echo "Tag tarball verified: Makefile reports kernel ${kv}" >&2
+    fi
     # Extract unless prepare-only (CI uploads the tarball; families extract).
     if [[ "${DESKTOP_KMOD_PREPARE_TARBALL_ONLY:-0}" != "1" ]]; then
         tar -xzf "$WORKDIR/kernel.tar.gz" -C "$WORKDIR"

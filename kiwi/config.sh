@@ -210,7 +210,7 @@ INSTALL_PKGS=(
 
     # linux-firmware/bluez/fwupd/microcode_ctl: all four ship straight
     # from azl-base (confirmed via dnf5 repoquery against
-    # packages.microsoft.com/azurelinux/4.0/beta/base/x86_64 - not a
+    # packages.microsoft.com/azurelinux/4/prod/base/x86_64 - not a
     # Fedora fallback), and ride along as weak/Recommends-level deps of
     # kernel/NetworkManager on the live ISO's lorax/livemedia-creator
     # build (confirmed present in that build's own transaction log; see
@@ -330,7 +330,7 @@ MS_PROD_EXCLUDES="aznfs,mdatp"
 # tie-break above. cost= only decides between mirrors offering the exact
 # same NEVRA - it has no opinion on which repo "owns" a package name when
 # the two repos offer genuinely different versions, and Fedora 45 is
-# currently ahead of Azure Linux 4.0's frozen beta base for almost every package
+# currently ahead of the Azure Linux 4 base for almost every package
 # they both ship, so left alone, cost= let Fedora win nearly everything,
 # not just the GNOME/GUI stack it's actually needed for. This list is
 # scoped to fedora45/fedora45-updates only (excludepkgs on THOSE repos,
@@ -442,8 +442,8 @@ dnf5 download \
     --setopt=multilib_policy=best \
     --arch=x86_64 \
     --arch=noarch \
-    --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64 \
-    --repofrompath=azl-microsoft,https://packages.microsoft.com/azurelinux/4.0/beta/microsoft/x86_64 \
+    --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4/prod/base/x86_64 \
+    --repofrompath=azl-microsoft,https://packages.microsoft.com/azurelinux/4/prod/microsoft/x86_64 \
     --repofrompath=azl-desktop-kmods,https://sirredbeard.github.io/azurelinux-desktop/repo \
     --repofrompath=fedora45,https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Everything/x86_64/os/ \
     --repofrompath=fedora45-updates,https://dl.fedoraproject.org/pub/fedora/linux/updates/45/Everything/x86_64/ \

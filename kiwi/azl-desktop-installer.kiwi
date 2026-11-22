@@ -25,7 +25,7 @@
       needed at runtime by systemd/coreutils/util-linux/findutils
       binaries in this small bootstrap set's own resolved transaction,
       but not pulled in by any declared Requires here against the
-      public beta azl-base tier (see kiwi/config.sh's neighboring
+      public azl-base tier (see kiwi/config.sh's neighboring
       comment on the same gap) - explicit is safer than assuming
       upstream's own internal repo tier resolves this differently
 -->
@@ -67,10 +67,10 @@
          separately by config.sh from this same URL plus Fedora/
          Microsoft/RPM Fusion, into /opt/azl-offline-repo. -->
     <repository type="rpm-md" alias="azurelinux-base" priority="10">
-        <source path="https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64" />
+        <source path="https://packages.microsoft.com/azurelinux/4/prod/base/x86_64" />
     </repository>
     <repository type="rpm-md" alias="azurelinux-microsoft" priority="10">
-        <source path="https://packages.microsoft.com/azurelinux/4.0/beta/microsoft/x86_64" />
+        <source path="https://packages.microsoft.com/azurelinux/4/prod/microsoft/x86_64" />
     </repository>
     <!-- Project desktop OOT kmods via azurelinux-desktop-policy (exact
          kernel EVR Requires). Needed in the installer image initrd for
