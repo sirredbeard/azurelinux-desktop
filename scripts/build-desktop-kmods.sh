@@ -2260,6 +2260,14 @@ if pkg_enabled performance; then
         cp -f "$WORKDIR/performance/zram-generator.conf" "$RPMBUILD/SOURCES/"
 fi
 
+# Repo policy payload for the main policy package: the RPM Fusion repo
+# definitions ship in azurelinux-desktop-policy so installed systems
+# receive repo fixes through the normal dnf update channel.
+POLICY_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -f "$POLICY_REPO_ROOT/assets/yum.repos.d/azl-desktop-rpmfusion.repo" ]]; then
+    cp -f "$POLICY_REPO_ROOT/assets/yum.repos.d/azl-desktop-rpmfusion.repo" "$RPMBUILD/SOURCES/"
+fi
+
 # Dynamic subpackage fragments.
 REQUIRES_SIBLINGS=""
 PACKAGE_SECTIONS=""
@@ -3267,12 +3275,16 @@ Requires:       kernel-core-uname-r = ${KVERREL}
 ${REQUIRES_SIBLINGS}
 %description
 Keeps Azure Linux kernel updates paired with matching desktop modules
-built in this set (${FAMILY_LIST}).
+built in this set (${FAMILY_LIST}). Also ships the RPM Fusion repo
+definitions so repo policy reaches installed systems with the
+kernel-coupled policy refresh.
 ${PACKAGE_SECTIONS}
 %install
+install -Dpm 0644 %{_sourcedir}/azl-desktop-rpmfusion.repo %{buildroot}%{_sysconfdir}/yum.repos.d/azl-desktop-rpmfusion.repo
 ${INSTALL_SECTION}
 ${POST_SECTIONS}
 %files
+%config(noreplace) %{_sysconfdir}/yum.repos.d/azl-desktop-rpmfusion.repo
 ${FILES_SECTIONS}
 EOF
 
