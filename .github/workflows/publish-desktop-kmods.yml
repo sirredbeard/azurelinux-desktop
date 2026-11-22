@@ -1056,6 +1056,7 @@ jobs:
             done
             rm -rf /tmp/policy-rpm
             mkdir -p /tmp/policy-rpm/{SPECS,RPMS,BUILD,BUILDROOT,SOURCES,SRPMS}
+            cp assets/yum.repos.d/azl-desktop-rpmfusion.repo /tmp/policy-rpm/SOURCES/
             # Cross-arch policy builds cannot use rpmbuild --target:
             # Ubuntu's rpm has no aarch64 entry in its arch canon
             # table, and the Azure Linux build-kmods image's rpm
@@ -1098,8 +1099,13 @@ jobs:
           $(printf '%b' "$reqs")
           %description
           Couples kernel ${k_version}-${k_release}.${k_arch} to the desktop
-          kmod RPMs present in this repository snapshot.
+          kmod RPMs present in this repository snapshot. Also ships the
+          RPM Fusion repo definitions so repo policy reaches installed
+          systems with the kernel-coupled policy refresh.
+          %install
+          install -Dpm 0644 %{_sourcedir}/azl-desktop-rpmfusion.repo %{buildroot}%{_sysconfdir}/yum.repos.d/azl-desktop-rpmfusion.repo
           %files
+          %config(noreplace) %{_sysconfdir}/yum.repos.d/azl-desktop-rpmfusion.repo
           SPEC
             # strip leading spaces from spec lines
             sed -i 's/^          //' /tmp/policy-rpm/SPECS/policy.spec
