@@ -87,11 +87,11 @@ echo "=== ${#PKGS[@]} packages, Fedora $VER, arch $ARCH ==="
 REPO_FILE="$WORKDIR/azl-test.repo"
 {
     echo '[azl-base]'; echo 'name=azl-base'
-    echo "baseurl=https://packages.microsoft.com/azurelinux/4.0/beta/base/$ARCH"
+    echo "baseurl=https://packages.microsoft.com/azurelinux/4/prod/base/$ARCH"
     echo 'enabled=1'; echo 'gpgcheck=0'; echo 'cost=1'
     echo "excludepkgs=$AZL_BASE_EXCLUDES"; echo
     echo '[azl-microsoft]'; echo 'name=azl-microsoft'
-    echo "baseurl=https://packages.microsoft.com/azurelinux/4.0/beta/microsoft/$ARCH"
+    echo "baseurl=https://packages.microsoft.com/azurelinux/4/prod/microsoft/$ARCH"
     echo 'enabled=1'; echo 'gpgcheck=0'; echo 'cost=1'
     echo "excludepkgs=$AZL_MS_EXCLUDES"; echo
     echo "[fedora$VER]"; echo "name=fedora$VER"

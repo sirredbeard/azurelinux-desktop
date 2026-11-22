@@ -52,7 +52,7 @@ podman run --rm \
         cat > /work/repos/azurelinux-base.repo << EOF
 [azurelinux-base]
 name=Azure Linux base
-baseurl=https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64
+baseurl=https://packages.microsoft.com/azurelinux/4/prod/base/x86_64
 enabled=1
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-4.0-primary
@@ -61,7 +61,7 @@ EOF
         cat > /work/repos/azurelinux-microsoft.repo << EOF
 [azurelinux-microsoft]
 name=Azure Linux Microsoft
-baseurl=https://packages.microsoft.com/azurelinux/4.0/beta/microsoft/x86_64
+baseurl=https://packages.microsoft.com/azurelinux/4/prod/microsoft/x86_64
 enabled=1
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-azurelinux-4.0-primary

@@ -6,9 +6,14 @@
 #
 # Rebuild: .github/workflows/containers.yml (weekly / on demand).
 # Lint locally with hadolint before push; not run in CI.
+#
+# The base image stays on the beta channel pin: Microsoft publishes no
+# GA 4.0 core image (azurelinux/base/core carries 3.0 tags only). The
+# image is only the build container's userland; the toolchain installs
+# from the AZL_BASE_URL repos below and kernel-devel at script run time.
 FROM mcr.microsoft.com/azurelinux-beta/base/core:4.0
 
-ARG AZL_BASE_URL=https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64
+ARG AZL_BASE_URL=https://packages.microsoft.com/azurelinux/4/prod/base/x86_64
 
 RUN dnf5 -y install \
         --setopt=reposdir=/dev/null \

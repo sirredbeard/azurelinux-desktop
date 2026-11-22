@@ -11,8 +11,8 @@
 import re, sys, pathlib
 src = pathlib.Path(sys.argv[1]).read_text()
 # Arch URLs
-src = src.replace('azurelinux/4.0/beta/base/x86_64','azurelinux/4.0/beta/base/aarch64')
-src = src.replace('azurelinux/4.0/beta/microsoft/x86_64','azurelinux/4.0/beta/microsoft/aarch64')
+src = src.replace('azurelinux/4/prod/base/x86_64','azurelinux/4/prod/base/aarch64')
+src = src.replace('azurelinux/4/prod/microsoft/x86_64','azurelinux/4/prod/microsoft/aarch64')
 src = src.replace('releases/45/Everything/x86_64','releases/45/Everything/aarch64')
 src = src.replace('updates/45/Everything/x86_64','updates/45/Everything/aarch64')
 src = src.replace('arch=x86_64','arch=aarch64')

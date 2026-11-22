@@ -56,15 +56,17 @@ concurrency:
 env:
   KMOD_REPO_URL: https://sirredbeard.github.io/azurelinux-desktop/repo
   # Prefer prebuilt toolchain image (containers.yml). Fall back to MCR core
-  # in the pull step if GHCR is missing (first clone / permissions).
+  # in the pull step if GHCR is missing (first clone / permissions). The
+  # fallback stays on the beta channel pin: no GA 4.0 core image is
+  # published (see containers/build-kmods/Dockerfile).
   KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4
   KMOD_IMAGE_FALLBACK: mcr.microsoft.com/azurelinux-beta/base/core:4.0
-  AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64
+  AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4/prod/base/x86_64
   # The aarch64 track (Ventuno Q hardware enablement): same repo, one
   # flat createrepo, arch-suffixed filenames. The ARM jobs below
   # override KMOD_IMAGE and AZL_BASE_URL at job level.
   KMOD_IMAGE_ARM: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
-  AZL_BASE_URL_ARM: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+  AZL_BASE_URL_ARM: https://packages.microsoft.com/azurelinux/4/prod/base/aarch64
 
 jobs:
   detect:
@@ -201,7 +203,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     env:
       KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
-      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4/prod/base/aarch64
     outputs:
       build_required: ${{ steps.detect.outputs.build_required }}
       kernel_nevra: ${{ steps.detect.outputs.kernel_nevra }}
@@ -259,6 +261,11 @@ jobs:
       - name: Fetch kernel source into reusable workdir
         env:
           KERNEL_NEVRA: ${{ needs.detect.outputs.kernel_nevra }}
+          # The script resolves the kernel source through the GitHub API
+          # (kernel.comp.toml history, CBL-Mariner-Linux-Kernel tags);
+          # pass the token in so those calls run authenticated instead
+          # of on the shared unauthenticated runner rate limit.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p kmod-work kmod-output
@@ -275,6 +282,7 @@ jobs:
               -v "$GITHUB_WORKSPACE:/workspace" \
               -e DESKTOP_KMOD_WORKDIR=/workspace/kmod-work \
               -e DESKTOP_KMOD_PREPARE_TARBALL_ONLY=1 \
+              -e GITHUB_TOKEN \
               "$KMOD_IMAGE" \
               bash /workspace/scripts/build-desktop-kmods.sh \
                 /workspace/kmod-output "$KERNEL_NEVRA" prepare
@@ -311,13 +319,15 @@ jobs:
     timeout-minutes: 30
     env:
       KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
-      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4/prod/base/aarch64
     steps:
       - uses: actions/checkout@v4
 
       - name: Fetch kernel source into reusable workdir
         env:
           KERNEL_NEVRA: ${{ needs.detect-arm.outputs.kernel_nevra }}
+          # Same authenticated-API wiring as the x86_64 fetch step.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p kmod-work kmod-output
@@ -334,6 +344,7 @@ jobs:
               -v "$GITHUB_WORKSPACE:/workspace" \
               -e DESKTOP_KMOD_WORKDIR=/workspace/kmod-work \
               -e DESKTOP_KMOD_PREPARE_TARBALL_ONLY=1 \
+              -e GITHUB_TOKEN \
               "$KMOD_IMAGE" \
               bash /workspace/scripts/build-desktop-kmods.sh \
                 /workspace/kmod-output "$KERNEL_NEVRA" prepare
@@ -503,7 +514,7 @@ jobs:
     timeout-minutes: 90
     env:
       KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
-      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4/prod/base/aarch64
     strategy:
       fail-fast: false
       matrix:
@@ -676,7 +687,7 @@ jobs:
     timeout-minutes: 45
     env:
       KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
-      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4/prod/base/aarch64
     steps:
       - uses: actions/checkout@v4
 
@@ -1206,7 +1217,7 @@ jobs:
                 --setopt=reposdir=/dev/null \
                 --setopt=azl-base.gpgcheck=0 \
                 --setopt=azl-desktop-kmods.gpgcheck=1 \
-                --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64 \
+                --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4/prod/base/x86_64 \
                 --repofrompath=azl-desktop-kmods,file:///repo \
                 --repo=azl-base --repo=azl-desktop-kmods \
                 kernel azurelinux-desktop-policy
@@ -1308,7 +1319,7 @@ jobs:
     timeout-minutes: 30
     env:
       KMOD_IMAGE: ghcr.io/${{ github.repository }}/build-kmods:azl4-arm64
-      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64
+      AZL_BASE_URL: https://packages.microsoft.com/azurelinux/4/prod/base/aarch64
     steps:
       - uses: actions/checkout@v4
 
@@ -1332,7 +1343,7 @@ jobs:
                 --setopt=reposdir=/dev/null \
                 --setopt=azl-base.gpgcheck=0 \
                 --setopt=azl-desktop-kmods.gpgcheck=1 \
-                --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4.0/beta/base/aarch64 \
+                --repofrompath=azl-base,https://packages.microsoft.com/azurelinux/4/prod/base/aarch64 \
                 --repofrompath=azl-desktop-kmods,https://sirredbeard.github.io/azurelinux-desktop/repo \
                 --repo=azl-base --repo=azl-desktop-kmods \
                 kernel azurelinux-desktop-policy

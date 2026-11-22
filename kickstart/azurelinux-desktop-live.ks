@@ -40,7 +40,7 @@ keyboard us
 timezone America/New_York --utc
 selinux --enforcing
 firewall --enabled --ssh
-url --url="https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64"
+url --url="https://packages.microsoft.com/azurelinux/4/prod/base/x86_64"
 # Match the installer kickstart hostname (kiwi/azl-install.ks.in).
 network --bootproto=dhcp --device=link --activate --hostname=azurelinux-desktop
 rootpw --lock
@@ -85,8 +85,8 @@ shutdown
 # stack provides. gnome-software only exists on Fedora here, so take the
 # whole dnf5/libdnf5 family from Fedora rather than splitting it. Same
 # "don't split a coupled family" rule as grub2/shim.
-repo --name=azl-base --baseurl=https://packages.microsoft.com/azurelinux/4.0/beta/base/x86_64 --cost=1 --excludepkgs=hunspell-en,avahi,avahi-autoipd,avahi-compat-howl,avahi-compat-howl-devel,avahi-compat-libdns_sd,avahi-compat-libdns_sd-devel,avahi-devel,avahi-dnsconfd,avahi-glib,avahi-glib-devel,avahi-gobject,avahi-gobject-devel,avahi-libs,avahi-tools,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,dnf5,dnf5daemon-server,dnf5daemon-server-polkit,libdnf5,libdnf5-cli,libdnf5-plugin-actions,libdnf5-plugin-appstream,libdnf5-plugin-expired-pgp-keys,libdnf5-plugin-local,pinentry
-repo --name=azl-microsoft --baseurl=https://packages.microsoft.com/azurelinux/4.0/beta/microsoft/x86_64 --cost=1 --excludepkgs=hunspell-en,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,pinentry
+repo --name=azl-base --baseurl=https://packages.microsoft.com/azurelinux/4/prod/base/x86_64 --cost=1 --excludepkgs=hunspell-en,avahi,avahi-autoipd,avahi-compat-howl,avahi-compat-howl-devel,avahi-compat-libdns_sd,avahi-compat-libdns_sd-devel,avahi-devel,avahi-dnsconfd,avahi-glib,avahi-glib-devel,avahi-gobject,avahi-gobject-devel,avahi-libs,avahi-tools,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,dnf5,dnf5daemon-server,dnf5daemon-server-polkit,libdnf5,libdnf5-cli,libdnf5-plugin-actions,libdnf5-plugin-appstream,libdnf5-plugin-expired-pgp-keys,libdnf5-plugin-local,pinentry
+repo --name=azl-microsoft --baseurl=https://packages.microsoft.com/azurelinux/4/prod/microsoft/x86_64 --cost=1 --excludepkgs=hunspell-en,grub2,grub2-pc,grub2-pc-modules,grub2-efi-x64,grub2-efi-x64-modules,grub2-efi-x64-cdboot,grub2-tools,grub2-tools-extra,grub2-tools-minimal,grub2-common,shim,shim-x64,gsettings-desktop-schemas,pinentry
 repo --name=azl-desktop-kmods --baseurl=https://sirredbeard.github.io/azurelinux-desktop/repo --cost=1
 # Claw-back excludepkgs: keep named base/system packages on Azure Linux
 # even when Fedora also offers them. cost= alone does not pin ownership
